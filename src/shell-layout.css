@@ -1,0 +1,160 @@
+/* Canonical shell/header layout. Loaded last: this file owns header/nav positioning. */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 64px;
+  height: 64px;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto minmax(72px, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 0 22px;
+  overflow: visible;
+}
+
+.brand-button {
+  position: relative;
+  z-index: 102;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.brand-button > .mark,
+.brand-button .moon,
+.brand-button .star,
+.brand-button > span:last-child {
+  visibility: visible;
+  opacity: 1;
+}
+
+.brand-button > span:last-child {
+  display: block;
+  white-space: nowrap;
+}
+
+.topnav {
+  position: static;
+  z-index: 101;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  transform: none;
+}
+
+.profile-chip {
+  position: relative;
+  z-index: 102;
+  justify-self: end;
+  display: grid;
+  place-items: center;
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Tablet/phone shell. Deliberately broader than the content breakpoint. */
+@media (max-width: 900px) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    min-height: 60px;
+    height: 60px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 0 14px;
+    overflow: visible;
+  }
+
+  .brand-button {
+    justify-self: start;
+    width: auto;
+    max-width: calc(100vw - 72px);
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    overflow: visible;
+  }
+
+  .brand-button > .mark.compact {
+    display: inline-block;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+  }
+
+  .brand-button .moon,
+  .brand-button .star {
+    display: block;
+  }
+
+  .brand-button > span:last-child {
+    display: block;
+    min-width: 0;
+    max-width: calc(100vw - 122px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 17px;
+  }
+
+  .profile-chip {
+    display: grid;
+    place-items: center;
+    justify-self: end;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    margin: 0;
+  }
+
+  .topnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    z-index: 200;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    margin: 0;
+    transform: none;
+    border-top: 1px solid rgba(116, 141, 146, 0.26);
+    background: rgba(24, 33, 39, 0.98);
+    backdrop-filter: blur(18px);
+  }
+
+  .topnav button {
+    min-width: 0;
+    padding: 10px 2px;
+    font-size: 10px;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+}
