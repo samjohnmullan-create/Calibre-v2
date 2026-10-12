@@ -1,0 +1,14 @@
+/* Workbench detail editing: compact enough for DeX, tap-friendly on phone. */
+.work-card.has-blocker { border-color: rgba(187, 123, 92, .38); }
+.work-card-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 12px; }
+.work-edit-button { min-height: 42px; padding-inline: 13px; }
+.work-blocker-summary { margin-top: 10px; padding: 11px 12px; border: 1px solid rgba(187, 123, 92, .26); border-radius: 8px; background: rgba(187, 123, 92, .055); display: grid; gap: 4px; }
+.work-blocker-summary span { color: #c28a70; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; }
+.work-blocker-summary strong { color: #d9c3b9; font-size: 12px; line-height: 1.4; }
+.work-edit-panel { margin-top: 12px; padding-top: 12px; border-top: 1px solid #282c33; display: grid; gap: 11px; }
+.work-edit-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.work-edit-panel label { gap: 6px; font-size: 11px; }
+.work-edit-panel input, .work-edit-panel select, .work-edit-panel textarea { padding: 10px 11px; border-radius: 8px; font-size: 12px; }
+.work-edit-panel textarea { width: 100%; resize: vertical; min-height: 72px; border: 1px solid #2c3138; background: #15181c; color: #fff; outline: none; font: inherit; line-height: 1.4; }
+.work-edit-panel textarea:focus { border-color: #9b8352; box-shadow: 0 0 0 3px rgba(155, 131, 82, .12); }
+@media (max-width: 600px) { .work-card-actions, .work-edit-row { grid-template-columns: 1fr; } .work-edit-button { width: 100%; } }
