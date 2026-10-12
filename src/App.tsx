@@ -1,19 +1,36 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
+import ItemMedia from './ItemMedia'
 
 type Workspace = { id: string; name: string; slug: string; owner_id: string }
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; created_at: string }
 type Identity = { maker: string; model: string; reference: string; serial: string; year_from: number | null; year_to: number | null; era: string; country: string; materials: string; dimensions_text: string; dial_markings: string; case_markings: string; movement_markings: string; notes: string }
-type WorkRecord = { id: string; item_id: string; work_number: number; type: string; title: string; status: WorkStatus; priority: number; next_action: string; diagnosis: string; notes: string }
+type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
+type WaitingReason = 'parts' | 'research' | 'external_service' | 'customer' | 'tool_equipment' | 'other'
+type WorkRecord = {
+  id: string
+  item_id: string
+  work_number: number
+  type: string
+  title: string
+  status: WorkStatus
+  waiting_reason: WaitingReason | null
+  priority: number
+  next_action: string
+  blocker: string
+  diagnosis: string
+  notes: string
+}
 type Valuation = { low_value: number | null; expected_value: number | null; high_value: number | null; target_value: number | null; minimum_value: number | null; currency: string; confidence: string; basis: string }
 type CostEntry = { category: string; amount: number; currency: string; notes: string }
 type DetailData = { identity: Identity | null; work: WorkRecord[]; valuation: Valuation | null; costs: CostEntry[] }
 type Section = 'home' | 'items' | 'workbench' | 'business' | 'calibre'
 type ItemTab = 'work' | 'item' | 'commerce'
-type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
-
 type WorkLane = { status: WorkStatus; label: string; hint: string }
+type WorkDetailsPatch = Pick<WorkRecord, 'priority' | 'next_action' | 'waiting_reason' | 'blocker'>
+type ItemPatch = Pick<Item, 'title' | 'status' | 'purpose' | 'notes'>
+type IdentityPatch = Pick<Identity, 'maker' | 'model' | 'reference' | 'serial' | 'era' | 'country' | 'materials' | 'dimensions_text' | 'dial_markings' | 'case_markings' | 'movement_markings' | 'notes'>
 
 const emptyDetail: DetailData = { identity: null, work: [], valuation: null, costs: [] }
 const workLanes: WorkLane[] = [
@@ -24,6 +41,16 @@ const workLanes: WorkLane[] = [
   { status: 'qc', label: 'QC', hint: 'Final checks and validation' },
   { status: 'complete', label: 'Complete', hint: 'Work finished' },
 ]
+const waitingReasons: { value: WaitingReason; label: string }[] = [
+  { value: 'parts', label: 'Parts' },
+  { value: 'research', label: 'Research' },
+  { value: 'external_service', label: 'External service' },
+  { value: 'customer', label: 'Customer' },
+  { value: 'tool_equipment', label: 'Tool / equipment' },
+  { value: 'other', label: 'Other' },
+]
+const itemStatuses = ['acquired', 'researching', 'preparing', 'ready_for_sale', 'listed', 'sold', 'archived']
+const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
 
 function money(value: number | null | undefined, currency = 'AUD') {
   if (value == null) return '—'
@@ -57,6 +84,7 @@ export default function App() {
   const [allWork, setAllWork] = useState<WorkRecord[]>([])
   const [workLoading, setWorkLoading] = useState(false)
   const [savingWorkId, setSavingWorkId] = useState<string | null>(null)
+  const [savingItemId, setSavingItemId] = useState<string | null>(null)
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null
   const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
@@ -77,39 +105,24 @@ export default function App() {
       setConnection('checking')
       return
     }
-
     let active = true
     ;(async () => {
       setConnection('checking')
-      const { data, error } = await supabase
-        .from('workspaces')
-        .select('id,name,slug,owner_id')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
+      const { data, error } = await supabase.from('workspaces').select('id,name,slug,owner_id').order('created_at', { ascending: true }).limit(1).maybeSingle()
       if (!active) return
       if (error) {
         setConnection('error')
         setMessage(`Database connection failed: ${error.message}`)
         return
       }
-
       if (data && data.owner_id === session.user.id) {
-        const { data: membership, error: membershipReadError } = await supabase
-          .from('workspace_members')
-          .select('workspace_id,user_id,role')
-          .eq('workspace_id', data.id)
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-
+        const { data: membership, error: membershipReadError } = await supabase.from('workspace_members').select('workspace_id,user_id,role').eq('workspace_id', data.id).eq('user_id', session.user.id).maybeSingle()
         if (!active) return
         if (membershipReadError) {
           setConnection('error')
           setMessage(`Membership check failed: ${membershipReadError.message}`)
           return
         }
-
         if (!membership) {
           const { error: repairError } = await supabase.from('workspace_members').insert({ workspace_id: data.id, user_id: session.user.id, role: 'owner' })
           if (!active) return
@@ -120,12 +133,10 @@ export default function App() {
           }
         }
       }
-
       setWorkspace(data)
       setConnection('ok')
       setMessage(data ? 'Calibre v2 is connected.' : 'Connected. Workspace setup is ready.')
     })()
-
     return () => { active = false }
   }, [session])
 
@@ -134,20 +145,13 @@ export default function App() {
     let active = true
     ;(async () => {
       setItemsLoading(true)
-      const { data, error } = await supabase
-        .from('items')
-        .select('id,item_number,type,purpose,status,title,notes,created_at')
-        .eq('workspace_id', workspace.id)
-        .is('archived_at', null)
-        .order('item_number', { ascending: false })
-
+      const { data, error } = await supabase.from('items').select('id,item_number,type,purpose,status,title,notes,created_at').eq('workspace_id', workspace.id).is('archived_at', null).order('item_number', { ascending: false })
       if (!active) return
       setItemsLoading(false)
       if (error) {
         setMessage(`Items failed to load: ${error.message}`)
         return
       }
-
       const nextItems = (data ?? []) as Item[]
       setItems(nextItems)
       if (!selectedId && nextItems.length > 0) setSelectedId(nextItems[0].id)
@@ -160,13 +164,11 @@ export default function App() {
     let active = true
     ;(async () => {
       setWorkLoading(true)
-      const { data, error } = await supabase
-        .from('work_records')
-        .select('id,item_id,work_number,type,title,status,priority,next_action,diagnosis,notes')
+      const { data, error } = await supabase.from('work_records')
+        .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,notes')
         .eq('workspace_id', workspace.id)
         .order('priority', { ascending: false })
         .order('work_number', { ascending: true })
-
       if (!active) return
       setWorkLoading(false)
       if (error) {
@@ -183,17 +185,15 @@ export default function App() {
       setDetail(emptyDetail)
       return
     }
-
     let active = true
     ;(async () => {
       setDetailLoading(true)
       const [identityResult, workResult, valuationResult, costsResult] = await Promise.all([
         supabase.from('item_identity').select('maker,model,reference,serial,year_from,year_to,era,country,materials,dimensions_text,dial_markings,case_markings,movement_markings,notes').eq('workspace_id', workspace.id).eq('item_id', selectedId).maybeSingle(),
-        supabase.from('work_records').select('id,item_id,work_number,type,title,status,priority,next_action,diagnosis,notes').eq('workspace_id', workspace.id).eq('item_id', selectedId).order('work_number', { ascending: false }),
+        supabase.from('work_records').select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,notes').eq('workspace_id', workspace.id).eq('item_id', selectedId).order('work_number', { ascending: false }),
         supabase.from('valuations').select('low_value,expected_value,high_value,target_value,minimum_value,currency,confidence,basis').eq('workspace_id', workspace.id).eq('item_id', selectedId).order('valued_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('cost_entries').select('category,amount,currency,notes').eq('workspace_id', workspace.id).eq('item_id', selectedId).order('incurred_at', { ascending: false }),
       ])
-
       if (!active) return
       setDetailLoading(false)
       const error = identityResult.error ?? workResult.error ?? valuationResult.error ?? costsResult.error
@@ -267,24 +267,92 @@ export default function App() {
     setMessage(error ? error.message : 'Signed out.')
   }
 
+  function replaceWorkRecord(updated: WorkRecord) {
+    setAllWork((current) => current.map((record) => record.id === updated.id ? updated : record))
+    setDetail((current) => ({ ...current, work: current.work.map((record) => record.id === updated.id ? updated : record) }))
+  }
+
   async function updateWorkStatus(work: WorkRecord, status: WorkStatus) {
     if (!workspace || status === work.status) return
     setSavingWorkId(work.id)
-    const { error } = await supabase
-      .from('work_records')
-      .update({ status })
+    const patch = status === 'waiting' ? { status } : { status, waiting_reason: null }
+    const { data, error } = await supabase.from('work_records')
+      .update(patch)
       .eq('workspace_id', workspace.id)
       .eq('id', work.id)
-
+      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,notes')
+      .single()
     setSavingWorkId(null)
-    if (error) {
-      setMessage(`Could not move Work #${work.work_number}: ${error.message}`)
+    if (error || !data) {
+      setMessage(`Could not move Work #${work.work_number}: ${error?.message ?? 'No record returned.'}`)
       return
     }
-
-    setAllWork((current) => current.map((record) => record.id === work.id ? { ...record, status } : record))
-    setDetail((current) => ({ ...current, work: current.work.map((record) => record.id === work.id ? { ...record, status } : record) }))
+    replaceWorkRecord(data as WorkRecord)
     setMessage(`Work #${work.work_number} moved to ${workStatusLabel(status)}.`)
+  }
+
+  async function updateWorkDetails(work: WorkRecord, patch: WorkDetailsPatch) {
+    if (!workspace) return false
+    setSavingWorkId(work.id)
+    const { data, error } = await supabase.from('work_records')
+      .update(patch)
+      .eq('workspace_id', workspace.id)
+      .eq('id', work.id)
+      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,notes')
+      .single()
+    setSavingWorkId(null)
+    if (error || !data) {
+      setMessage(`Could not update Work #${work.work_number}: ${error?.message ?? 'No record returned.'}`)
+      return false
+    }
+    replaceWorkRecord(data as WorkRecord)
+    setMessage(`Work #${work.work_number} updated.`)
+    return true
+  }
+
+  async function updateItemDetails(item: Item, itemPatch: ItemPatch, identityPatch: IdentityPatch) {
+    if (!workspace) return false
+    setSavingItemId(item.id)
+
+    const { data: updatedItem, error: itemError } = await supabase.from('items')
+      .update(itemPatch)
+      .eq('workspace_id', workspace.id)
+      .eq('id', item.id)
+      .select('id,item_number,type,purpose,status,title,notes,created_at')
+      .single()
+
+    if (itemError || !updatedItem) {
+      setSavingItemId(null)
+      setMessage(`Could not update Item #${item.item_number}: ${itemError?.message ?? 'No item returned.'}`)
+      return false
+    }
+
+    let identityResult
+    if (detail.identity) {
+      identityResult = await supabase.from('item_identity')
+        .update(identityPatch)
+        .eq('workspace_id', workspace.id)
+        .eq('item_id', item.id)
+        .select('maker,model,reference,serial,year_from,year_to,era,country,materials,dimensions_text,dial_markings,case_markings,movement_markings,notes')
+        .single()
+    } else {
+      identityResult = await supabase.from('item_identity')
+        .insert({ workspace_id: workspace.id, item_id: item.id, ...identityPatch })
+        .select('maker,model,reference,serial,year_from,year_to,era,country,materials,dimensions_text,dial_markings,case_markings,movement_markings,notes')
+        .single()
+    }
+
+    setSavingItemId(null)
+    if (identityResult.error || !identityResult.data) {
+      setItems((current) => current.map((record) => record.id === item.id ? updatedItem as Item : record))
+      setMessage(`Item saved, but identity details failed: ${identityResult.error?.message ?? 'No identity returned.'}`)
+      return false
+    }
+
+    setItems((current) => current.map((record) => record.id === item.id ? updatedItem as Item : record))
+    setDetail((current) => ({ ...current, identity: identityResult.data as Identity }))
+    setMessage(`Item #${item.item_number} updated.`)
+    return true
   }
 
   function openWorkItem(work: WorkRecord) {
@@ -372,10 +440,10 @@ export default function App() {
               <>
                 <div className="item-header">
                   <div><div className="item-kicker"><span>Item #{selectedItem.item_number}</span><StatusPill value={selectedItem.status} /></div><h1>{selectedItem.title}</h1><p className="subtitle">{detail.identity?.maker || titleCase(selectedItem.type)}{detail.identity?.era ? ` · ${detail.identity.era}` : ''}</p></div>
-                  <div className="header-actions"><button className="secondary small">•••</button></div>
+                  <div className="header-actions"><button className="secondary small" onClick={() => setItemTab('item')}>Edit item</button></div>
                 </div>
                 <div className="item-tabs" role="tablist">{(['work', 'item', 'commerce'] as ItemTab[]).map((tab) => <button key={tab} className={itemTab === tab ? 'active' : ''} onClick={() => setItemTab(tab)}>{titleCase(tab)}</button>)}</div>
-                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
+                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
               </>
             )}
           </section>
@@ -383,14 +451,7 @@ export default function App() {
       )}
 
       {section === 'workbench' && (
-        <Workbench
-          work={allWork}
-          itemsById={itemsById}
-          loading={workLoading}
-          savingWorkId={savingWorkId}
-          onStatusChange={updateWorkStatus}
-          onOpenItem={openWorkItem}
-        />
+        <Workbench work={allWork} itemsById={itemsById} loading={workLoading} savingWorkId={savingWorkId} onStatusChange={updateWorkStatus} onSaveDetails={updateWorkDetails} onOpenItem={openWorkItem} />
       )}
 
       {!['items', 'workbench'].includes(section) && (
@@ -413,12 +474,13 @@ function StatusPill({ value }: { value: string }) {
   return <span className={`status-pill status-${value}`}>{value === 'queued' ? 'Queue' : titleCase(value)}</span>
 }
 
-function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onOpenItem }: {
+function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onSaveDetails, onOpenItem }: {
   work: WorkRecord[]
   itemsById: Map<string, Item>
   loading: boolean
   savingWorkId: string | null
   onStatusChange: (work: WorkRecord, status: WorkStatus) => void
+  onSaveDetails: (work: WorkRecord, patch: WorkDetailsPatch) => Promise<boolean>
   onOpenItem: (work: WorkRecord) => void
 }) {
   const activeCount = work.filter((record) => !['complete', 'cancelled'].includes(record.status)).length
@@ -429,36 +491,16 @@ function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onO
       <div className="workbench-heading">
         <div><p className="eyebrow">WORKFLOW</p><h1>Workbench</h1><p className="muted">{activeCount} active work {activeCount === 1 ? 'record' : 'records'} · move work as the job progresses.</p></div>
       </div>
-
       {loading ? <div className="loading-card">Loading workbench…</div> : (
         <div className="workbench-board">
           {workLanes.map((lane) => {
             const laneWork = work.filter((record) => record.status === lane.status)
             return (
               <section className="work-lane" key={lane.status}>
-                <div className="work-lane-heading">
-                  <div><h3>{lane.label}</h3><p>{lane.hint}</p></div>
-                  <span className="count-chip">{laneWork.length}</span>
-                </div>
+                <div className="work-lane-heading"><div><h3>{lane.label}</h3><p>{lane.hint}</p></div><span className="count-chip">{laneWork.length}</span></div>
                 <div className="work-lane-list">
                   {laneWork.length === 0 && <div className="lane-empty">Nothing here</div>}
-                  {laneWork.map((record) => {
-                    const item = itemsById.get(record.item_id)
-                    return (
-                      <article className="work-card" key={record.id}>
-                        <div className="work-card-top"><span>Work #{record.work_number}</span><span className="priority-chip">P{record.priority}</span></div>
-                        <button className="work-card-title" onClick={() => onOpenItem(record)}>{item?.title || record.title}</button>
-                        <p className="work-card-subtitle">{record.title}</p>
-                        <div className="work-next"><span>Next action</span><strong>{record.next_action || 'No next action set'}</strong></div>
-                        <label className="status-control">
-                          Move to
-                          <select value={record.status} disabled={savingWorkId === record.id} onChange={(event) => onStatusChange(record, event.target.value as WorkStatus)}>
-                            {[...workLanes, { status: 'cancelled' as WorkStatus, label: 'Cancelled', hint: '' }].map((option) => <option value={option.status} key={option.status}>{option.label}</option>)}
-                          </select>
-                        </label>
-                      </article>
-                    )
-                  })}
+                  {laneWork.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={onOpenItem} />)}
                 </div>
               </section>
             )
@@ -466,12 +508,70 @@ function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onO
           {cancelled.length > 0 && (
             <section className="work-lane cancelled-lane">
               <div className="work-lane-heading"><div><h3>Cancelled</h3><p>Closed without completion</p></div><span className="count-chip">{cancelled.length}</span></div>
-              <div className="work-lane-list">{cancelled.map((record) => <article className="work-card" key={record.id}><div className="work-card-top"><span>Work #{record.work_number}</span></div><button className="work-card-title" onClick={() => onOpenItem(record)}>{itemsById.get(record.item_id)?.title || record.title}</button><p className="work-card-subtitle">{record.title}</p><label className="status-control">Move to<select value={record.status} disabled={savingWorkId === record.id} onChange={(event) => onStatusChange(record, event.target.value as WorkStatus)}>{[...workLanes, { status: 'cancelled' as WorkStatus, label: 'Cancelled', hint: '' }].map((option) => <option value={option.status} key={option.status}>{option.label}</option>)}</select></label></article>)}</div>
+              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={onOpenItem} />)}</div>
             </section>
           )}
         </div>
       )}
     </main>
+  )
+}
+
+function WorkbenchCard({ record, item, saving, onStatusChange, onSaveDetails, onOpenItem }: {
+  record: WorkRecord
+  item?: Item
+  saving: boolean
+  onStatusChange: (work: WorkRecord, status: WorkStatus) => void
+  onSaveDetails: (work: WorkRecord, patch: WorkDetailsPatch) => Promise<boolean>
+  onOpenItem: (work: WorkRecord) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [priority, setPriority] = useState(record.priority)
+  const [nextAction, setNextAction] = useState(record.next_action)
+  const [waitingReason, setWaitingReason] = useState<WaitingReason | ''>(record.waiting_reason ?? '')
+  const [blocker, setBlocker] = useState(record.blocker)
+
+  useEffect(() => {
+    if (editing) return
+    setPriority(record.priority)
+    setNextAction(record.next_action)
+    setWaitingReason(record.waiting_reason ?? '')
+    setBlocker(record.blocker)
+  }, [record, editing])
+
+  async function save() {
+    const ok = await onSaveDetails(record, {
+      priority,
+      next_action: nextAction.trim(),
+      waiting_reason: record.status === 'waiting' ? (waitingReason || null) : null,
+      blocker: blocker.trim(),
+    })
+    if (ok) setEditing(false)
+  }
+
+  return (
+    <article className={`work-card ${record.blocker ? 'has-blocker' : ''}`}>
+      <div className="work-card-top"><span>Work #{record.work_number}</span><span className="priority-chip">P{record.priority}</span></div>
+      <button className="work-card-title" onClick={() => onOpenItem(record)}>{item?.title || record.title}</button>
+      <p className="work-card-subtitle">{record.title}</p>
+      <div className="work-next"><span>Next action</span><strong>{record.next_action || 'No next action set'}</strong></div>
+      {record.status === 'waiting' && <div className="work-blocker-summary"><span>{record.waiting_reason ? titleCase(record.waiting_reason) : 'Waiting'}</span><strong>{record.blocker || 'No blocker detail recorded'}</strong></div>}
+      <div className="work-card-actions">
+        <label className="status-control">Move to<select value={record.status} disabled={saving} onChange={(event) => onStatusChange(record, event.target.value as WorkStatus)}>{[...workLanes, { status: 'cancelled' as WorkStatus, label: 'Cancelled', hint: '' }].map((option) => <option value={option.status} key={option.status}>{option.label}</option>)}</select></label>
+        <button type="button" className="secondary work-edit-button" disabled={saving} onClick={() => setEditing((value) => !value)}>{editing ? 'Close' : 'Edit'}</button>
+      </div>
+      {editing && (
+        <div className="work-edit-panel">
+          <div className="work-edit-row">
+            <label>Priority<select value={priority} onChange={(event) => setPriority(Number(event.target.value))}>{[5,4,3,2,1,0].map((value) => <option key={value} value={value}>P{value}</option>)}</select></label>
+            {record.status === 'waiting' && <label>Waiting for<select value={waitingReason} onChange={(event) => setWaitingReason(event.target.value as WaitingReason | '')}><option value="">Choose…</option>{waitingReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}</select></label>}
+          </div>
+          <label>Next action<input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="What should happen next?" /></label>
+          {(record.status === 'waiting' || blocker) && <label>Blocker<textarea value={blocker} onChange={(event) => setBlocker(event.target.value)} placeholder="What is stopping this work?" rows={3} /></label>}
+          <button type="button" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save work details'}</button>
+        </div>
+      )}
+    </article>
   )
 }
 
@@ -484,18 +584,111 @@ function WorkTab({ work }: { work: WorkRecord[] }) {
       <section className="section-card feature-card">
         <div className="card-heading"><div><p className="eyebrow">WORK #{primary.work_number}</p><h3>{primary.title}</h3></div><StatusPill value={primary.status} /></div>
         <div className="next-action"><span>Next action</span><strong>{primary.next_action || 'No next action set'}</strong></div>
-        <dl className="fact-list compact-facts"><div><dt>Type</dt><dd>{titleCase(primary.type)}</dd></div><div><dt>Priority</dt><dd>{primary.priority || 'Normal'}</dd></div><div><dt>Diagnosis</dt><dd>{primary.diagnosis || 'Pending inspection'}</dd></div></dl>
+        {primary.status === 'waiting' && <div className="next-action"><span>Blocked by {primary.waiting_reason ? titleCase(primary.waiting_reason) : 'unspecified reason'}</span><strong>{primary.blocker || 'No blocker detail recorded'}</strong></div>}
+        <dl className="fact-list compact-facts"><div><dt>Type</dt><dd>{titleCase(primary.type)}</dd></div><div><dt>Priority</dt><dd>P{primary.priority}</dd></div><div><dt>Diagnosis</dt><dd>{primary.diagnosis || 'Pending inspection'}</dd></div></dl>
       </section>
       <section className="section-card"><p className="eyebrow">WORKFLOW</p><div className="stage-strip">{workLanes.map((lane, index) => <span key={lane.status} className={index === currentIndex ? 'current' : ''}>{lane.label}</span>)}</div></section>
     </div>
   )
 }
 
-function ItemTabView({ item, identity }: { item: Item; identity: Identity | null }) {
+function ItemTabView({ item, identity, workspaceId, saving, onSave }: { item: Item; identity: Identity | null; workspaceId: string; saving: boolean; onSave: (item: Item, itemPatch: ItemPatch, identityPatch: IdentityPatch) => Promise<boolean> }) {
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(item.title)
+  const [status, setStatus] = useState(item.status)
+  const [purpose, setPurpose] = useState(item.purpose)
+  const [itemNotes, setItemNotes] = useState(item.notes || '')
+  const [maker, setMaker] = useState(identity?.maker || '')
+  const [model, setModel] = useState(identity?.model || '')
+  const [era, setEra] = useState(identity?.era || '')
+  const [country, setCountry] = useState(identity?.country || '')
+  const [reference, setReference] = useState(identity?.reference || '')
+  const [serial, setSerial] = useState(identity?.serial || '')
+  const [materials, setMaterials] = useState(identity?.materials || '')
+  const [dimensions, setDimensions] = useState(identity?.dimensions_text || '')
+  const [dial, setDial] = useState(identity?.dial_markings || '')
+  const [caseMarkings, setCaseMarkings] = useState(identity?.case_markings || '')
+  const [movement, setMovement] = useState(identity?.movement_markings || '')
+  const [identityNotes, setIdentityNotes] = useState(identity?.notes || '')
+
+  useEffect(() => {
+    if (editing) return
+    setTitle(item.title)
+    setStatus(item.status)
+    setPurpose(item.purpose)
+    setItemNotes(item.notes || '')
+    setMaker(identity?.maker || '')
+    setModel(identity?.model || '')
+    setEra(identity?.era || '')
+    setCountry(identity?.country || '')
+    setReference(identity?.reference || '')
+    setSerial(identity?.serial || '')
+    setMaterials(identity?.materials || '')
+    setDimensions(identity?.dimensions_text || '')
+    setDial(identity?.dial_markings || '')
+    setCaseMarkings(identity?.case_markings || '')
+    setMovement(identity?.movement_markings || '')
+    setIdentityNotes(identity?.notes || '')
+  }, [item, identity, editing])
+
+  async function save() {
+    const ok = await onSave(item,
+      { title: title.trim(), status, purpose, notes: itemNotes.trim() },
+      {
+        maker: maker.trim(), model: model.trim(), reference: reference.trim(), serial: serial.trim(), era: era.trim(), country: country.trim(), materials: materials.trim(), dimensions_text: dimensions.trim(),
+        dial_markings: dial.trim(), case_markings: caseMarkings.trim(), movement_markings: movement.trim(), notes: identityNotes.trim(),
+      },
+    )
+    if (ok) setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="item-edit-form">
+        <div className="item-edit-toolbar"><div><p className="eyebrow">ITEM DETAILS</p><h3>Edit Item #{item.item_number}</h3></div><button className="secondary small" onClick={() => setEditing(false)} disabled={saving}>Cancel</button></div>
+        <section className="section-card item-edit-section">
+          <p className="eyebrow">CORE</p>
+          <div className="item-edit-grid">
+            <label className="span-2">Title<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+            <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}>{itemStatuses.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
+            <label>Purpose<select value={purpose} onChange={(event) => setPurpose(event.target.value)}>{itemPurposes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
+            <label className="span-2">Item notes<textarea rows={4} value={itemNotes} onChange={(event) => setItemNotes(event.target.value)} /></label>
+          </div>
+        </section>
+        <section className="section-card item-edit-section">
+          <p className="eyebrow">IDENTITY</p>
+          <div className="item-edit-grid">
+            <label>Maker<input value={maker} onChange={(event) => setMaker(event.target.value)} /></label>
+            <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} /></label>
+            <label>Era<input value={era} onChange={(event) => setEra(event.target.value)} placeholder="e.g. 1960s" /></label>
+            <label>Country<input value={country} onChange={(event) => setCountry(event.target.value)} /></label>
+            <label>Reference<input value={reference} onChange={(event) => setReference(event.target.value)} /></label>
+            <label>Serial<input value={serial} onChange={(event) => setSerial(event.target.value)} /></label>
+            <label>Materials<input value={materials} onChange={(event) => setMaterials(event.target.value)} /></label>
+            <label>Dimensions<input value={dimensions} onChange={(event) => setDimensions(event.target.value)} /></label>
+          </div>
+        </section>
+        <section className="section-card item-edit-section">
+          <p className="eyebrow">OBSERVATIONS</p>
+          <div className="item-edit-grid">
+            <label className="span-2">Dial markings<textarea rows={3} value={dial} onChange={(event) => setDial(event.target.value)} /></label>
+            <label className="span-2">Case markings<textarea rows={3} value={caseMarkings} onChange={(event) => setCaseMarkings(event.target.value)} /></label>
+            <label className="span-2">Movement markings<textarea rows={3} value={movement} onChange={(event) => setMovement(event.target.value)} /></label>
+            <label className="span-2">Identity / research notes<textarea rows={4} value={identityNotes} onChange={(event) => setIdentityNotes(event.target.value)} /></label>
+          </div>
+        </section>
+        <div className="item-edit-savebar"><button onClick={save} disabled={saving || !title.trim()}>{saving ? 'Saving…' : 'Save item'}</button></div>
+      </div>
+    )
+  }
+
   return (
-    <div className="content-grid two-column">
-      <section className="section-card"><p className="eyebrow">IDENTITY</p><dl className="fact-list"><div><dt>Maker</dt><dd>{identity?.maker || '—'}</dd></div><div><dt>Model</dt><dd>{identity?.model || 'Unresolved'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div><div><dt>Country</dt><dd>{identity?.country || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div></dl></section>
-      <section className="section-card"><p className="eyebrow">OBSERVATIONS</p><div className="prose-data"><span>Dial</span><p>{identity?.dial_markings || 'No dial markings recorded.'}</p><span>Case</span><p>{identity?.case_markings || 'No case markings recorded.'}</p><span>Movement</span><p>{identity?.movement_markings || 'Movement not yet identified.'}</p><span>Notes</span><p>{identity?.notes || item.notes || 'No notes yet.'}</p></div></section>
+    <div className="item-tab-stack">
+      <div className="content-grid two-column">
+        <section className="section-card"><div className="card-heading"><div><p className="eyebrow">IDENTITY</p><h3>Object details</h3></div><button className="secondary small" onClick={() => setEditing(true)}>Edit</button></div><dl className="fact-list"><div><dt>Maker</dt><dd>{identity?.maker || '—'}</dd></div><div><dt>Model</dt><dd>{identity?.model || 'Unresolved'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div><div><dt>Country</dt><dd>{identity?.country || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div><div><dt>Materials</dt><dd>{identity?.materials || '—'}</dd></div><div><dt>Dimensions</dt><dd>{identity?.dimensions_text || '—'}</dd></div></dl></section>
+        <section className="section-card"><p className="eyebrow">OBSERVATIONS</p><div className="prose-data"><span>Dial</span><p>{identity?.dial_markings || 'No dial markings recorded.'}</p><span>Case</span><p>{identity?.case_markings || 'No case markings recorded.'}</p><span>Movement</span><p>{identity?.movement_markings || 'Movement not yet identified.'}</p><span>Item notes</span><p>{item.notes || 'No item notes yet.'}</p><span>Identity notes</span><p>{identity?.notes || 'No identity notes yet.'}</p></div></section>
+      </div>
+      <ItemMedia workspaceId={workspaceId} itemId={item.id} />
     </div>
   )
 }
