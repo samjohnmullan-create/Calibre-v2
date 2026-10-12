@@ -1,0 +1,82 @@
+/* Shell chrome only: header proportions, full-bleed dividers and nav treatment. */
+
+:root {
+  --calibre-header-height: 94px;
+  --calibre-brand-row: 50px;
+  --calibre-nav-row: 44px;
+}
+
+/* Keep the shell itself full width. Only brand and profile are inset. */
+.topbar {
+  padding-inline: 0 !important;
+}
+
+.brand-button {
+  margin-left: var(--calibre-shell-inline) !important;
+}
+
+.profile-chip {
+  margin-right: var(--calibre-shell-inline) !important;
+}
+
+/* The nav row now genuinely spans edge-to-edge; no negative-margin trickery. */
+.topnav {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 var(--calibre-shell-inline) !important;
+  border-top: 1px solid rgba(116, 141, 146, 0.20);
+  border-bottom: 1px solid rgba(116, 141, 146, 0.22);
+}
+
+.topnav button {
+  border-radius: 8px !important;
+  padding-block: 8px !important;
+}
+
+.phone-shell {
+  --calibre-header-height: 90px;
+  --calibre-brand-row: 48px;
+  --calibre-nav-row: 42px;
+}
+
+.phone-shell .brand-button {
+  margin-left: var(--calibre-shell-inline) !important;
+}
+
+.phone-shell .profile-chip {
+  margin-right: var(--calibre-shell-inline) !important;
+}
+
+.phone-shell .topnav {
+  padding-inline: 6px !important;
+}
+
+.phone-shell .topnav button {
+  border-radius: 8px !important;
+  padding: 8px 2px !important;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --calibre-header-height: 90px;
+    --calibre-brand-row: 48px;
+    --calibre-nav-row: 42px;
+  }
+
+  .brand-button {
+    margin-left: var(--calibre-shell-inline) !important;
+  }
+
+  .profile-chip {
+    margin-right: var(--calibre-shell-inline) !important;
+  }
+
+  .topnav {
+    padding-inline: 6px !important;
+  }
+
+  .topnav button {
+    border-radius: 8px !important;
+    padding: 8px 2px !important;
+  }
+}
