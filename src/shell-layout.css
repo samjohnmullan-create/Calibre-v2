@@ -276,10 +276,6 @@ body,
   overflow-x: hidden;
 }
 
-.phone-shell,
-@media (max-width: 900px) {
-}
-
 /* Explicit phone-shell rules handle Galaxy browser sessions that report a
    desktop-like CSS viewport. Width media rules below are the normal fallback. */
 .phone-shell {
