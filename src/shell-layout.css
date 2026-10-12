@@ -5,9 +5,8 @@
 }
 
 .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 300;
+  position: relative;
+  z-index: 10;
   width: 100%;
   min-height: 108px;
   height: auto;
@@ -21,7 +20,7 @@
   gap: 0 16px;
   padding: 0 22px;
   overflow: visible;
-  background: rgba(27, 36, 42, 0.98);
+  background: #1b242a;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   transform: none;
@@ -83,6 +82,7 @@
   padding: 0;
   transform: none;
   border-top: 1px solid rgba(116, 141, 146, 0.16);
+  border-bottom: 1px solid rgba(116, 141, 146, 0.18);
 }
 
 .topnav button {
@@ -90,25 +90,29 @@
   white-space: nowrap;
 }
 
-/* Give every primary workspace clear air below the two-row shell. */
-.placeholder-page,
+/* Header now remains in normal document flow. Primary content gets a small,
+   explicit breathing gap rather than compensating for an overlaid header. */
+.items-layout,
 .workbench-page,
-.items-layout {
-  margin-top: var(--calibre-shell-gap);
+.placeholder-page {
+  margin-top: 0;
 }
 
-/* Existing content heights assumed a 64px header. Correct them for the
-   stable two-row shell on desktop, including the new breathing room. */
 .items-layout {
-  height: calc(100vh - 108px - var(--calibre-shell-gap));
+  padding-top: var(--calibre-shell-gap);
+  height: calc(100vh - 108px);
 }
 
 .workbench-page {
-  min-height: calc(100vh - 108px - var(--calibre-shell-gap));
+  min-height: calc(100vh - 108px);
+  padding-top: calc(30px + var(--calibre-shell-gap));
 }
 
-/* Phone/tablet: same two-row structure, just denser. This intentionally avoids
-   fixed-position navigation until the shell is fully stable across Galaxy + DeX. */
+.placeholder-page {
+  padding-top: calc(clamp(50px, 10vw, 120px) + var(--calibre-shell-gap));
+}
+
+/* Phone/tablet: same stable two-row structure, just denser. */
 .phone-shell,
 .phone-shell body,
 .phone-shell #root,
@@ -123,6 +127,7 @@
 }
 
 .phone-shell .topbar {
+  position: relative;
   min-height: 104px;
   grid-template-rows: 56px 48px;
   padding: 0 14px;
@@ -157,8 +162,6 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
   width: 100%;
-  border-top: 1px solid rgba(116, 141, 146, 0.16);
-  border-bottom: 1px solid rgba(116, 141, 146, 0.18);
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -174,13 +177,22 @@
 
 .phone-shell .items-layout {
   height: auto;
-  min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
+  min-height: calc(100dvh - 104px);
+  padding-top: var(--calibre-shell-gap);
 }
 
-.phone-shell .workbench-page,
-.phone-shell .placeholder-page,
+.phone-shell .workbench-page {
+  min-height: calc(100dvh - 104px);
+  padding-top: calc(20px + var(--calibre-shell-gap));
+}
+
+.phone-shell .placeholder-page {
+  min-height: calc(100dvh - 104px);
+  padding-top: calc(34px + var(--calibre-shell-gap));
+}
+
 .phone-shell .item-workspace {
-  min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
+  min-height: calc(100dvh - 104px);
 }
 
 /* Width fallback for ordinary mobile/tablet browsers. */
@@ -199,6 +211,7 @@
   }
 
   .topbar {
+    position: relative;
     min-height: 104px;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: 56px 48px;
@@ -237,8 +250,6 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
     width: 100%;
-    border-top: 1px solid rgba(116, 141, 146, 0.16);
-    border-bottom: 1px solid rgba(116, 141, 146, 0.18);
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -254,12 +265,21 @@
 
   .items-layout {
     height: auto;
-    min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
+    min-height: calc(100dvh - 104px);
+    padding-top: var(--calibre-shell-gap);
   }
 
-  .workbench-page,
-  .placeholder-page,
+  .workbench-page {
+    min-height: calc(100dvh - 104px);
+    padding-top: calc(20px + var(--calibre-shell-gap));
+  }
+
+  .placeholder-page {
+    min-height: calc(100dvh - 104px);
+    padding-top: calc(34px + var(--calibre-shell-gap));
+  }
+
   .item-workspace {
-    min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
+    min-height: calc(100dvh - 104px);
   }
 }
