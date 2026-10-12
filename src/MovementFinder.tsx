@@ -1,7 +1,7 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 
-type Candidate = {
+export type MovementCandidate = {
   id: string
   maker: string
   calibre: string
@@ -19,6 +19,23 @@ type Candidate = {
   reasons: string[]
 }
 
+type FinderClues = {
+  markings?: string
+  maker?: string
+  diameter?: number | null
+  height?: number | null
+  jewels?: number | null
+  bph?: number | null
+  winding?: string
+}
+
+type MovementFinderProps = {
+  initialClues?: FinderClues
+  onSelectCandidate?: (candidate: MovementCandidate) => void
+  selectLabel?: string
+  compact?: boolean
+}
+
 function n(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -30,17 +47,30 @@ function evidenceLabel(value: string) {
   return value ? value.replaceAll('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase()) : 'Unknown'
 }
 
-export default function MovementFinder() {
-  const [markings, setMarkings] = useState('')
-  const [maker, setMaker] = useState('')
-  const [diameter, setDiameter] = useState('')
-  const [height, setHeight] = useState('')
-  const [jewels, setJewels] = useState('')
-  const [bph, setBph] = useState('')
-  const [winding, setWinding] = useState('')
-  const [results, setResults] = useState<Candidate[]>([])
+export default function MovementFinder({ initialClues, onSelectCandidate, selectLabel = 'Use candidate', compact = false }: MovementFinderProps = {}) {
+  const [markings, setMarkings] = useState(initialClues?.markings ?? '')
+  const [maker, setMaker] = useState(initialClues?.maker ?? '')
+  const [diameter, setDiameter] = useState(initialClues?.diameter != null ? String(initialClues.diameter) : '')
+  const [height, setHeight] = useState(initialClues?.height != null ? String(initialClues.height) : '')
+  const [jewels, setJewels] = useState(initialClues?.jewels != null ? String(initialClues.jewels) : '')
+  const [bph, setBph] = useState(initialClues?.bph != null ? String(initialClues.bph) : '')
+  const [winding, setWinding] = useState(initialClues?.winding ?? '')
+  const [results, setResults] = useState<MovementCandidate[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('Enter any clues you know. Unknown fields can stay blank.')
+
+  useEffect(() => {
+    if (!initialClues) return
+    setMarkings(initialClues.markings ?? '')
+    setMaker(initialClues.maker ?? '')
+    setDiameter(initialClues.diameter != null ? String(initialClues.diameter) : '')
+    setHeight(initialClues.height != null ? String(initialClues.height) : '')
+    setJewels(initialClues.jewels != null ? String(initialClues.jewels) : '')
+    setBph(initialClues.bph != null ? String(initialClues.bph) : '')
+    setWinding(initialClues.winding ?? '')
+    setResults([])
+    setMessage('Passport clues loaded. Adjust anything you know before searching.')
+  }, [initialClues?.markings, initialClues?.maker, initialClues?.diameter, initialClues?.height, initialClues?.jewels, initialClues?.bph, initialClues?.winding])
 
   const hasClue = useMemo(() => [markings, maker, diameter, height, jewels, bph, winding].some((value) => value.trim()), [markings, maker, diameter, height, jewels, bph, winding])
 
@@ -68,7 +98,7 @@ export default function MovementFinder() {
       return
     }
 
-    const next = (data ?? []) as Candidate[]
+    const next = (data ?? []) as MovementCandidate[]
     setResults(next)
     setMessage(next.length ? `${next.length} ranked candidate${next.length === 1 ? '' : 's'}. A high score is a lead, not proof of identity.` : 'No candidates matched those clues. Try removing one constraint or checking the measurement.')
   }
@@ -86,11 +116,11 @@ export default function MovementFinder() {
   }
 
   return (
-    <section className="movement-finder-card">
+    <section className={`movement-finder-card ${compact ? 'movement-finder-compact' : ''}`}>
       <div className="movement-finder-heading">
         <div>
           <p className="eyebrow">MOVEMENT FINDER</p>
-          <h2>Identify from bench clues</h2>
+          <h2>{compact ? 'Find from this Passport' : 'Identify from bench clues'}</h2>
           <p className="muted">Rank likely movements from markings and measurements. Missing source data does not count against a candidate.</p>
         </div>
       </div>
@@ -127,6 +157,7 @@ export default function MovementFinder() {
               </dl>
               <div className="candidate-reasons">{candidate.reasons?.length ? candidate.reasons.map((reason) => <span key={reason}>{reason}</span>) : <span>No positive clue recorded</span>}</div>
               <p className="candidate-warning">Candidate only until confirmed by markings, architecture, dimensions or a trusted technical source.</p>
+              {onSelectCandidate && <button type="button" className="candidate-select" onClick={() => onSelectCandidate(candidate)}>{selectLabel}</button>}
             </article>
           ))}
         </div>
