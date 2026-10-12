@@ -1,27 +1,25 @@
 function enableWorkbenchMouseWheel() {
-  document.addEventListener(
+  window.addEventListener(
     'wheel',
     (event) => {
       if (event.ctrlKey) return
-      if (!(event.target instanceof Element)) return
 
-      const board = event.target.closest<HTMLElement>('.workbench-board')
+      const hovered = document.elementFromPoint(event.clientX, event.clientY)
+      const board = hovered?.closest<HTMLElement>('.workbench-board')
       if (!board) return
-      if (window.matchMedia('(max-width: 900px)').matches) return
-      if (board.scrollWidth <= board.clientWidth) return
+      if (board.scrollWidth <= board.clientWidth + 1) return
 
-      const horizontalIntent = Math.abs(event.deltaX) > Math.abs(event.deltaY)
-      const delta = horizontalIntent ? event.deltaX : event.deltaY
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
       if (!delta) return
 
-      const atStart = board.scrollLeft <= 0
-      const atEnd = Math.ceil(board.scrollLeft + board.clientWidth) >= board.scrollWidth
-      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return
+      const maxScroll = board.scrollWidth - board.clientWidth
+      const next = Math.max(0, Math.min(maxScroll, board.scrollLeft + delta))
+      if (next === board.scrollLeft) return
 
       event.preventDefault()
-      board.scrollLeft += delta
+      board.scrollLeft = next
     },
-    { passive: false },
+    { passive: false, capture: true },
   )
 }
 
