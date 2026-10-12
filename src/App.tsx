@@ -581,7 +581,7 @@ function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onS
           {cancelled.length > 0 && (
             <section className="work-lane cancelled-lane">
               <div className="work-lane-heading"><div><h3>Cancelled</h3><p>Closed without completion</p></div><span className="count-chip">{cancelled.length}</span></div>
-              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={openWorkItem} />)}</div>
+              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={onOpenItem} />)}</div>
             </section>
           )}
         </div>
