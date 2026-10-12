@@ -6,6 +6,7 @@ type Workspace = {
   id: string
   name: string
   slug: string
+  owner_id: string
 }
 
 export default function App() {
@@ -47,7 +48,7 @@ export default function App() {
       setConnection('checking')
       const { data, error } = await supabase
         .from('workspaces')
-        .select('id,name,slug')
+        .select('id,name,slug,owner_id')
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle()
@@ -57,6 +58,39 @@ export default function App() {
         setConnection('error')
         setMessage(`Database connection failed: ${error.message}`)
         return
+      }
+
+      if (data && data.owner_id === session.user.id) {
+        const { data: membership, error: membershipReadError } = await supabase
+          .from('workspace_members')
+          .select('workspace_id,user_id,role')
+          .eq('workspace_id', data.id)
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+
+        if (!active) return
+        if (membershipReadError) {
+          setConnection('error')
+          setMessage(`Membership check failed: ${membershipReadError.message}`)
+          return
+        }
+
+        if (!membership) {
+          const { error: membershipRepairError } = await supabase
+            .from('workspace_members')
+            .insert({
+              workspace_id: data.id,
+              user_id: session.user.id,
+              role: 'owner',
+            })
+
+          if (!active) return
+          if (membershipRepairError) {
+            setConnection('error')
+            setMessage(`Workspace found, but owner membership repair failed: ${membershipRepairError.message}`)
+            return
+          }
+        }
       }
 
       setWorkspace(data)
@@ -94,7 +128,7 @@ export default function App() {
         name: 'Calibre & Co.',
         slug: 'calibre-co',
       })
-      .select('id,name,slug')
+      .select('id,name,slug,owner_id')
       .single()
 
     if (workspaceError || !created) {
@@ -111,7 +145,9 @@ export default function App() {
 
     setBusy(false)
     if (memberError) {
-      setMessage(`Workspace created, but owner membership needs retry: ${memberError.message}`)
+      setWorkspace(created)
+      setConnection('ok')
+      setMessage(`Workspace created, but owner membership will retry automatically: ${memberError.message}`)
       return
     }
 
