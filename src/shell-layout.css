@@ -2,6 +2,7 @@
 
 :root {
   --calibre-shell-gap: 22px;
+  --calibre-mobile-nav-clearance: 48px;
 }
 
 .topbar {
@@ -90,8 +91,7 @@
   white-space: nowrap;
 }
 
-/* Header now remains in normal document flow. Primary content gets a small,
-   explicit breathing gap rather than compensating for an overlaid header. */
+/* Header remains in normal flow. */
 .items-layout,
 .workbench-page,
 .placeholder-page {
@@ -175,15 +175,18 @@
   white-space: nowrap;
 }
 
+/* Items and Workbench have their own internal layout/scroll rules. Reserve a
+   full nav-row of additional clearance so their first content can never sit
+   underneath the shell. */
 .phone-shell .items-layout {
   height: auto;
   min-height: calc(100dvh - 104px);
-  padding-top: var(--calibre-shell-gap);
+  padding-top: calc(var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
 }
 
 .phone-shell .workbench-page {
   min-height: calc(100dvh - 104px);
-  padding-top: calc(20px + var(--calibre-shell-gap));
+  padding-top: calc(20px + var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
 }
 
 .phone-shell .placeholder-page {
@@ -266,12 +269,12 @@
   .items-layout {
     height: auto;
     min-height: calc(100dvh - 104px);
-    padding-top: var(--calibre-shell-gap);
+    padding-top: calc(var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
   }
 
   .workbench-page {
     min-height: calc(100dvh - 104px);
-    padding-top: calc(20px + var(--calibre-shell-gap));
+    padding-top: calc(20px + var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
   }
 
   .placeholder-page {
