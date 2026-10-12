@@ -111,6 +111,7 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
     if (!files.length) return
     setUploading(true)
     setMessage('Uploading…')
+    let hasCover = media.some((asset) => asset.is_cover)
 
     for (const file of files) {
       if (!file.type.startsWith('image/')) {
@@ -128,7 +129,7 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
         continue
       }
 
-      const makeCover = media.length === 0
+      const makeCover = !hasCover
       const { error: rowError } = await supabase.from('media_assets').insert({
         workspace_id: workspaceId,
         item_id: itemId,
@@ -144,6 +145,8 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
       if (rowError) {
         await supabase.storage.from('calibre-media').remove([path])
         setMessage(`Photo record failed: ${rowError.message}`)
+      } else if (makeCover) {
+        hasCover = true
       }
     }
 
@@ -190,6 +193,21 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
       return
     }
     await supabase.storage.from('calibre-media').remove([asset.storage_path])
+
+    if (asset.is_cover) {
+      const { data: nextAsset } = await supabase
+        .from('media_assets')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .eq('item_id', itemId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (nextAsset?.id) {
+        await supabase.from('media_assets').update({ is_cover: true }).eq('workspace_id', workspaceId).eq('id', nextAsset.id)
+      }
+    }
+
     await refreshMedia()
     setMessage('Photo removed.')
   }
@@ -212,7 +230,7 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
         </label>
         <label className="media-picker">
           <span>{uploading ? 'Uploading…' : 'Add photos'}</span>
-          <input ref={inputRef} type="file" accept="image/*" multiple capture="environment" disabled={uploading} onChange={uploadFiles} />
+          <input ref={inputRef} type="file" accept="image/*" multiple disabled={uploading} onChange={uploadFiles} />
         </label>
       </div>
 
