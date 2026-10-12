@@ -1,34 +1,59 @@
-/* Canonical Calibre shell. Loaded last: one header system, one page rhythm. */
+/*
+ * Canonical Calibre layout geometry.
+ *
+ * This file is loaded last and owns shell/page positioning, sizing, overflow,
+ * responsive geometry and Workbench tray dimensions. Earlier styles may own
+ * colours and component appearance, but must not win layout decisions here.
+ */
 
 :root {
   --calibre-header-height: 108px;
-  --calibre-page-top: 32px;
+  --calibre-brand-row: 58px;
+  --calibre-nav-row: 50px;
+  --calibre-shell-inline: 22px;
+  --calibre-page-top: 28px;
+  --calibre-page-inline: 22px;
 }
 
+html,
+body,
+#root,
+.app-shell {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+}
+
+body,
+.app-shell {
+  overflow-x: hidden;
+}
+
+/* ---------- Shell ---------- */
 .topbar {
-  position: relative;
+  position: relative !important;
+  inset: auto !important;
   z-index: 100;
   isolation: isolate;
   width: 100%;
-  min-height: var(--calibre-header-height);
-  height: var(--calibre-header-height);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: 58px 50px;
+  height: var(--calibre-header-height) !important;
+  min-height: var(--calibre-header-height) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-rows: var(--calibre-brand-row) var(--calibre-nav-row) !important;
   grid-template-areas:
     "brand profile"
-    "nav nav";
+    "nav nav" !important;
   align-items: center;
-  gap: 0 16px;
-  padding: 0 22px;
-  overflow: visible;
+  gap: 0 16px !important;
+  padding: 0 var(--calibre-shell-inline) !important;
+  overflow: visible !important;
   background: #1b242a;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transform: none;
-  filter: none;
-  perspective: none;
-  contain: none;
+  transform: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  contain: none !important;
 }
 
 .brand-button {
@@ -36,9 +61,10 @@
   position: relative;
   z-index: 102;
   justify-self: start;
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 10px;
+  width: auto;
   min-width: 0;
   max-width: 100%;
   padding: 0;
@@ -50,16 +76,16 @@
 .brand-button .moon,
 .brand-button .star,
 .brand-button > span:last-child {
-  display: block;
-  visibility: visible;
-  opacity: 1;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .brand-button > span:last-child {
   min-width: 0;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-chip {
@@ -67,30 +93,34 @@
   position: relative;
   z-index: 102;
   justify-self: end;
-  display: grid;
+  display: grid !important;
   place-items: center;
-  visibility: visible;
-  opacity: 1;
+  visibility: visible !important;
+  opacity: 1 !important;
   margin: 0;
 }
 
+/* Full-bleed navigation: topbar has inset padding for brand/profile, nav does not. */
 .topnav {
   grid-area: nav;
-  position: relative;
+  position: relative !important;
+  inset: auto !important;
   z-index: 103;
   justify-self: stretch;
   align-self: stretch;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  transform: none;
+  width: calc(100% + (2 * var(--calibre-shell-inline))) !important;
+  margin: 0 calc(-1 * var(--calibre-shell-inline)) !important;
+  padding: 0 var(--calibre-shell-inline) !important;
+  transform: none !important;
   border-top: 1px solid rgba(116, 141, 146, 0.16);
   border-bottom: 1px solid rgba(116, 141, 146, 0.18);
   background: #1b242a;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .topnav button {
@@ -98,38 +128,145 @@
   white-space: nowrap;
 }
 
-/* Primary pages all begin on the same vertical rhythm. */
+/* ---------- Shared page rhythm ---------- */
 .items-layout,
 .workbench-page,
 .placeholder-page {
-  position: relative;
+  position: relative !important;
+  inset: auto !important;
   z-index: 0;
-  margin-top: 0;
+  margin: 0 !important;
 }
 
+/* ---------- Items: desktop / DeX ---------- */
 .items-layout {
-  padding-top: 0;
-  height: calc(100vh - var(--calibre-header-height));
+  display: grid !important;
+  grid-template-columns: minmax(300px, 370px) minmax(0, 1fr) !important;
+  width: 100%;
+  height: calc(100dvh - var(--calibre-header-height)) !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
-.items-pane,
-.item-workspace {
-  position: relative;
+.items-pane {
+  position: relative !important;
+  inset: auto !important;
   z-index: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
-.pane-heading,
+.pane-heading {
+  padding-top: var(--calibre-page-top) !important;
+}
+
+.item-workspace {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0 !important;
+  max-width: none;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.item-header {
+  padding-top: var(--calibre-page-top) !important;
+}
+
 .item-header,
-.workbench-page,
-.placeholder-page {
-  padding-top: var(--calibre-page-top);
+.item-tabs,
+.tab-content {
+  width: 100%;
+  max-width: 100%;
 }
 
+/* Prevent CSS grid cards from stretching merely to match a taller neighbour. */
+.content-grid {
+  align-items: start;
+}
+
+.section-card,
+.metric-card,
+.work-card {
+  height: auto !important;
+  min-height: 0;
+  align-self: start;
+}
+
+/* ---------- Workbench ---------- */
 .workbench-page {
-  min-height: calc(100vh - var(--calibre-header-height));
+  width: 100%;
+  height: auto !important;
+  min-height: calc(100dvh - var(--calibre-header-height)) !important;
+  padding: var(--calibre-page-top) var(--calibre-page-inline) 48px !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
 }
 
-/* Phone/tablet keeps the same structure and simply tightens the rhythm. */
+.workbench-heading {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto 22px !important;
+}
+
+.workbench-board {
+  display: grid !important;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(270px, 310px) !important;
+  align-items: start !important;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  padding: 2px 2px 20px !important;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.work-lane {
+  align-self: start !important;
+  width: 100%;
+  height: auto !important;
+  min-height: 320px !important;
+  max-height: none !important;
+}
+
+.work-lane-list {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
+  min-height: 0;
+}
+
+.work-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+.lane-empty {
+  min-height: 110px;
+}
+
+/* ---------- Home / Business / Calibre ---------- */
+.placeholder-page {
+  width: min(100%, 900px);
+  min-height: calc(100dvh - var(--calibre-header-height)) !important;
+  padding: var(--calibre-page-top) clamp(24px, 7vw, 90px) 64px !important;
+}
+
+/* ---------- Phone/tablet ---------- */
 .phone-shell,
 .phone-shell body,
 .phone-shell #root,
@@ -139,18 +276,27 @@
   overflow-x: hidden;
 }
 
+.phone-shell,
+@media (max-width: 900px) {
+}
+
+/* Explicit phone-shell rules handle Galaxy browser sessions that report a
+   desktop-like CSS viewport. Width media rules below are the normal fallback. */
+.phone-shell {
+  --calibre-header-height: 104px;
+  --calibre-brand-row: 56px;
+  --calibre-nav-row: 48px;
+  --calibre-shell-inline: 14px;
+  --calibre-page-top: 24px;
+  --calibre-page-inline: 14px;
+}
+
 .phone-shell body {
-  padding-bottom: 0;
+  padding-bottom: 0 !important;
 }
 
 .phone-shell .topbar {
-  --calibre-header-height: 104px;
-  --calibre-page-top: 24px;
-  min-height: var(--calibre-header-height);
-  height: var(--calibre-header-height);
-  grid-template-rows: 56px 48px;
-  padding: 0 14px;
-  gap: 0 10px;
+  gap: 0 10px !important;
 }
 
 .phone-shell .brand-button {
@@ -176,71 +322,92 @@
 }
 
 .phone-shell .topnav {
-  display: grid;
+  display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  background: #1b242a;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  padding-inline: 0 !important;
 }
 
 .phone-shell .topnav button {
+  width: 100%;
   min-width: 0;
   padding: 10px 2px;
+  border-radius: 0;
   font-size: 10px;
   line-height: 1.1;
   white-space: nowrap;
 }
 
 .phone-shell .items-layout {
-  height: auto;
-  min-height: calc(100dvh - var(--calibre-header-height));
-  padding-top: 0;
+  display: block !important;
+  width: 100%;
+  height: auto !important;
+  min-height: calc(100dvh - var(--calibre-header-height)) !important;
+  overflow: visible !important;
 }
 
-.phone-shell .pane-heading,
-.phone-shell .item-header,
-.phone-shell .workbench-page,
-.phone-shell .placeholder-page {
-  padding-top: var(--calibre-page-top);
+.phone-shell .items-pane {
+  display: none !important;
 }
 
-.phone-shell .workbench-page,
-.phone-shell .placeholder-page,
 .phone-shell .item-workspace {
-  min-height: calc(100dvh - var(--calibre-header-height));
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: calc(100dvh - var(--calibre-header-height)) !important;
+  overflow: visible !important;
 }
 
-/* Width fallback for ordinary mobile/tablet browsers. */
+.phone-shell .item-header {
+  padding: var(--calibre-page-top) 16px 16px !important;
+}
+
+.phone-shell .item-tabs {
+  padding-inline: 16px !important;
+}
+
+.phone-shell .tab-content {
+  padding: 16px 16px 32px !important;
+}
+
+.phone-shell .workbench-page {
+  min-height: calc(100dvh - var(--calibre-header-height)) !important;
+  padding: var(--calibre-page-top) var(--calibre-page-inline) 36px !important;
+}
+
+.phone-shell .workbench-board {
+  grid-auto-columns: minmax(82vw, 88vw) !important;
+  align-items: start !important;
+}
+
+.phone-shell .work-lane {
+  min-height: 300px !important;
+  height: auto !important;
+}
+
+.phone-shell .placeholder-page {
+  width: 100%;
+  min-height: calc(100dvh - var(--calibre-header-height)) !important;
+  padding: var(--calibre-page-top) 18px 64px !important;
+}
+
 @media (max-width: 900px) {
   :root {
     --calibre-header-height: 104px;
+    --calibre-brand-row: 56px;
+    --calibre-nav-row: 48px;
+    --calibre-shell-inline: 14px;
     --calibre-page-top: 24px;
-  }
-
-  html,
-  body,
-  #root,
-  .app-shell {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
+    --calibre-page-inline: 14px;
   }
 
   body {
-    padding-bottom: 0;
+    padding-bottom: 0 !important;
   }
 
   .topbar {
-    min-height: var(--calibre-header-height);
-    height: var(--calibre-header-height);
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 56px 48px;
-    grid-template-areas:
-      "brand profile"
-      "nav nav";
-    padding: 0 14px;
-    gap: 0 10px;
+    gap: 0 10px !important;
   }
 
   .brand-button {
@@ -255,6 +422,7 @@
   }
 
   .brand-button > span:last-child {
+    display: block !important;
     max-width: calc(100vw - 120px);
     font-size: 17px;
   }
@@ -266,39 +434,73 @@
   }
 
   .topnav {
-    display: grid;
+    display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
-    width: 100%;
-    background: #1b242a;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    padding-inline: 0 !important;
   }
 
   .topnav button {
+    width: 100%;
     min-width: 0;
     padding: 10px 2px;
+    border-radius: 0;
     font-size: 10px;
     line-height: 1.1;
     white-space: nowrap;
   }
 
   .items-layout {
-    height: auto;
-    min-height: calc(100dvh - var(--calibre-header-height));
-    padding-top: 0;
+    display: block !important;
+    width: 100%;
+    height: auto !important;
+    min-height: calc(100dvh - var(--calibre-header-height)) !important;
+    overflow: visible !important;
   }
 
-  .pane-heading,
-  .item-header,
-  .workbench-page,
-  .placeholder-page {
-    padding-top: var(--calibre-page-top);
+  .items-pane {
+    display: none !important;
   }
 
-  .workbench-page,
-  .placeholder-page,
   .item-workspace {
-    min-height: calc(100dvh - var(--calibre-header-height));
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: calc(100dvh - var(--calibre-header-height)) !important;
+    overflow: visible !important;
+  }
+
+  .item-header {
+    padding: var(--calibre-page-top) 16px 16px !important;
+  }
+
+  .item-tabs {
+    padding-inline: 16px !important;
+  }
+
+  .tab-content {
+    padding: 16px 16px 32px !important;
+  }
+
+  .workbench-page {
+    min-height: calc(100dvh - var(--calibre-header-height)) !important;
+    padding: var(--calibre-page-top) var(--calibre-page-inline) 36px !important;
+  }
+
+  .workbench-board {
+    grid-auto-columns: minmax(82vw, 88vw) !important;
+    align-items: start !important;
+  }
+
+  .work-lane {
+    min-height: 300px !important;
+    height: auto !important;
+  }
+
+  .placeholder-page {
+    width: 100%;
+    min-height: calc(100dvh - var(--calibre-header-height)) !important;
+    padding: var(--calibre-page-top) 18px 64px !important;
   }
 }
