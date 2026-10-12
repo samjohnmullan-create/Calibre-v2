@@ -14,13 +14,25 @@
   --calibre-line: rgba(116, 141, 146, 0.22);
   --calibre-line-strong: rgba(116, 141, 146, 0.38);
   --calibre-text: #D3D9D4;
-  --calibre-muted: #94A7A9;
+  --calibre-text-strong: #E2E7E3;
+  --calibre-muted: #A0B0B2;
   --calibre-accent: #3F7F98;
   --calibre-accent-deep: #124E66;
 
   font-family: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, sans-serif;
   color: var(--calibre-text);
   background: var(--calibre-bg-deep);
+}
+
+html {
+  background: #172026;
+}
+
+body,
+#root,
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body,
@@ -31,8 +43,11 @@ body,
 .setup-shell {
   color: var(--calibre-text);
   background:
-    radial-gradient(circle at 52% 7%, rgba(18, 78, 102, 0.34) 0%, rgba(18, 78, 102, 0.18) 22%, rgba(46, 57, 68, 0.08) 42%, rgba(33, 42, 49, 0) 66%),
-    linear-gradient(180deg, #202A31 0%, #192228 100%);
+    radial-gradient(ellipse at 52% 4%, rgba(18, 78, 102, 0.38) 0%, rgba(18, 78, 102, 0.20) 22%, rgba(46, 57, 68, 0.08) 44%, rgba(33, 42, 49, 0) 68%),
+    radial-gradient(ellipse at 86% 54%, rgba(18, 78, 102, 0.08) 0%, rgba(33, 42, 49, 0) 46%),
+    linear-gradient(180deg, #202A31 0%, #192228 64%, #172026 100%);
+  background-repeat: no-repeat;
+  background-size: cover;
   background-attachment: fixed;
 }
 
@@ -71,7 +86,7 @@ h3,
 .item-header h1,
 .workbench-heading h1 {
   font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
-  color: var(--calibre-pale);
+  color: var(--calibre-text-strong);
   font-weight: 600;
   letter-spacing: -0.025em;
 }
@@ -87,6 +102,7 @@ h1,
   font-size: 20px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  color: var(--calibre-text-strong);
 }
 
 .eyebrow,
@@ -94,7 +110,7 @@ h1,
 .next-action span,
 .metric-card span,
 .prose-data span {
-  color: #91AEB4;
+  color: #9AB6BB;
   letter-spacing: 0.15em;
 }
 
@@ -108,6 +124,11 @@ h1,
 .valuation-basis,
 .workbench-heading .muted {
   color: var(--calibre-muted);
+}
+
+.lead,
+.placeholder-page .muted {
+  color: #A7B6B8;
 }
 
 /* Technical information gets an instrument-panel feel. */
@@ -127,7 +148,7 @@ h1,
 }
 
 .item-number {
-  color: #87A8AE;
+  color: #91AFB4;
 }
 
 .metric-card strong {
@@ -136,7 +157,7 @@ h1,
 
 /* Form controls */
 label {
-  color: #BCC9C8;
+  color: #C3CECC;
 }
 
 input,
@@ -149,41 +170,48 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: #6F8589;
+  color: #748A8E;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #4F879B;
+  border-color: #5B94A7;
   box-shadow: 0 0 0 3px rgba(18, 78, 102, 0.24);
 }
 
 button {
-  background: var(--calibre-pale);
+  background: #D7DEDA;
   color: #1B252B;
 }
 
 button.secondary,
 .icon-button {
-  background: rgba(46, 57, 68, 0.54);
+  background: rgba(46, 57, 68, 0.58);
   color: var(--calibre-pale);
   border-color: var(--calibre-line-strong);
 }
 
 button.secondary:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
-  background: rgba(18, 78, 102, 0.45);
+  background: rgba(18, 78, 102, 0.52);
 }
 
 .topnav button {
-  color: #93A5A8;
+  color: #A5B4B5;
+}
+
+.topnav button:hover:not(:disabled) {
+  color: #D6DEDB;
+  background: rgba(46, 57, 68, 0.34);
 }
 
 .topnav button.active {
-  color: #E1E6E2;
-  background: rgba(18, 78, 102, 0.34);
-  box-shadow: inset 0 0 0 1px rgba(116, 141, 146, 0.12);
+  color: #E8ECE9;
+  background: linear-gradient(180deg, rgba(18, 78, 102, 0.52), rgba(18, 78, 102, 0.34));
+  box-shadow:
+    inset 0 0 0 1px rgba(116, 141, 146, 0.16),
+    0 5px 16px rgba(5, 18, 24, 0.16);
 }
 
 .profile-chip {
@@ -194,12 +222,12 @@ button.secondary:hover:not(:disabled),
 
 /* Brand mark: cool metal rather than brass. */
 .moon {
-  border-color: #9EB6B8;
+  border-color: #A8BFC0;
 }
 
 .star {
-  color: #D3D9D4;
-  text-shadow: 0 0 14px rgba(211, 217, 212, 0.22);
+  color: #E0E6E2;
+  text-shadow: 0 0 14px rgba(211, 217, 212, 0.24);
 }
 
 .moon::after {
@@ -217,25 +245,25 @@ button.secondary:hover:not(:disabled),
 
 .item-row.selected {
   background:
-    linear-gradient(90deg, rgba(18, 78, 102, 0.52), rgba(46, 57, 68, 0.62));
-  border-color: rgba(116, 141, 146, 0.32);
-  box-shadow: inset 3px 0 0 #548DA1;
+    linear-gradient(90deg, rgba(18, 78, 102, 0.58), rgba(46, 57, 68, 0.64));
+  border-color: rgba(116, 141, 146, 0.34);
+  box-shadow: inset 3px 0 0 #65A0B3;
 }
 
 .count-chip,
 .confidence {
-  color: #AABABC;
+  color: #B4C2C2;
   border-color: var(--calibre-line-strong);
-  background: rgba(33, 42, 49, 0.38);
+  background: rgba(33, 42, 49, 0.42);
 }
 
 .item-tabs button {
-  color: #8EA1A4;
+  color: #9BACAe;
 }
 
 .item-tabs button.active {
-  color: var(--calibre-pale);
-  border-bottom-color: #5B94A7;
+  color: var(--calibre-text-strong);
+  border-bottom-color: #68A1B4;
 }
 
 /* Cards and Workbench trays */
@@ -245,24 +273,24 @@ button.secondary:hover:not(:disabled),
 .work-card,
 .loading-card {
   background:
-    linear-gradient(145deg, rgba(116, 141, 146, 0.035), transparent 42%),
-    rgba(38, 49, 58, 0.88);
+    linear-gradient(145deg, rgba(116, 141, 146, 0.045), transparent 42%),
+    rgba(38, 49, 58, 0.89);
   border-color: var(--calibre-line);
   box-shadow: 0 16px 34px rgba(5, 11, 15, 0.12);
 }
 
 .feature-card {
   background:
-    radial-gradient(circle at 18% 0%, rgba(18, 78, 102, 0.30), transparent 44%),
-    linear-gradient(145deg, rgba(116, 141, 146, 0.04), transparent 50%),
-    rgba(38, 49, 58, 0.9);
+    radial-gradient(circle at 18% 0%, rgba(18, 78, 102, 0.34), transparent 44%),
+    linear-gradient(145deg, rgba(116, 141, 146, 0.05), transparent 50%),
+    rgba(38, 49, 58, 0.91);
 }
 
 .next-action,
 .work-next,
 .work-blocker-summary,
 .work-edit-panel {
-  background: rgba(29, 40, 47, 0.78);
+  background: rgba(29, 40, 47, 0.80);
   border-color: var(--calibre-line);
 }
 
@@ -270,32 +298,32 @@ button.secondary:hover:not(:disabled),
 .prose-data p,
 .next-action strong,
 .work-next strong {
-  color: #CDD6D3;
+  color: #D4DDDA;
 }
 
 .stage-strip span {
   border-color: rgba(116, 141, 146, 0.20);
-  color: #789094;
+  color: #82999D;
 }
 
 .stage-strip span.current {
-  color: #D7E0DD;
-  border-color: rgba(63, 127, 152, 0.58);
-  background: rgba(18, 78, 102, 0.30);
+  color: #E0E7E4;
+  border-color: rgba(63, 127, 152, 0.64);
+  background: rgba(18, 78, 102, 0.34);
   box-shadow: inset 0 0 0 1px rgba(116, 141, 146, 0.08);
 }
 
 .work-lane {
   background:
-    linear-gradient(180deg, rgba(46, 57, 68, 0.90), rgba(31, 42, 49, 0.88));
+    linear-gradient(180deg, rgba(46, 57, 68, 0.92), rgba(31, 42, 49, 0.89));
 }
 
 .work-card {
-  background: rgba(33, 42, 49, 0.88);
+  background: rgba(33, 42, 49, 0.90);
 }
 
 .priority-chip {
-  color: #A9BABB;
+  color: #B1C0C0;
 }
 
 /* Status colours stay semantic, but are cooled to sit inside the new palette. */
@@ -319,8 +347,8 @@ button.secondary:hover:not(:disabled),
 .status-researching,
 .status-qc {
   border-color: rgba(63, 127, 152, 0.50);
-  color: #9BC0CE;
-  background: rgba(18, 78, 102, 0.20);
+  color: #A1C6D2;
+  background: rgba(18, 78, 102, 0.22);
 }
 
 .status-waiting {
@@ -329,16 +357,17 @@ button.secondary:hover:not(:disabled),
   background: rgba(139, 94, 62, 0.11);
 }
 
-/* Keep the petrol sunburst alive even inside large blank areas. */
+/* Keep the petrol light dimensional through large blank areas. */
 .item-workspace::before,
 .workbench-page::before,
 .placeholder-page::before {
   content: "";
   position: fixed;
-  inset: 64px 0 auto 0;
-  height: min(52vh, 520px);
+  inset: 64px 0 0 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 58% 0%, rgba(18, 78, 102, 0.16), transparent 66%);
+  background:
+    radial-gradient(ellipse at 56% 0%, rgba(18, 78, 102, 0.17), transparent 62%),
+    radial-gradient(ellipse at 85% 54%, rgba(18, 78, 102, 0.055), transparent 46%);
   z-index: 0;
 }
 
@@ -350,14 +379,59 @@ button.secondary:hover:not(:disabled),
 }
 
 @media (max-width: 720px) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #172026;
+  }
+
   body,
   .app-shell,
   .item-workspace,
   .workbench-page,
-  .placeholder-page {
+  .placeholder-page,
+  .setup-shell {
     background:
-      radial-gradient(circle at 58% 4%, rgba(18, 78, 102, 0.30), transparent 42%),
-      linear-gradient(180deg, #202A31 0%, #192228 100%);
+      radial-gradient(ellipse at 58% 2%, rgba(18, 78, 102, 0.34) 0%, rgba(18, 78, 102, 0.18) 26%, rgba(33, 42, 49, 0) 58%),
+      radial-gradient(ellipse at 96% 62%, rgba(18, 78, 102, 0.075) 0%, rgba(33, 42, 49, 0) 48%),
+      linear-gradient(180deg, #202A31 0%, #192228 58%, #172026 100%);
+    background-attachment: scroll;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+
+  .item-workspace,
+  .workbench-page,
+  .placeholder-page {
+    min-height: calc(100dvh - 58px - 68px);
+  }
+
+  .item-workspace::before,
+  .workbench-page::before,
+  .placeholder-page::before {
+    position: absolute;
+    inset: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(ellipse at 62% 0%, rgba(18, 78, 102, 0.12), transparent 60%),
+      radial-gradient(ellipse at 95% 70%, rgba(18, 78, 102, 0.045), transparent 44%);
+  }
+
+  .topnav {
+    border-top-color: rgba(116, 141, 146, 0.26);
+    background: rgba(24, 33, 39, 0.97);
+  }
+
+  .topnav button {
+    color: #A7B6B7;
+  }
+
+  .topnav button.active {
+    color: #EEF1EF;
+    background: rgba(18, 78, 102, 0.48);
   }
 
   .brand-button span:last-child {
