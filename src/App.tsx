@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import ItemMedia from './ItemMedia'
 import PassportPanel from './PassportPanel'
+import KnowledgePage from './KnowledgePage'
 
 type Workspace = { id: string; name: string; slug: string; owner_id: string }
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; created_at: string }
@@ -524,7 +525,9 @@ export default function App() {
         <Workbench work={allWork} itemsById={itemsById} loading={workLoading} savingWorkId={savingWorkId} onStatusChange={updateWorkStatus} onSaveDetails={updateWorkDetails} onOpenItem={openWorkItem} />
       )}
 
-      {!['items', 'workbench'].includes(section) && (
+      {section === 'calibre' && <KnowledgePage />}
+
+      {!['items', 'workbench', 'calibre'].includes(section) && (
         <main className="placeholder-page">
           <p className="eyebrow">{titleCase(section)}</p>
           <h2>{section === 'home' ? 'Calibre v2' : `${titleCase(section)} is next.`}</h2>
@@ -578,7 +581,7 @@ function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onS
           {cancelled.length > 0 && (
             <section className="work-lane cancelled-lane">
               <div className="work-lane-heading"><div><h3>Cancelled</h3><p>Closed without completion</p></div><span className="count-chip">{cancelled.length}</span></div>
-              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={onOpenItem} />)}</div>
+              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={openWorkItem} />)}</div>
             </section>
           )}
         </div>
