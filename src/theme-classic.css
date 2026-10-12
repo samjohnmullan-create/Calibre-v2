@@ -1,0 +1,366 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --calibre-charcoal: #212A31;
+  --calibre-gunmetal: #2E3944;
+  --calibre-petrol: #124E66;
+  --calibre-steel: #748D92;
+  --calibre-pale: #D3D9D4;
+
+  --calibre-bg-deep: #172026;
+  --calibre-bg: #212A31;
+  --calibre-panel: #26313A;
+  --calibre-panel-raised: #2B3741;
+  --calibre-line: rgba(116, 141, 146, 0.22);
+  --calibre-line-strong: rgba(116, 141, 146, 0.38);
+  --calibre-text: #D3D9D4;
+  --calibre-muted: #94A7A9;
+  --calibre-accent: #3F7F98;
+  --calibre-accent-deep: #124E66;
+
+  font-family: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--calibre-text);
+  background: var(--calibre-bg-deep);
+}
+
+body,
+.app-shell,
+.item-workspace,
+.workbench-page,
+.placeholder-page,
+.setup-shell {
+  color: var(--calibre-text);
+  background:
+    radial-gradient(circle at 52% 7%, rgba(18, 78, 102, 0.34) 0%, rgba(18, 78, 102, 0.18) 22%, rgba(46, 57, 68, 0.08) 42%, rgba(33, 42, 49, 0) 66%),
+    linear-gradient(180deg, #202A31 0%, #192228 100%);
+  background-attachment: fixed;
+}
+
+.login-shell {
+  background:
+    radial-gradient(circle at 25% 22%, rgba(18, 78, 102, 0.42), rgba(18, 78, 102, 0.12) 28%, transparent 56%),
+    linear-gradient(135deg, #212A31 0%, #172026 100%);
+}
+
+.login-panel,
+.items-pane {
+  background: rgba(33, 42, 49, 0.94);
+}
+
+.login-brand,
+.items-pane,
+.topbar,
+.item-tabs,
+.fact-list div,
+.prose-data p,
+.valuation-basis {
+  border-color: var(--calibre-line);
+}
+
+.topbar {
+  background: rgba(27, 36, 42, 0.91);
+  border-bottom-color: var(--calibre-line);
+  box-shadow: 0 10px 32px rgba(4, 10, 14, 0.18);
+}
+
+/* Classic display typography, modern controls. */
+h1,
+h2,
+h3,
+.login-brand h1,
+.item-header h1,
+.workbench-heading h1 {
+  font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  color: var(--calibre-pale);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+h1,
+.login-brand h1,
+.workbench-heading h1 {
+  line-height: 0.98;
+}
+
+.brand-button span:last-child {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.eyebrow,
+.item-kicker,
+.next-action span,
+.metric-card span,
+.prose-data span {
+  color: #91AEB4;
+  letter-spacing: 0.15em;
+}
+
+.muted,
+.subtitle,
+.lead,
+.message,
+.item-row-main span,
+.empty-state,
+.fact-list dt,
+.valuation-basis,
+.workbench-heading .muted {
+  color: var(--calibre-muted);
+}
+
+/* Technical information gets an instrument-panel feel. */
+.item-number,
+.work-card-top,
+.priority-chip,
+.count-chip,
+.status-pill,
+.item-kicker,
+.fact-list dd,
+.metric-card strong,
+.confidence,
+.stage-strip span,
+.work-next strong,
+.work-blocker-summary strong {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.item-number {
+  color: #87A8AE;
+}
+
+.metric-card strong {
+  letter-spacing: -0.035em;
+}
+
+/* Form controls */
+label {
+  color: #BCC9C8;
+}
+
+input,
+select,
+textarea {
+  background: rgba(23, 32, 38, 0.82);
+  border-color: var(--calibre-line-strong);
+  color: var(--calibre-pale);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #6F8589;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #4F879B;
+  box-shadow: 0 0 0 3px rgba(18, 78, 102, 0.24);
+}
+
+button {
+  background: var(--calibre-pale);
+  color: #1B252B;
+}
+
+button.secondary,
+.icon-button {
+  background: rgba(46, 57, 68, 0.54);
+  color: var(--calibre-pale);
+  border-color: var(--calibre-line-strong);
+}
+
+button.secondary:hover:not(:disabled),
+.icon-button:hover:not(:disabled) {
+  background: rgba(18, 78, 102, 0.45);
+}
+
+.topnav button {
+  color: #93A5A8;
+}
+
+.topnav button.active {
+  color: #E1E6E2;
+  background: rgba(18, 78, 102, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(116, 141, 146, 0.12);
+}
+
+.profile-chip {
+  background: #2B3741;
+  border-color: var(--calibre-line-strong);
+  color: var(--calibre-pale);
+}
+
+/* Brand mark: cool metal rather than brass. */
+.moon {
+  border-color: #9EB6B8;
+}
+
+.star {
+  color: #D3D9D4;
+  text-shadow: 0 0 14px rgba(211, 217, 212, 0.22);
+}
+
+.moon::after {
+  background: #1D272E;
+}
+
+/* Inventory */
+.item-row {
+  color: var(--calibre-pale);
+}
+
+.item-row:hover {
+  background: rgba(46, 57, 68, 0.56);
+}
+
+.item-row.selected {
+  background:
+    linear-gradient(90deg, rgba(18, 78, 102, 0.52), rgba(46, 57, 68, 0.62));
+  border-color: rgba(116, 141, 146, 0.32);
+  box-shadow: inset 3px 0 0 #548DA1;
+}
+
+.count-chip,
+.confidence {
+  color: #AABABC;
+  border-color: var(--calibre-line-strong);
+  background: rgba(33, 42, 49, 0.38);
+}
+
+.item-tabs button {
+  color: #8EA1A4;
+}
+
+.item-tabs button.active {
+  color: var(--calibre-pale);
+  border-bottom-color: #5B94A7;
+}
+
+/* Cards and Workbench trays */
+.section-card,
+.metric-card,
+.work-lane,
+.work-card,
+.loading-card {
+  background:
+    linear-gradient(145deg, rgba(116, 141, 146, 0.035), transparent 42%),
+    rgba(38, 49, 58, 0.88);
+  border-color: var(--calibre-line);
+  box-shadow: 0 16px 34px rgba(5, 11, 15, 0.12);
+}
+
+.feature-card {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(18, 78, 102, 0.30), transparent 44%),
+    linear-gradient(145deg, rgba(116, 141, 146, 0.04), transparent 50%),
+    rgba(38, 49, 58, 0.9);
+}
+
+.next-action,
+.work-next,
+.work-blocker-summary,
+.work-edit-panel {
+  background: rgba(29, 40, 47, 0.78);
+  border-color: var(--calibre-line);
+}
+
+.fact-list dd,
+.prose-data p,
+.next-action strong,
+.work-next strong {
+  color: #CDD6D3;
+}
+
+.stage-strip span {
+  border-color: rgba(116, 141, 146, 0.20);
+  color: #789094;
+}
+
+.stage-strip span.current {
+  color: #D7E0DD;
+  border-color: rgba(63, 127, 152, 0.58);
+  background: rgba(18, 78, 102, 0.30);
+  box-shadow: inset 0 0 0 1px rgba(116, 141, 146, 0.08);
+}
+
+.work-lane {
+  background:
+    linear-gradient(180deg, rgba(46, 57, 68, 0.90), rgba(31, 42, 49, 0.88));
+}
+
+.work-card {
+  background: rgba(33, 42, 49, 0.88);
+}
+
+.priority-chip {
+  color: #A9BABB;
+}
+
+/* Status colours stay semantic, but are cooled to sit inside the new palette. */
+.status-acquired,
+.status-queued {
+  border-color: rgba(116, 141, 146, 0.42);
+  color: #B7C6C6;
+  background: rgba(116, 141, 146, 0.10);
+}
+
+.status-ready,
+.status-ready_for_sale,
+.status-complete {
+  border-color: rgba(108, 157, 139, 0.38);
+  color: #9BC7B6;
+  background: rgba(80, 130, 111, 0.10);
+}
+
+.status-on_bench,
+.status-preparing,
+.status-researching,
+.status-qc {
+  border-color: rgba(63, 127, 152, 0.50);
+  color: #9BC0CE;
+  background: rgba(18, 78, 102, 0.20);
+}
+
+.status-waiting {
+  border-color: rgba(174, 135, 104, 0.42);
+  color: #CCAD94;
+  background: rgba(139, 94, 62, 0.11);
+}
+
+/* Keep the petrol sunburst alive even inside large blank areas. */
+.item-workspace::before,
+.workbench-page::before,
+.placeholder-page::before {
+  content: "";
+  position: fixed;
+  inset: 64px 0 auto 0;
+  height: min(52vh, 520px);
+  pointer-events: none;
+  background: radial-gradient(ellipse at 58% 0%, rgba(18, 78, 102, 0.16), transparent 66%);
+  z-index: 0;
+}
+
+.item-workspace > *,
+.workbench-page > *,
+.placeholder-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 720px) {
+  body,
+  .app-shell,
+  .item-workspace,
+  .workbench-page,
+  .placeholder-page {
+    background:
+      radial-gradient(circle at 58% 4%, rgba(18, 78, 102, 0.30), transparent 42%),
+      linear-gradient(180deg, #202A31 0%, #192228 100%);
+  }
+
+  .brand-button span:last-child {
+    font-size: 18px;
+  }
+}
