@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import ResearchWorkspace from './ResearchWorkspace'
+import PassportMovementFinder from './PassportMovementFinder'
 
 export type Passport = {
   item_id: string
@@ -29,6 +30,8 @@ export type Passport = {
   hallmarks: string
   provenance_summary: string
   technical_notes: string
+  knowledge_movement_id: string | null
+  movement_identification_status: string
   updated_at?: string
 }
 
@@ -64,9 +67,11 @@ const emptyPassport = (workspaceId: string, itemId: string): Passport => ({
   hallmarks: '',
   provenance_summary: '',
   technical_notes: '',
+  knowledge_movement_id: null,
+  movement_identification_status: 'unlinked',
 })
 
-const selectFields = 'item_id,workspace_id,movement_maker,calibre,calibre_family,jewels,beat_rate,power_reserve_hours,escapement,movement_diameter_mm,movement_type,setting_system,complications,case_material,case_style,caseback_type,crystal_type,crown_type,lug_width_mm,width_mm,height_mm,thickness_mm,water_resistance_marking,hallmarks,provenance_summary,technical_notes,updated_at'
+const selectFields = 'item_id,workspace_id,movement_maker,calibre,calibre_family,jewels,beat_rate,power_reserve_hours,escapement,movement_diameter_mm,movement_type,setting_system,complications,case_material,case_style,caseback_type,crystal_type,crown_type,lug_width_mm,width_mm,height_mm,thickness_mm,water_resistance_marking,hallmarks,provenance_summary,technical_notes,knowledge_movement_id,movement_identification_status,updated_at'
 
 function display(value: string | number | null | undefined, suffix = '') {
   if (value === null || value === undefined || value === '') return '—'
@@ -166,6 +171,31 @@ export default function PassportPanel({ workspaceId, itemId }: PassportPanelProp
     setDraft(passport)
     setEditing(false)
     setMessage('')
+  }
+
+  function applyMovementIdentity(nextMovement: {
+    movement_maker: string
+    calibre: string
+    calibre_family: string
+    jewels: number | null
+    beat_rate: number | null
+    power_reserve_hours: number | null
+    escapement: string
+    movement_diameter_mm: number | null
+    movement_type: string
+    knowledge_movement_id?: string | null
+    movement_identification_status?: string
+  }) {
+    const next: Passport = {
+      ...passport,
+      ...nextMovement,
+      knowledge_movement_id: nextMovement.knowledge_movement_id ?? null,
+      movement_identification_status: nextMovement.movement_identification_status ?? 'candidate',
+    }
+    setPassport(next)
+    setDraft(next)
+    setExists(true)
+    setMessage('Movement candidate linked to Passport. Identity remains candidate until confirmed.')
   }
 
   if (loading) return <div className="loading-card">Loading Passport…</div>
@@ -289,6 +319,13 @@ export default function PassportPanel({ workspaceId, itemId }: PassportPanelProp
           <span>Technical notes</span><p>{passport.technical_notes || 'No technical notes recorded.'}</p>
         </div>
       </section>
+
+      <PassportMovementFinder
+        workspaceId={workspaceId}
+        itemId={itemId}
+        current={passport}
+        onApplied={applyMovementIdentity}
+      />
 
       <ResearchWorkspace workspaceId={workspaceId} itemId={itemId} />
     </div>
