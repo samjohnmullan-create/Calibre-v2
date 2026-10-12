@@ -1,0 +1,93 @@
+/* Final brand layer: explicit mobile header visibility + richer site logo. */
+
+/* Filled version of the existing crescent/star mark. */
+.mark .moon {
+  border: 1px solid rgba(211, 217, 212, 0.68);
+  background:
+    linear-gradient(145deg, #E7ECE9 0%, #A9BEC1 28%, #5F8998 58%, #124E66 100%);
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.58),
+    inset -2px -2px 5px rgba(8,24,31,0.28),
+    0 4px 12px rgba(4,12,16,0.28),
+    0 0 18px rgba(63,127,152,0.10);
+}
+
+/* Preserve the crescent cut-out, matching the header surface. */
+.topbar .mark .moon::after {
+  background: #1B252B;
+  box-shadow: -1px 1px 2px rgba(255,255,255,0.04);
+}
+
+.login-shell .mark .moon::after,
+.setup-shell .mark .moon::after {
+  background: #1D272E;
+}
+
+.mark .star {
+  color: #EEF2EF;
+  text-shadow:
+    0 0 5px rgba(238,242,239,0.34),
+    0 0 13px rgba(95,137,152,0.24);
+}
+
+.brand-button > span:last-child {
+  color: #EEF2EF;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+  }
+
+  .topbar .brand-button {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 72px) !important;
+    align-items: center !important;
+    gap: 9px !important;
+    overflow: visible !important;
+  }
+
+  .topbar .brand-button > .mark.compact {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 32px !important;
+    height: 32px !important;
+    flex: 0 0 32px !important;
+  }
+
+  .topbar .brand-button .moon,
+  .topbar .brand-button .star {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .topbar .brand-button > span:last-child {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #EEF2EF !important;
+    font-family: "Cormorant Garamond", Georgia, serif !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .topbar .profile-chip {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    place-items: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+  }
+}
