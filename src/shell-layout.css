@@ -1,8 +1,8 @@
-/* Canonical shell/header layout. Loaded last and deliberately simple. */
+/* Canonical Calibre shell. Loaded last: one header system, one page rhythm. */
 
 :root {
-  --calibre-shell-gap: 22px;
-  --calibre-mobile-nav-clearance: 48px;
+  --calibre-header-height: 108px;
+  --calibre-page-top: 32px;
 }
 
 .topbar {
@@ -10,8 +10,8 @@
   z-index: 100;
   isolation: isolate;
   width: 100%;
-  min-height: 108px;
-  height: auto;
+  min-height: var(--calibre-header-height);
+  height: var(--calibre-header-height);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: 58px 50px;
@@ -78,7 +78,7 @@
   grid-area: nav;
   position: relative;
   z-index: 103;
-  justify-self: center;
+  justify-self: stretch;
   align-self: stretch;
   display: flex;
   align-items: center;
@@ -98,8 +98,7 @@
   white-space: nowrap;
 }
 
-/* Header remains in normal flow. Keep primary workspaces in a lower paint layer
-   so Items can never cover the navigation row. */
+/* Primary pages all begin on the same vertical rhythm. */
 .items-layout,
 .workbench-page,
 .placeholder-page {
@@ -109,8 +108,8 @@
 }
 
 .items-layout {
-  padding-top: var(--calibre-shell-gap);
-  height: calc(100vh - 108px);
+  padding-top: 0;
+  height: calc(100vh - var(--calibre-header-height));
 }
 
 .items-pane,
@@ -119,16 +118,18 @@
   z-index: 0;
 }
 
-.workbench-page {
-  min-height: calc(100vh - 108px);
-  padding-top: calc(30px + var(--calibre-shell-gap));
-}
-
+.pane-heading,
+.item-header,
+.workbench-page,
 .placeholder-page {
-  padding-top: calc(clamp(50px, 10vw, 120px) + var(--calibre-shell-gap));
+  padding-top: var(--calibre-page-top);
 }
 
-/* Phone/tablet: same stable two-row structure, just denser. */
+.workbench-page {
+  min-height: calc(100vh - var(--calibre-header-height));
+}
+
+/* Phone/tablet keeps the same structure and simply tightens the rhythm. */
 .phone-shell,
 .phone-shell body,
 .phone-shell #root,
@@ -143,9 +144,10 @@
 }
 
 .phone-shell .topbar {
-  position: relative;
-  z-index: 100;
-  min-height: 104px;
+  --calibre-header-height: 104px;
+  --calibre-page-top: 24px;
+  min-height: var(--calibre-header-height);
+  height: var(--calibre-header-height);
   grid-template-rows: 56px 48px;
   padding: 0 14px;
   gap: 0 10px;
@@ -174,12 +176,9 @@
 }
 
 .phone-shell .topnav {
-  position: relative;
-  z-index: 103;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  width: 100%;
   background: #1b242a;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -193,31 +192,32 @@
   white-space: nowrap;
 }
 
-/* Items and Workbench have their own internal layout/scroll rules. Reserve a
-   full nav-row of additional clearance so their first content can never sit
-   underneath the shell. */
 .phone-shell .items-layout {
   height: auto;
-  min-height: calc(100dvh - 104px);
-  padding-top: calc(var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
+  min-height: calc(100dvh - var(--calibre-header-height));
+  padding-top: 0;
 }
 
-.phone-shell .workbench-page {
-  min-height: calc(100dvh - 104px);
-  padding-top: calc(20px + var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
-}
-
+.phone-shell .pane-heading,
+.phone-shell .item-header,
+.phone-shell .workbench-page,
 .phone-shell .placeholder-page {
-  min-height: calc(100dvh - 104px);
-  padding-top: calc(34px + var(--calibre-shell-gap));
+  padding-top: var(--calibre-page-top);
 }
 
+.phone-shell .workbench-page,
+.phone-shell .placeholder-page,
 .phone-shell .item-workspace {
-  min-height: calc(100dvh - 104px);
+  min-height: calc(100dvh - var(--calibre-header-height));
 }
 
 /* Width fallback for ordinary mobile/tablet browsers. */
 @media (max-width: 900px) {
+  :root {
+    --calibre-header-height: 104px;
+    --calibre-page-top: 24px;
+  }
+
   html,
   body,
   #root,
@@ -232,9 +232,8 @@
   }
 
   .topbar {
-    position: relative;
-    z-index: 100;
-    min-height: 104px;
+    min-height: var(--calibre-header-height);
+    height: var(--calibre-header-height);
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: 56px 48px;
     grid-template-areas:
@@ -267,8 +266,6 @@
   }
 
   .topnav {
-    position: relative;
-    z-index: 103;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
@@ -288,21 +285,20 @@
 
   .items-layout {
     height: auto;
-    min-height: calc(100dvh - 104px);
-    padding-top: calc(var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
+    min-height: calc(100dvh - var(--calibre-header-height));
+    padding-top: 0;
   }
 
-  .workbench-page {
-    min-height: calc(100dvh - 104px);
-    padding-top: calc(20px + var(--calibre-shell-gap) + var(--calibre-mobile-nav-clearance));
-  }
-
+  .pane-heading,
+  .item-header,
+  .workbench-page,
   .placeholder-page {
-    min-height: calc(100dvh - 104px);
-    padding-top: calc(34px + var(--calibre-shell-gap));
+    padding-top: var(--calibre-page-top);
   }
 
+  .workbench-page,
+  .placeholder-page,
   .item-workspace {
-    min-height: calc(100dvh - 104px);
+    min-height: calc(100dvh - var(--calibre-header-height));
   }
 }
