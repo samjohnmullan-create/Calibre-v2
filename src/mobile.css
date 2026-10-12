@@ -8,13 +8,40 @@
     min-height: 58px;
     height: 58px;
     padding: 0 14px;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
   }
 
-  .brand-button span:not(.mark) { display: none; }
-  .brand-button .mark.compact { width: 34px; height: 34px; }
-  .profile-chip { width: 36px; height: 36px; }
+  .brand-button {
+    min-width: 0;
+    max-width: calc(100vw - 78px);
+    gap: 8px;
+    overflow: hidden;
+  }
+  .brand-button .mark.compact {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+  }
+  .brand-button > span:last-child {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 17px;
+  }
+  .brand-button .moon,
+  .brand-button .star { display: block; }
+
+  .profile-chip {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 0;
+  }
 
   .topnav {
     position: fixed;
