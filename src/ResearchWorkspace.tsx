@@ -45,12 +45,25 @@ type Props = {
 
 const requestTypes = ['comprehensive', 'identify', 'history', 'movement', 'parts', 'valuation', 'listing', 'other']
 const requestStatuses = ['pending', 'processing', 'needs_input', 'complete', 'cancelled', 'failed']
-const confidences: ResearchFinding['confidence'][] = ['confirmed', 'strong', 'probable', 'possible', 'unknown']
-const sourceTypes = ['manufacturer', 'catalogue', 'book', 'website', 'auction', 'sold_comp', 'invoice', 'email', 'document', 'bench_note', 'other']
-const reliabilities = ['primary', 'high', 'medium', 'low', 'unknown']
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function token() {
+  return crypto.randomUUID().replaceAll('-', '').slice(0, 8)
+}
+
+function scopeString(scope: Record<string, unknown>, key: string) {
+  const value = scope[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function handoffText(request: ResearchRequest | null) {
+  if (!request) return ''
+  const scope = request.requested_scope
+  const handoff = scope.handoff
+  return typeof handoff === 'string' ? handoff : ''
 }
 
 export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
@@ -62,22 +75,8 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
-
   const [requestType, setRequestType] = useState('comprehensive')
   const [requestScope, setRequestScope] = useState('')
-
-  const [category, setCategory] = useState('identity')
-  const [findingText, setFindingText] = useState('')
-  const [confidence, setConfidence] = useState<ResearchFinding['confidence']>('unknown')
-  const [evidenceNote, setEvidenceNote] = useState('')
-
-  const [sourceType, setSourceType] = useState('website')
-  const [sourceTitle, setSourceTitle] = useState('')
-  const [publisher, setPublisher] = useState('')
-  const [url, setUrl] = useState('')
-  const [referenceText, setReferenceText] = useState('')
-  const [reliability, setReliability] = useState('unknown')
-  const [sourceNotes, setSourceNotes] = useState('')
 
   async function load() {
     setLoading(true)
@@ -114,12 +113,10 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
     setSelectedRequestId((current) => current || nextRequests[0]?.id || '')
 
     if (nextFindings.length) {
-      const findingIds = nextFindings.map((finding) => finding.id)
-      const { data: linkData, error: linkError } = await supabase.from('research_finding_sources')
+      const { data: linkData } = await supabase.from('research_finding_sources')
         .select('research_finding_id,source_id')
         .eq('workspace_id', workspaceId)
-        .in('research_finding_id', findingIds)
-      if (linkError) setMessage(`Research loaded, but source links failed: ${linkError.message}`)
+        .in('research_finding_id', nextFindings.map((finding) => finding.id))
       setLinks((linkData ?? []) as FindingSource[])
     } else {
       setLinks([])
@@ -141,24 +138,120 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
   async function createRequest(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
+    setMessage('Preparing ChatGPT research package…')
+
+    const [itemResult, identityResult, passportResult, mediaResult] = await Promise.all([
+      supabase.from('items')
+        .select('item_number,type,purpose,status,title,notes')
+        .eq('workspace_id', workspaceId)
+        .eq('id', itemId)
+        .single(),
+      supabase.from('item_identity')
+        .select('maker,model,reference,serial,year_from,year_to,era,country,materials,dimensions_text,dial_markings,case_markings,movement_markings,notes')
+        .eq('workspace_id', workspaceId)
+        .eq('item_id', itemId)
+        .maybeSingle(),
+      supabase.from('passports')
+        .select('movement_maker,calibre,calibre_family,jewels,beat_rate,power_reserve_hours,escapement,movement_diameter_mm,movement_type,setting_system,complications,case_material,case_style,caseback_type,crystal_type,crown_type,lug_width_mm,width_mm,height_mm,thickness_mm,water_resistance_marking,hallmarks,provenance_summary,technical_notes')
+        .eq('workspace_id', workspaceId)
+        .eq('item_id', itemId)
+        .maybeSingle(),
+      supabase.from('media_assets')
+        .select('category,caption,original_filename,storage_path,is_cover')
+        .eq('workspace_id', workspaceId)
+        .eq('item_id', itemId)
+        .order('is_cover', { ascending: false })
+        .order('created_at', { ascending: true }),
+    ])
+
+    const contextError = itemResult.error ?? identityResult.error ?? passportResult.error ?? mediaResult.error
+    if (contextError || !itemResult.data) {
+      setBusy(false)
+      setMessage(`Could not prepare research context: ${contextError?.message ?? 'Item not found.'}`)
+      return
+    }
+
+    const photoRows = mediaResult.data ?? []
+    const photos = await Promise.all(photoRows.map(async (photo) => {
+      const { data } = await supabase.storage.from('calibre-media').createSignedUrl(photo.storage_path, 86400)
+      return {
+        category: photo.category,
+        caption: photo.caption || photo.original_filename,
+        is_cover: photo.is_cover,
+        url: data?.signedUrl || '',
+      }
+    }))
+
+    const requestToken = token()
+    const item = itemResult.data
+    const identity = identityResult.data ?? {}
+    const passport = passportResult.data ?? {}
+    const question = requestScope.trim() || 'Comprehensive identification, technical and market research.'
+    const photoLines = photos.filter((photo) => photo.url).map((photo, index) => `${index + 1}. ${titleCase(photo.category)} — ${photo.caption}\n${photo.url}`).join('\n') || 'No photos attached.'
+    const handoff = [
+      `CALIBRE RESEARCH REQUEST ${requestToken}`,
+      '',
+      `Research type: ${titleCase(requestType)}`,
+      `Question / scope: ${question}`,
+      '',
+      'Use the supplied Calibre context and temporary photo links below. Research this item comprehensively where relevant. Then write structured findings and sources back to the Calibre research request with this token. Do not silently promote findings into Item or Passport facts.',
+      '',
+      `Item: #${item.item_number} — ${item.title}`,
+      `Type: ${item.type} | Purpose: ${item.purpose} | Status: ${item.status}`,
+      item.notes ? `Item notes: ${item.notes}` : '',
+      '',
+      `Identity snapshot:\n${JSON.stringify(identity, null, 2)}`,
+      '',
+      `Passport snapshot:\n${JSON.stringify(passport, null, 2)}`,
+      '',
+      `Temporary photo links (valid for 24 hours):\n${photoLines}`,
+      '',
+      `Token: ${requestToken}`,
+    ].filter(Boolean).join('\n')
+
+    const requestedScope = {
+      token: requestToken,
+      summary: question,
+      handoff,
+      photo_count: photos.filter((photo) => photo.url).length,
+      photos,
+      item_snapshot: item,
+      identity_snapshot: identity,
+      passport_snapshot: passport,
+      handoff_version: 1,
+    }
+
     const { data, error } = await supabase.from('research_requests')
       .insert({
         workspace_id: workspaceId,
         item_id: itemId,
         request_type: requestType,
-        requested_scope: requestScope.trim() ? { summary: requestScope.trim() } : {},
+        requested_scope: requestedScope,
       })
       .select('id,request_type,status,requested_scope,requested_at,completed_at')
       .single()
+
     setBusy(false)
     if (error || !data) {
       setMessage(`Could not create research request: ${error?.message ?? 'No record returned.'}`)
       return
     }
+
     setRequests((current) => [data as ResearchRequest, ...current])
     setSelectedRequestId(data.id)
     setRequestScope('')
-    setMessage('Research request created.')
+    setMessage(`Request ${requestToken} ready with ${requestedScope.photo_count} temporary photo link${requestedScope.photo_count === 1 ? '' : 's'}. Copy it into ChatGPT.`)
+  }
+
+  async function copyHandoff() {
+    const text = handoffText(selectedRequest)
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setMessage(`Request ${scopeString(selectedRequest?.requested_scope ?? {}, 'token')} copied. Paste it into ChatGPT.`)
+    } catch {
+      setMessage('Copy was blocked by the browser. Select the handoff text and copy it manually.')
+    }
   }
 
   async function updateRequestStatus(request: ResearchRequest, status: string) {
@@ -176,35 +269,6 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
       return
     }
     setRequests((current) => current.map((row) => row.id === request.id ? data as ResearchRequest : row))
-    setMessage(`Research marked ${titleCase(status)}.`)
-  }
-
-  async function createFinding(event: FormEvent) {
-    event.preventDefault()
-    if (!selectedRequestId || !category.trim() || !findingText.trim()) return
-    setBusy(true)
-    const { data, error } = await supabase.from('research_findings')
-      .insert({
-        workspace_id: workspaceId,
-        item_id: itemId,
-        research_request_id: selectedRequestId,
-        category: category.trim(),
-        finding: findingText.trim(),
-        confidence,
-        evidence_note: evidenceNote.trim(),
-      })
-      .select('id,research_request_id,category,finding,confidence,decision,evidence_note,accepted_at,created_at')
-      .single()
-    setBusy(false)
-    if (error || !data) {
-      setMessage(`Could not add finding: ${error?.message ?? 'No record returned.'}`)
-      return
-    }
-    setFindings((current) => [data as ResearchFinding, ...current])
-    setFindingText('')
-    setEvidenceNote('')
-    setConfidence('unknown')
-    setMessage('Finding added for review.')
   }
 
   async function setDecision(finding: ResearchFinding, decision: ResearchFinding['decision']) {
@@ -221,67 +285,23 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
       return
     }
     setFindings((current) => current.map((row) => row.id === finding.id ? data as ResearchFinding : row))
-    setMessage(`Finding ${decision}. No Item or Passport facts were changed automatically.`)
-  }
-
-  async function createSource(event: FormEvent) {
-    event.preventDefault()
-    if (!sourceTitle.trim()) return
-    setBusy(true)
-    const { data, error } = await supabase.from('sources')
-      .insert({
-        workspace_id: workspaceId,
-        source_type: sourceType,
-        title: sourceTitle.trim(),
-        publisher: publisher.trim(),
-        url: url.trim(),
-        reference_text: referenceText.trim(),
-        reliability,
-        notes: sourceNotes.trim(),
-      })
-      .select('id,source_type,title,publisher,url,reference_text,reliability,notes')
-      .single()
-    setBusy(false)
-    if (error || !data) {
-      setMessage(`Could not add source: ${error?.message ?? 'No record returned.'}`)
-      return
-    }
-    setSources((current) => [data as Source, ...current])
-    setSourceTitle('')
-    setPublisher('')
-    setUrl('')
-    setReferenceText('')
-    setSourceNotes('')
-    setReliability('unknown')
-    setMessage('Source added. Attach it to a finding to record the evidence link.')
-  }
-
-  async function attachSource(findingId: string, sourceId: string) {
-    if (!sourceId) return
-    const exists = links.some((link) => link.research_finding_id === findingId && link.source_id === sourceId)
-    if (exists) return
-    setBusy(true)
-    const { error } = await supabase.from('research_finding_sources')
-      .insert({ workspace_id: workspaceId, research_finding_id: findingId, source_id: sourceId })
-    setBusy(false)
-    if (error) {
-      setMessage(`Could not attach source: ${error.message}`)
-      return
-    }
-    setLinks((current) => [...current, { research_finding_id: findingId, source_id: sourceId }])
-    setMessage('Source linked to finding.')
+    setMessage(`Finding ${decision}. Item and Passport remain unchanged until explicitly applied.`)
   }
 
   if (loading) return <div className="loading-card">Loading research…</div>
+
+  const selectedToken = selectedRequest ? scopeString(selectedRequest.requested_scope, 'token') : ''
+  const handoff = handoffText(selectedRequest)
+  const selectedPhotoCount = selectedRequest && typeof selectedRequest.requested_scope.photo_count === 'number' ? selectedRequest.requested_scope.photo_count : 0
 
   return (
     <div className="research-stack">
       <section className="section-card research-hero">
         <div className="research-heading">
           <div>
-            <p className="eyebrow">RESEARCH WORKSPACE</p>
-            <h3>Evidence before conclusions</h3>
-            <p className="muted">Requests, sources and findings stay reviewable. Accepting a finding does not silently rewrite the Item or Passport.</p>
+            <p className="eyebrow">CHATGPT RESEARCH HANDOFF</p>
+            <h3>Package the Item for research</h3>
+            <p className="muted">Create a tokenised handoff with Item context, Passport data and temporary photo links. Copy it into ChatGPT; findings come back into this request for review.</p>
           </div>
           <span className="research-count">{findings.filter((finding) => finding.decision === 'pending').length} pending</span>
         </div>
@@ -290,64 +310,71 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
 
       <div className="research-columns">
         <section className="section-card">
-          <p className="eyebrow">REQUESTS</p>
+          <p className="eyebrow">CREATE REQUEST</p>
           <form className="research-form" onSubmit={createRequest}>
             <label>Research type
               <select value={requestType} onChange={(event) => setRequestType(event.target.value)}>
                 {requestTypes.map((value) => <option value={value} key={value}>{titleCase(value)}</option>)}
               </select>
             </label>
-            <label>Scope / question
-              <textarea rows={3} value={requestScope} onChange={(event) => setRequestScope(event.target.value)} placeholder="What are we trying to establish?" />
+            <label>Question / scope
+              <textarea rows={4} value={requestScope} onChange={(event) => setRequestScope(event.target.value)} placeholder="What do you want ChatGPT to establish?" />
             </label>
-            <button disabled={busy}>Create request</button>
+            <button disabled={busy}>{busy ? 'Preparing…' : 'Create ChatGPT request'}</button>
           </form>
 
           <div className="research-request-list">
             {requests.length === 0 && <p className="muted">No research requests yet.</p>}
-            {requests.map((request) => (
-              <button key={request.id} type="button" className={`research-request ${selectedRequestId === request.id ? 'selected' : ''}`} onClick={() => setSelectedRequestId(request.id)}>
-                <span>{titleCase(request.request_type)}</span>
-                <small>{titleCase(request.status)}</small>
-              </button>
-            ))}
+            {requests.map((request) => {
+              const requestToken = scopeString(request.requested_scope, 'token')
+              return (
+                <button key={request.id} type="button" className={`research-request ${selectedRequestId === request.id ? 'selected' : ''}`} onClick={() => setSelectedRequestId(request.id)}>
+                  <span>{requestToken || titleCase(request.request_type)}</span>
+                  <small>{titleCase(request.status)}</small>
+                </button>
+              )
+            })}
           </div>
         </section>
 
-        <section className="section-card">
+        <section className="section-card research-handoff-card">
           <div className="research-heading compact">
-            <div><p className="eyebrow">ACTIVE REQUEST</p><h3>{selectedRequest ? titleCase(selectedRequest.request_type) : 'Select a request'}</h3></div>
+            <div><p className="eyebrow">COPY TO CHATGPT</p><h3>{selectedToken ? `Request ${selectedToken}` : 'Create a request first'}</h3></div>
             {selectedRequest && (
               <select className="research-status" value={selectedRequest.status} disabled={busy} onChange={(event) => updateRequestStatus(selectedRequest, event.target.value)}>
                 {requestStatuses.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
               </select>
             )}
           </div>
-          {selectedRequest && typeof selectedRequest.requested_scope?.summary === 'string' && selectedRequest.requested_scope.summary && (
-            <p className="research-scope">{selectedRequest.requested_scope.summary}</p>
-          )}
 
           {selectedRequest && (
-            <form className="research-form research-finding-form" onSubmit={createFinding}>
-              <div className="research-form-grid">
-                <label>Category<input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="identity, movement, date…" /></label>
-                <label>Confidence<select value={confidence} onChange={(event) => setConfidence(event.target.value as ResearchFinding['confidence'])}>{confidences.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
+            <>
+              <div className="research-handoff-meta">
+                <span>{titleCase(selectedRequest.request_type)}</span>
+                <span>{selectedPhotoCount} photo link{selectedPhotoCount === 1 ? '' : 's'}</span>
+                <span>24h links</span>
               </div>
-              <label>Finding<textarea rows={3} value={findingText} onChange={(event) => setFindingText(event.target.value)} placeholder="State the claim clearly." /></label>
-              <label>Evidence note<textarea rows={2} value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Why does the evidence support this?" /></label>
-              <button disabled={busy || !findingText.trim()}>Add finding</button>
-            </form>
+              <textarea className="research-handoff-text" readOnly value={handoff} rows={14} />
+              <button type="button" onClick={copyHandoff} disabled={!handoff}>Copy for ChatGPT</button>
+              <p className="muted research-copy-note">Paste the copied block into this ChatGPT project. The token tells me exactly which Calibre request to update.</p>
+            </>
           )}
         </section>
       </div>
 
       {selectedRequest && (
         <section className="section-card">
-          <div className="research-heading compact"><div><p className="eyebrow">FINDINGS</p><h3>Review queue</h3></div><span className="research-count">{selectedFindings.length}</span></div>
+          <div className="research-heading compact">
+            <div><p className="eyebrow">FINDINGS FROM CHATGPT</p><h3>Review queue</h3></div>
+            <span className="research-count">{selectedFindings.length}</span>
+          </div>
           <div className="research-findings">
-            {selectedFindings.length === 0 && <p className="muted">No findings recorded for this request yet.</p>}
+            {selectedFindings.length === 0 && <p className="muted">No findings yet. Copy the request into ChatGPT and ask me to research it.</p>}
             {selectedFindings.map((finding) => {
-              const linkedSources = links.filter((link) => link.research_finding_id === finding.id).map((link) => sources.find((source) => source.id === link.source_id)).filter(Boolean) as Source[]
+              const linkedSources = links
+                .filter((link) => link.research_finding_id === finding.id)
+                .map((link) => sources.find((source) => source.id === link.source_id))
+                .filter(Boolean) as Source[]
               return (
                 <article className={`research-finding decision-${finding.decision}`} key={finding.id}>
                   <div className="research-finding-top">
@@ -356,15 +383,7 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
                   </div>
                   <p className="research-finding-text">{finding.finding}</p>
                   {finding.evidence_note && <p className="research-evidence">{finding.evidence_note}</p>}
-                  <div className="research-source-links">
-                    {linkedSources.map((source) => <span key={source.id}>{source.title} · {titleCase(source.reliability)}</span>)}
-                    <label>Attach source
-                      <select defaultValue="" disabled={busy || sources.length === 0} onChange={(event) => { attachSource(finding.id, event.target.value); event.currentTarget.value = '' }}>
-                        <option value="">Choose…</option>
-                        {sources.map((source) => <option key={source.id} value={source.id}>{source.title}</option>)}
-                      </select>
-                    </label>
-                  </div>
+                  {linkedSources.length > 0 && <div className="research-source-links">{linkedSources.map((source) => <span key={source.id}>{source.title} · {titleCase(source.reliability)}</span>)}</div>}
                   <div className="research-decisions">
                     <button type="button" disabled={busy || finding.decision === 'accepted'} onClick={() => setDecision(finding, 'accepted')}>Accept</button>
                     <button type="button" className="secondary" disabled={busy || finding.decision === 'rejected'} onClick={() => setDecision(finding, 'rejected')}>Reject</button>
@@ -376,22 +395,6 @@ export default function ResearchWorkspace({ workspaceId, itemId }: Props) {
           </div>
         </section>
       )}
-
-      <section className="section-card">
-        <div className="research-heading compact"><div><p className="eyebrow">SOURCE LIBRARY</p><h3>Add evidence source</h3></div><span className="research-count">{sources.length}</span></div>
-        <form className="research-form" onSubmit={createSource}>
-          <div className="research-form-grid">
-            <label>Source type<select value={sourceType} onChange={(event) => setSourceType(event.target.value)}>{sourceTypes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
-            <label>Reliability<select value={reliability} onChange={(event) => setReliability(event.target.value)}>{reliabilities.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
-            <label className="span-2">Title<input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} /></label>
-            <label>Publisher / provider<input value={publisher} onChange={(event) => setPublisher(event.target.value)} /></label>
-            <label>URL<input value={url} onChange={(event) => setUrl(event.target.value)} inputMode="url" /></label>
-            <label className="span-2">Reference / page / document note<input value={referenceText} onChange={(event) => setReferenceText(event.target.value)} /></label>
-            <label className="span-2">Source notes<textarea rows={3} value={sourceNotes} onChange={(event) => setSourceNotes(event.target.value)} /></label>
-          </div>
-          <button disabled={busy || !sourceTitle.trim()}>Add source</button>
-        </form>
-      </section>
     </div>
   )
 }
