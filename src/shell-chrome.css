@@ -19,8 +19,16 @@
   margin-right: var(--calibre-shell-inline) !important;
 }
 
-/* The nav row now genuinely spans edge-to-edge; no negative-margin trickery. */
+/*
+ * Shell invariant: navigation always belongs to row two of the header.
+ * Explicitly clear all positional offsets here because this file loads last.
+ */
 .topnav {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
   width: 100% !important;
   margin: 0 !important;
   padding: 0 var(--calibre-shell-inline) !important;
@@ -48,6 +56,11 @@
 }
 
 .phone-shell .topnav {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
   padding-inline: 6px !important;
 }
 
@@ -72,6 +85,11 @@
   }
 
   .topnav {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
     padding-inline: 6px !important;
   }
 
