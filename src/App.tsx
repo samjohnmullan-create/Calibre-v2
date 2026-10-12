@@ -31,6 +31,7 @@ type WorkLane = { status: WorkStatus; label: string; hint: string }
 type WorkDetailsPatch = Pick<WorkRecord, 'priority' | 'next_action' | 'waiting_reason' | 'blocker'>
 type ItemPatch = Pick<Item, 'title' | 'status' | 'purpose' | 'notes'>
 type IdentityPatch = Pick<Identity, 'maker' | 'model' | 'reference' | 'serial' | 'era' | 'country' | 'materials' | 'dimensions_text' | 'dial_markings' | 'case_markings' | 'movement_markings' | 'notes'>
+type RouteState = { section: Section; itemId: string | null; workId: string | null }
 
 const emptyDetail: DetailData = { identity: null, work: [], valuation: null, costs: [] }
 const workLanes: WorkLane[] = [
@@ -51,6 +52,7 @@ const waitingReasons: { value: WaitingReason; label: string }[] = [
 ]
 const itemStatuses = ['acquired', 'researching', 'preparing', 'ready_for_sale', 'listed', 'sold', 'archived']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
+const sections: Section[] = ['home', 'items', 'workbench', 'business', 'calibre']
 
 function money(value: number | null | undefined, currency = 'AUD') {
   if (value == null) return '—'
@@ -65,7 +67,23 @@ function workStatusLabel(status: WorkStatus) {
   return workLanes.find((lane) => lane.status === status)?.label ?? titleCase(status)
 }
 
+function readRoute(): RouteState {
+  const raw = window.location.hash.replace(/^#\/?/, '')
+  const [first = 'items', second] = raw.split('/').filter(Boolean)
+  if (first === 'items') return { section: 'items', itemId: second ? decodeURIComponent(second) : null, workId: null }
+  if (first === 'work') return { section: 'items', itemId: null, workId: second ? decodeURIComponent(second) : null }
+  if (sections.includes(first as Section)) return { section: first as Section, itemId: null, workId: null }
+  return { section: 'items', itemId: null, workId: null }
+}
+
+function routeHash(section: Section, itemId?: string | null, workId?: string | null) {
+  if (workId) return `#/work/${encodeURIComponent(workId)}`
+  if (section === 'items' && itemId) return `#/items/${encodeURIComponent(itemId)}`
+  return `#/${section}`
+}
+
 export default function App() {
+  const initialRoute = useMemo(readRoute, [])
   const [session, setSession] = useState<Session | null>(null)
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -74,10 +92,11 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [connection, setConnection] = useState<'checking' | 'ok' | 'error'>('checking')
-  const [section, setSection] = useState<Section>('items')
+  const [section, setSection] = useState<Section>(initialRoute.section)
   const [items, setItems] = useState<Item[]>([])
   const [itemsLoading, setItemsLoading] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialRoute.itemId)
+  const [routedWorkId, setRoutedWorkId] = useState<string | null>(initialRoute.workId)
   const [detail, setDetail] = useState<DetailData>(emptyDetail)
   const [detailLoading, setDetailLoading] = useState(false)
   const [itemTab, setItemTab] = useState<ItemTab>('work')
@@ -88,6 +107,42 @@ export default function App() {
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null
   const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
+
+  function applyRoute(route: RouteState) {
+    setSection(route.section)
+    setRoutedWorkId(route.workId)
+    if (route.itemId) {
+      setSelectedId(route.itemId)
+      setItemTab('work')
+    }
+  }
+
+  function navigate(sectionTarget: Section, itemId?: string | null, workId?: string | null) {
+    const nextHash = routeHash(sectionTarget, itemId, workId)
+    if (window.location.hash === nextHash) {
+      applyRoute(readRoute())
+      return
+    }
+    window.location.hash = nextHash
+  }
+
+  function openItem(itemId: string) {
+    setSelectedId(itemId)
+    setRoutedWorkId(null)
+    setItemTab('work')
+    setSection('items')
+    navigate('items', itemId)
+  }
+
+  useEffect(() => {
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/items`)
+    }
+    const syncRoute = () => applyRoute(readRoute())
+    syncRoute()
+    window.addEventListener('hashchange', syncRoute)
+    return () => window.removeEventListener('hashchange', syncRoute)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data, error }) => {
@@ -154,10 +209,10 @@ export default function App() {
       }
       const nextItems = (data ?? []) as Item[]
       setItems(nextItems)
-      if (!selectedId && nextItems.length > 0) setSelectedId(nextItems[0].id)
+      if (!selectedId && !routedWorkId && nextItems.length > 0) setSelectedId(nextItems[0].id)
     })()
     return () => { active = false }
-  }, [workspace, selectedId])
+  }, [workspace, selectedId, routedWorkId])
 
   useEffect(() => {
     if (!workspace) return
@@ -179,6 +234,18 @@ export default function App() {
     })()
     return () => { active = false }
   }, [workspace])
+
+  useEffect(() => {
+    if (!routedWorkId || allWork.length === 0) return
+    const target = allWork.find((record) => record.id === routedWorkId)
+    if (!target) {
+      setMessage('That Work link could not be found in this workspace.')
+      return
+    }
+    setSelectedId(target.item_id)
+    setItemTab('work')
+    setSection('items')
+  }, [routedWorkId, allWork])
 
   useEffect(() => {
     if (!workspace || !selectedId) {
@@ -357,8 +424,10 @@ export default function App() {
 
   function openWorkItem(work: WorkRecord) {
     setSelectedId(work.item_id)
+    setRoutedWorkId(work.id)
     setItemTab('work')
     setSection('items')
+    navigate('items', null, work.id)
   }
 
   if (!session) {
@@ -408,9 +477,9 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand-button" onClick={() => setSection('home')} aria-label="Calibre home"><BrandMark compact /><span>Calibre & Co.</span></button>
+        <button className="brand-button" onClick={() => navigate('home')} aria-label="Calibre home"><BrandMark compact /><span>Calibre & Co.</span></button>
         <nav className="topnav" aria-label="Main navigation">
-          {(['home', 'items', 'workbench', 'business', 'calibre'] as Section[]).map((key) => <button key={key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}>{titleCase(key)}</button>)}
+          {sections.map((key) => <button key={key} className={section === key ? 'active' : ''} onClick={() => navigate(key, key === 'items' ? selectedId : null)}>{titleCase(key)}</button>)}
         </nav>
         <button className="profile-chip" onClick={signOut} title="Sign out">SM</button>
       </header>
@@ -424,7 +493,7 @@ export default function App() {
               {itemsLoading && <p className="empty-state">Loading items…</p>}
               {!itemsLoading && items.length === 0 && <p className="empty-state">No items yet.</p>}
               {items.map((item) => (
-                <button key={item.id} className={`item-row ${selectedId === item.id ? 'selected' : ''}`} onClick={() => { setSelectedId(item.id); setItemTab('work') }}>
+                <button key={item.id} className={`item-row ${selectedId === item.id ? 'selected' : ''}`} onClick={() => openItem(item.id)}>
                   <div className="item-number">#{item.item_number}</div>
                   <div className="item-row-main"><strong>{item.title}</strong><span>{titleCase(item.type)} · {titleCase(item.purpose)}</span></div>
                   <StatusPill value={item.status} />
@@ -443,7 +512,7 @@ export default function App() {
                   <div className="header-actions"><button className="secondary small" onClick={() => setItemTab('item')}>Edit item</button></div>
                 </div>
                 <div className="item-tabs" role="tablist">{(['work', 'item', 'commerce'] as ItemTab[]).map((tab) => <button key={tab} className={itemTab === tab ? 'active' : ''} onClick={() => setItemTab(tab)}>{titleCase(tab)}</button>)}</div>
-                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
+                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} focusWorkId={routedWorkId} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
               </>
             )}
           </section>
@@ -459,7 +528,7 @@ export default function App() {
           <p className="eyebrow">{titleCase(section)}</p>
           <h2>{section === 'home' ? 'Calibre v2' : `${titleCase(section)} is next.`}</h2>
           <p className="muted">The operating system is being built around one object lifecycle: acquisition, identity, work, commerce and permanent history.</p>
-          <button onClick={() => setSection('items')}>Open Items</button>
+          <button onClick={() => navigate('items', selectedId)}>Open Items</button>
         </main>
       )}
     </div>
@@ -575,8 +644,8 @@ function WorkbenchCard({ record, item, saving, onStatusChange, onSaveDetails, on
   )
 }
 
-function WorkTab({ work }: { work: WorkRecord[] }) {
-  const primary = work[0]
+function WorkTab({ work, focusWorkId }: { work: WorkRecord[]; focusWorkId?: string | null }) {
+  const primary = (focusWorkId ? work.find((record) => record.id === focusWorkId) : null) ?? work[0]
   if (!primary) return <div className="section-card"><p className="muted">No work has been opened for this item.</p><button>Start work</button></div>
   const currentIndex = Math.max(0, workLanes.findIndex((lane) => lane.status === primary.status))
   return (
