@@ -24,7 +24,7 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export default function KnowledgePage({ workspaceId }: { workspaceId: string }) {
+export default function KnowledgePage() {
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -79,7 +79,7 @@ export default function KnowledgePage({ workspaceId }: { workspaceId: string }) 
         </div>
       </section>
 
-      <PartsInventory workspaceId={workspaceId} />
+      <PartsInventory />
       <MovementFinder />
       <MovementSearch />
 
