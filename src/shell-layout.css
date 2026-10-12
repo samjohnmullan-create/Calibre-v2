@@ -1,67 +1,103 @@
-/* Canonical shell/header layout. Loaded last: this file owns header/nav positioning. */
+/* Canonical shell/header layout. Loaded last and deliberately simple. */
 
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 100;
-  min-height: 64px;
-  height: 64px;
+  z-index: 300;
+  width: 100%;
+  min-height: 108px;
+  height: auto;
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) auto minmax(72px, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 58px 50px;
+  grid-template-areas:
+    "brand profile"
+    "nav nav";
   align-items: center;
-  gap: 20px;
+  gap: 0 16px;
   padding: 0 22px;
   overflow: visible;
+  background: rgba(27, 36, 42, 0.98);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+  filter: none;
+  perspective: none;
+  contain: none;
 }
 
 .brand-button {
-  position: relative;
-  z-index: 102;
+  grid-area: brand;
   justify-self: start;
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
   max-width: 100%;
+  padding: 0;
   overflow: visible;
+  background: transparent;
 }
 
 .brand-button > .mark,
 .brand-button .moon,
 .brand-button .star,
 .brand-button > span:last-child {
+  display: block;
   visibility: visible;
   opacity: 1;
 }
 
 .brand-button > span:last-child {
-  display: block;
+  min-width: 0;
   white-space: nowrap;
-}
-
-.topnav {
-  position: static;
-  z-index: 101;
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  width: auto;
-  transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-chip {
-  position: relative;
-  z-index: 102;
+  grid-area: profile;
   justify-self: end;
   display: grid;
   place-items: center;
   visibility: visible;
   opacity: 1;
+  margin: 0;
 }
 
-/* Shared phone-shell rules. The class is set from physical screen dimensions,
-   so browser desktop-mode viewport emulation cannot suppress the mobile shell. */
+.topnav {
+  grid-area: nav;
+  position: static;
+  justify-self: center;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  transform: none;
+  border-top: 1px solid rgba(116, 141, 146, 0.16);
+}
+
+.topnav button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Existing content heights assumed a 64px header. Correct them for the
+   stable two-row shell on desktop. */
+.items-layout {
+  height: calc(100vh - 108px);
+}
+
+.workbench-page {
+  min-height: calc(100vh - 108px);
+}
+
+/* Phone/tablet: same two-row structure, just denser. This intentionally avoids
+   fixed-position navigation until the shell is fully stable across Galaxy + DeX. */
 .phone-shell,
 .phone-shell body,
 .phone-shell #root,
@@ -72,93 +108,49 @@
 }
 
 .phone-shell body {
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: 0;
 }
 
 .phone-shell .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 300;
-  width: 100%;
-  min-height: 60px;
-  height: 60px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  min-height: 104px;
+  grid-template-rows: 56px 48px;
   padding: 0 14px;
-  overflow: visible;
-  /* A backdrop-filtered ancestor becomes the containing block for fixed
-     descendants on mobile browsers. Keep this header unfiltered so the
-     fixed bottom nav is positioned against the viewport, not the header. */
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transform: none;
-  filter: none;
-  perspective: none;
-  contain: none;
-  background: rgba(27, 36, 42, 0.98);
+  gap: 0 10px;
 }
 
 .phone-shell .brand-button {
-  justify-self: start;
-  width: auto;
-  max-width: calc(100vw - 72px);
-  min-width: 0;
-  display: flex;
-  align-items: center;
+  max-width: calc(100vw - 68px);
   gap: 9px;
-  overflow: visible;
 }
 
 .phone-shell .brand-button > .mark.compact {
-  display: inline-block;
   width: 34px;
   height: 34px;
   flex: 0 0 34px;
 }
 
-.phone-shell .brand-button .moon,
-.phone-shell .brand-button .star {
-  display: block;
-}
-
 .phone-shell .brand-button > span:last-child {
-  display: block;
-  min-width: 0;
-  max-width: calc(100vw - 122px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: calc(100vw - 120px);
   font-size: 17px;
 }
 
 .phone-shell .profile-chip {
-  display: grid;
-  place-items: center;
-  justify-self: end;
   width: 36px;
   height: 36px;
   min-width: 36px;
-  margin: 0;
 }
 
 .phone-shell .topnav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: auto;
-  bottom: 0;
-  z-index: 400;
-  width: 100%;
+  position: static;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-  margin: 0;
-  transform: none;
-  border-top: 1px solid rgba(116, 141, 146, 0.26);
-  background: rgba(24, 33, 39, 0.98);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  width: 100%;
+  border-top: 1px solid rgba(116, 141, 146, 0.16);
+  border-bottom: 1px solid rgba(116, 141, 146, 0.18);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .phone-shell .topnav button {
@@ -167,6 +159,17 @@
   font-size: 10px;
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.phone-shell .items-layout {
+  height: auto;
+  min-height: calc(100dvh - 104px);
+}
+
+.phone-shell .workbench-page,
+.phone-shell .placeholder-page,
+.phone-shell .item-workspace {
+  min-height: calc(100dvh - 104px);
 }
 
 /* Width fallback for ordinary mobile/tablet browsers. */
@@ -181,90 +184,53 @@
   }
 
   body {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
   }
 
   .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 300;
-    width: 100%;
-    min-height: 60px;
-    height: 60px;
+    min-height: 104px;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-rows: 56px 48px;
+    grid-template-areas:
+      "brand profile"
+      "nav nav";
     padding: 0 14px;
-    overflow: visible;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    transform: none;
-    filter: none;
-    perspective: none;
-    contain: none;
-    background: rgba(27, 36, 42, 0.98);
+    gap: 0 10px;
   }
 
   .brand-button {
-    justify-self: start;
-    width: auto;
-    max-width: calc(100vw - 72px);
-    min-width: 0;
-    display: flex;
-    align-items: center;
+    max-width: calc(100vw - 68px);
     gap: 9px;
-    overflow: visible;
   }
 
   .brand-button > .mark.compact {
-    display: inline-block;
     width: 34px;
     height: 34px;
     flex: 0 0 34px;
   }
 
-  .brand-button .moon,
-  .brand-button .star {
-    display: block;
-  }
-
   .brand-button > span:last-child {
-    display: block;
-    min-width: 0;
-    max-width: calc(100vw - 122px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: calc(100vw - 120px);
     font-size: 17px;
   }
 
   .profile-chip {
-    display: grid;
-    place-items: center;
-    justify-self: end;
     width: 36px;
     height: 36px;
     min-width: 36px;
-    margin: 0;
   }
 
   .topnav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: 0;
-    z-index: 400;
-    width: 100%;
+    position: static;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    margin: 0;
-    transform: none;
-    border-top: 1px solid rgba(116, 141, 146, 0.26);
-    background: rgba(24, 33, 39, 0.98);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    width: 100%;
+    border-top: 1px solid rgba(116, 141, 146, 0.16);
+    border-bottom: 1px solid rgba(116, 141, 146, 0.18);
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .topnav button {
@@ -273,5 +239,16 @@
     font-size: 10px;
     line-height: 1.1;
     white-space: nowrap;
+  }
+
+  .items-layout {
+    height: auto;
+    min-height: calc(100dvh - 104px);
+  }
+
+  .workbench-page,
+  .placeholder-page,
+  .item-workspace {
+    min-height: calc(100dvh - 104px);
   }
 }
