@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import ResearchWorkspace from './ResearchWorkspace'
 
 export type Passport = {
   item_id: string
@@ -288,6 +289,8 @@ export default function PassportPanel({ workspaceId, itemId }: PassportPanelProp
           <span>Technical notes</span><p>{passport.technical_notes || 'No technical notes recorded.'}</p>
         </div>
       </section>
+
+      <ResearchWorkspace workspaceId={workspaceId} itemId={itemId} />
     </div>
   )
 }
