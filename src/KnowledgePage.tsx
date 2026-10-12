@@ -1,5 +1,6 @@
 import { ChangeEvent, useMemo, useState } from 'react'
 import { importKnowledgeEngine } from './lib/knowledge-import'
+import MovementFinder from './MovementFinder'
 import MovementSearch from './MovementSearch'
 
 type ImportProgress = {
@@ -77,6 +78,7 @@ export default function KnowledgePage() {
         </div>
       </section>
 
+      <MovementFinder />
       <MovementSearch />
 
       <section className="knowledge-import-card">
