@@ -9,6 +9,7 @@ import './item-editing.css'
 import './media.css'
 import './theme-classic.css'
 import './brand-polish.css'
+import './shell-layout.css'
 import './dex-scroll'
 
 createRoot(document.getElementById('root')!).render(
