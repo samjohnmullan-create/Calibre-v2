@@ -2,6 +2,7 @@ import { ChangeEvent, useMemo, useState } from 'react'
 import { importKnowledgeEngine } from './lib/knowledge-import'
 import MovementFinder from './MovementFinder'
 import MovementSearch from './MovementSearch'
+import PartsInventory from './PartsInventory'
 
 type ImportProgress = {
   dataset: string
@@ -23,7 +24,7 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export default function KnowledgePage() {
+export default function KnowledgePage({ workspaceId }: { workspaceId: string }) {
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -78,6 +79,7 @@ export default function KnowledgePage() {
         </div>
       </section>
 
+      <PartsInventory workspaceId={workspaceId} />
       <MovementFinder />
       <MovementSearch />
 
