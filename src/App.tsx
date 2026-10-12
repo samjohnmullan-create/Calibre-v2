@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import ItemMedia from './ItemMedia'
+import PassportPanel from './PassportPanel'
 
 type Workspace = { id: string; name: string; slug: string; owner_id: string }
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; created_at: string }
@@ -26,7 +27,7 @@ type Valuation = { low_value: number | null; expected_value: number | null; high
 type CostEntry = { category: string; amount: number; currency: string; notes: string }
 type DetailData = { identity: Identity | null; work: WorkRecord[]; valuation: Valuation | null; costs: CostEntry[] }
 type Section = 'home' | 'items' | 'workbench' | 'business' | 'calibre'
-type ItemTab = 'work' | 'item' | 'commerce'
+type ItemTab = 'work' | 'item' | 'passport' | 'commerce'
 type WorkLane = { status: WorkStatus; label: string; hint: string }
 type WorkDetailsPatch = Pick<WorkRecord, 'priority' | 'next_action' | 'waiting_reason' | 'blocker'>
 type ItemPatch = Pick<Item, 'title' | 'status' | 'purpose' | 'notes'>
@@ -511,8 +512,8 @@ export default function App() {
                   <div><div className="item-kicker"><span>Item #{selectedItem.item_number}</span><StatusPill value={selectedItem.status} /></div><h1>{selectedItem.title}</h1><p className="subtitle">{detail.identity?.maker || titleCase(selectedItem.type)}{detail.identity?.era ? ` · ${detail.identity.era}` : ''}</p></div>
                   <div className="header-actions"><button className="secondary small" onClick={() => setItemTab('item')}>Edit item</button></div>
                 </div>
-                <div className="item-tabs" role="tablist">{(['work', 'item', 'commerce'] as ItemTab[]).map((tab) => <button key={tab} className={itemTab === tab ? 'active' : ''} onClick={() => setItemTab(tab)}>{titleCase(tab)}</button>)}</div>
-                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} focusWorkId={routedWorkId} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
+                <div className="item-tabs" role="tablist">{(['work', 'item', 'passport', 'commerce'] as ItemTab[]).map((tab) => <button key={tab} className={itemTab === tab ? 'active' : ''} onClick={() => setItemTab(tab)}>{titleCase(tab)}</button>)}</div>
+                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} focusWorkId={routedWorkId} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'passport' && <PassportPanel workspaceId={workspace.id} itemId={selectedItem.id} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
               </>
             )}
           </section>
