@@ -10,6 +10,7 @@ import './media.css'
 import './theme-classic.css'
 import './brand-polish.css'
 import './shell-layout.css'
+import './shell-chrome.css'
 import './device-shell'
 import './dex-scroll'
 
