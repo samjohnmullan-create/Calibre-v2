@@ -1,5 +1,6 @@
 import { ChangeEvent, useMemo, useState } from 'react'
 import { importKnowledgeEngine } from './lib/knowledge-import'
+import MovementSearch from './MovementSearch'
 
 type ImportProgress = {
   dataset: string
@@ -75,6 +76,8 @@ export default function KnowledgePage() {
           <p className="muted">Movement, parts, compatibility and source knowledge with evidence kept attached.</p>
         </div>
       </section>
+
+      <MovementSearch />
 
       <section className="knowledge-import-card">
         <div className="knowledge-import-copy">
