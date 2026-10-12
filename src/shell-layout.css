@@ -1,5 +1,9 @@
 /* Canonical shell/header layout. Loaded last and deliberately simple. */
 
+:root {
+  --calibre-shell-gap: 22px;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -86,14 +90,21 @@
   white-space: nowrap;
 }
 
-/* Existing content heights assumed a 64px header. Correct them for the
-   stable two-row shell on desktop. */
+/* Give every primary workspace clear air below the two-row shell. */
+.placeholder-page,
+.workbench-page,
 .items-layout {
-  height: calc(100vh - 108px);
+  margin-top: var(--calibre-shell-gap);
+}
+
+/* Existing content heights assumed a 64px header. Correct them for the
+   stable two-row shell on desktop, including the new breathing room. */
+.items-layout {
+  height: calc(100vh - 108px - var(--calibre-shell-gap));
 }
 
 .workbench-page {
-  min-height: calc(100vh - 108px);
+  min-height: calc(100vh - 108px - var(--calibre-shell-gap));
 }
 
 /* Phone/tablet: same two-row structure, just denser. This intentionally avoids
@@ -163,13 +174,13 @@
 
 .phone-shell .items-layout {
   height: auto;
-  min-height: calc(100dvh - 104px);
+  min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
 }
 
 .phone-shell .workbench-page,
 .phone-shell .placeholder-page,
 .phone-shell .item-workspace {
-  min-height: calc(100dvh - 104px);
+  min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
 }
 
 /* Width fallback for ordinary mobile/tablet browsers. */
@@ -243,12 +254,12 @@
 
   .items-layout {
     height: auto;
-    min-height: calc(100dvh - 104px);
+    min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
   }
 
   .workbench-page,
   .placeholder-page,
   .item-workspace {
-    min-height: calc(100dvh - 104px);
+    min-height: calc(100dvh - 104px - var(--calibre-shell-gap));
   }
 }
