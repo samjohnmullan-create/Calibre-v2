@@ -1,28 +1,10 @@
-/* DeX/desktop Workbench scrolling fix. Loaded after the main stylesheet. */
-.workbench-page {
-  min-height: calc(100vh - 64px);
-  overflow-x: hidden;
-  overflow-y: auto;
-}
+/*
+ * DeX Workbench input refinements only.
+ * Layout geometry belongs to shell-layout.css.
+ */
 
 .workbench-board {
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
   overscroll-behavior-x: contain;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
-}
-
-@media (min-width: 901px) {
-  .workbench-page {
-    height: calc(100vh - 64px);
-    min-height: 0;
-    overflow-y: auto;
-  }
-
-  .workbench-board {
-    min-height: min-content;
-    padding-bottom: 24px;
-  }
 }
