@@ -1,4 +1,4 @@
-@media (max-width: 720px) {
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
   html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   body { padding-bottom: 68px; }
 
