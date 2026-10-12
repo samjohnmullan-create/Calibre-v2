@@ -4,6 +4,7 @@ import App from './AppV2'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
+import './mobile.css'
 import './dex-scroll'
 
 createRoot(document.getElementById('root')!).render(
