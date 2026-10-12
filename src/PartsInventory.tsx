@@ -42,7 +42,8 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export default function PartsInventory({ workspaceId }: { workspaceId: string }) {
+export default function PartsInventory() {
+  const [workspaceId, setWorkspaceId] = useState('')
   const [parts, setParts] = useState<Part[]>([])
   const [locations, setLocations] = useState<StorageLocation[]>([])
   const [donors, setDonors] = useState<Donor[]>([])
@@ -70,7 +71,23 @@ export default function PartsInventory({ workspaceId }: { workspaceId: string })
   const donorById = useMemo(() => new Map(donors.map((donor) => [donor.id, donor])), [donors])
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations])
 
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data, error } = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
+      if (!active) return
+      if (error || !data) {
+        setLoading(false)
+        setMessage(`Parts workspace unavailable: ${error?.message ?? 'No workspace found.'}`)
+        return
+      }
+      setWorkspaceId(data.id)
+    })()
+    return () => { active = false }
+  }, [])
+
   async function load() {
+    if (!workspaceId) return
     setLoading(true)
     const [partsResult, locationResult, donorResult, applicationResult, fitResult] = await Promise.all([
       supabase.from('parts').select('id,part_type,manufacturer,reference,description,condition,quantity,unit_cost,currency,storage_location_id,donor_item_id,notes,provenance_type,provenance_note,replacement_cost,knowledge_part_ref_id').eq('workspace_id', workspaceId).order('created_at', { ascending: false }),
@@ -94,7 +111,7 @@ export default function PartsInventory({ workspaceId }: { workspaceId: string })
     setFits((fitResult.data ?? []) as FitVerification[])
   }
 
-  useEffect(() => { void load() }, [workspaceId])
+  useEffect(() => { if (workspaceId) void load() }, [workspaceId])
 
   function resetForm() {
     setPartType('')
@@ -114,7 +131,7 @@ export default function PartsInventory({ workspaceId }: { workspaceId: string })
 
   async function addPart(event: FormEvent) {
     event.preventDefault()
-    if (!partType.trim() || !description.trim()) return
+    if (!workspaceId || !partType.trim() || !description.trim()) return
     setSaving(true)
     setMessage('Saving part…')
 
@@ -157,7 +174,7 @@ export default function PartsInventory({ workspaceId }: { workspaceId: string })
           <h2>Workshop inventory</h2>
           <p className="muted">Owned parts and donor stock stay separate from reference compatibility. Bench-confirmed fits are recorded as evidence, not assumptions.</p>
         </div>
-        <button type="button" onClick={() => setShowForm((value) => !value)}>{showForm ? 'Close' : 'Add part'}</button>
+        <button type="button" onClick={() => setShowForm((value) => !value)} disabled={!workspaceId}>{showForm ? 'Close' : 'Add part'}</button>
       </div>
 
       <div className="parts-stats">
@@ -201,6 +218,7 @@ export default function PartsInventory({ workspaceId }: { workspaceId: string })
           const location = part.storage_location_id ? locationById.get(part.storage_location_id) : null
           const partApplications = applications.filter((application) => application.part_id === part.id)
           const partFits = fits.filter((fit) => fit.part_id === part.id)
+          const confirmedFits = partFits.filter((fit) => fit.result === 'confirmed').length
           return (
             <article className="part-card" key={part.id}>
               <div className="part-card-top">
@@ -215,7 +233,7 @@ export default function PartsInventory({ workspaceId }: { workspaceId: string })
               </div>
               <div className="part-evidence-row">
                 <span>{partApplications.length} application{partApplications.length === 1 ? '' : 's'}</span>
-                <span>{partFits.filter((fit) => fit.result === 'confirmed').length} confirmed fit{partFits.filter((fit) => fit.result === 'confirmed').length === 1 ? '' : 's'}</span>
+                <span>{confirmedFits} confirmed fit{confirmedFits === 1 ? '' : 's'}</span>
                 {part.knowledge_part_ref_id && <span>Knowledge linked</span>}
               </div>
               {(part.provenance_note || part.notes) && <p className="part-notes">{part.provenance_note || part.notes}</p>}
