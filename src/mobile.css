@@ -1,103 +1,11 @@
+/*
+ * Feature-level mobile refinements only.
+ * Shell/page geometry belongs to shell-layout.css.
+ */
+
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
-  html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
-  body { padding-bottom: 68px; }
-
-  .app-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
-
-  .topbar {
-    min-height: 58px;
-    height: 58px;
-    padding: 0 14px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-  }
-
-  .brand-button {
-    min-width: 0;
-    max-width: calc(100vw - 78px);
-    gap: 8px;
-    overflow: hidden;
-  }
-  .brand-button .mark.compact {
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-  }
-  .brand-button > span:last-child {
-    display: block;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 17px;
-  }
-  .brand-button .moon,
-  .brand-button .star { display: block; }
-
-  .profile-chip {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    padding: 0;
-  }
-
-  .topnav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 40;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0;
-    width: 100%;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    border-top: 1px solid #252930;
-    background: rgba(13,15,18,.98);
-    backdrop-filter: blur(18px);
-  }
-
-  .topnav button {
-    min-width: 0;
-    padding: 9px 2px;
-    border-radius: 8px;
-    font-size: 10px;
-    line-height: 1.1;
-    white-space: nowrap;
-  }
-
-  .items-layout {
-    display: block;
-    height: auto;
-    min-height: calc(100vh - 58px - 68px);
-    width: 100%;
-    max-width: 100vw;
-    overflow: visible;
-  }
-
-  .items-pane { display: none; }
-
-  .item-workspace {
-    width: 100%;
-    max-width: 100vw;
-    min-width: 0;
-    overflow-x: hidden;
-    overflow-y: visible;
-  }
-
-  .item-header {
-    width: 100%;
-    max-width: 100%;
-    padding: 18px 16px 16px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: start;
-  }
-
   .item-header > div:first-child { min-width: 0; }
+
   .item-header h1 {
     max-width: 100%;
     font-size: clamp(34px, 10vw, 46px);
@@ -106,35 +14,33 @@
     word-break: normal;
   }
 
-  .item-kicker { flex-wrap: wrap; margin-bottom: 10px; }
+  .item-kicker {
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
   .subtitle { font-size: 13px; }
+
   .header-actions { align-self: end; }
-  .header-actions button { min-width: 48px; min-height: 48px; }
+  .header-actions button {
+    min-width: 48px;
+    min-height: 48px;
+  }
 
   .item-tabs {
-    width: 100%;
-    max-width: 100%;
-    padding: 0 16px;
     gap: 24px;
     overflow-x: auto;
     scrollbar-width: none;
   }
   .item-tabs::-webkit-scrollbar { display: none; }
-  .item-tabs button { flex: 0 0 auto; font-size: 13px; }
-
-  .tab-content {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    padding: 16px 16px 28px;
-    overflow-x: hidden;
+  .item-tabs button {
+    flex: 0 0 auto;
+    font-size: 13px;
   }
 
   .content-grid,
   .content-grid.two-column,
   .commerce-grid {
-    width: 100%;
-    max-width: 100%;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -143,34 +49,40 @@
   .metric-card,
   .feature-card,
   .wide-card {
-    width: 100%;
-    max-width: 100%;
     min-width: 0;
   }
 
   .section-card { padding: 16px; }
-  .card-heading { min-width: 0; flex-wrap: wrap; }
+
+  .card-heading {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
   .card-heading > div { min-width: 0; }
+
   .card-heading h3,
   .next-action strong,
   .fact-list dd,
   .prose-data p,
-  .valuation-basis {
+  .valuation-basis,
+  .work-card-title,
+  .work-card-subtitle,
+  .work-next strong {
     overflow-wrap: anywhere;
     word-break: normal;
   }
 
   .next-action {
-    width: 100%;
-    max-width: 100%;
     min-width: 0;
     padding: 14px;
   }
 
   .compact-facts { grid-template-columns: 1fr; }
   .fact-list div,
-  .compact-facts div { grid-template-columns: 1fr; gap: 5px; }
-  .fact-list dd { max-width: 100%; }
+  .compact-facts div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
 
   .stage-strip {
     display: flex;
@@ -180,30 +92,24 @@
     scrollbar-width: none;
   }
   .stage-strip::-webkit-scrollbar { display: none; }
-  .stage-strip span { flex: 0 0 auto; min-width: 76px; }
-
-  .workbench-page {
-    min-height: calc(100vh - 58px - 68px);
-    padding: 20px 14px 30px;
-    overflow-x: hidden;
+  .stage-strip span {
+    flex: 0 0 auto;
+    min-width: 76px;
   }
 
   .workbench-heading { margin-bottom: 16px; }
   .workbench-heading h1 { font-size: 38px; }
-  .workbench-board {
-    max-width: 100%;
-    grid-auto-columns: minmax(82vw, 88vw);
-    padding-bottom: 14px;
-  }
 
   .work-card,
   .work-next,
   .work-card-title,
-  .work-card-subtitle { min-width: 0; max-width: 100%; }
-  .work-card-title,
-  .work-card-subtitle,
-  .work-next strong { overflow-wrap: anywhere; }
+  .work-card-subtitle {
+    min-width: 0;
+    max-width: 100%;
+  }
 
-  .placeholder-page { padding: 34px 18px 100px; }
-  .loading-card, .empty-detail { padding: 28px 18px; }
+  .loading-card,
+  .empty-detail {
+    padding: 28px 18px;
+  }
 }
