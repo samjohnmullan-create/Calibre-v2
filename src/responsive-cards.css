@@ -1,0 +1,193 @@
+/*
+ * Canonical responsive card geometry.
+ *
+ * Feature styles own appearance. This file loads last and owns the boring but
+ * important rules that keep cards inside their container on phone, DeX and
+ * desktop. Avoid adding colours or feature-specific visual design here.
+ */
+
+/* Every card-like surface must be allowed to shrink inside a grid/flex parent. */
+.section-card,
+.metric-card,
+.feature-card,
+.wide-card,
+.work-card,
+.work-lane,
+.media-card,
+.research-finding,
+.research-proposal,
+.research-handoff-card,
+.knowledge-import-card,
+.knowledge-summary-card,
+.knowledge-safety-card,
+.movement-library-card,
+.movement-finder-card,
+.movement-candidate,
+.movement-detail,
+.passport-movement-proposal,
+.passport-linked-movement,
+.passport-finder-bridge {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Full-width stacks should fill their available column instead of sizing to content. */
+.passport-stack,
+.research-stack,
+.knowledge-page,
+.knowledge-import-card,
+.knowledge-summary-card,
+.knowledge-safety-card,
+.movement-library-card,
+.movement-finder-card {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Calibre is mounted inside the legacy placeholder route. Do not let the shell
+   add a second page inset around KnowledgePage. */
+.knowledge-route-active .placeholder-page {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+
+.knowledge-route-active .knowledge-page {
+  width: min(100%, 1240px);
+  margin: 0 auto;
+}
+
+/* Generic overflow containment for content that can carry long IDs, URLs,
+   calibre names or research text. */
+.section-card,
+.metric-card,
+.work-card,
+.research-finding,
+.research-proposal,
+.movement-candidate,
+.movement-detail,
+.passport-movement-proposal,
+.passport-linked-movement {
+  overflow-wrap: anywhere;
+}
+
+/* Grid children need min-width:0 or their contents can force the whole card wider. */
+.content-grid > *,
+.passport-columns > *,
+.passport-grid > *,
+.research-columns > *,
+.research-form-grid > *,
+.research-proposal-values > *,
+.knowledge-summary-grid > *,
+.knowledge-rule-grid > *,
+.movement-finder-form > *,
+.movement-finder-results > *,
+.movement-search-layout > *,
+.movement-spec-grid > *,
+.candidate-specs > *,
+.media-gallery > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  /* Tablet / narrow DeX: keep every major content card on a single predictable track. */
+  .passport-columns,
+  .research-columns,
+  .movement-search-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  /* One canonical phone inset. Feature pages may use smaller internal padding,
+     but must not create a second outer gutter. */
+  .knowledge-page {
+    padding: 20px 14px 36px !important;
+  }
+
+  .passport-stack,
+  .research-stack {
+    width: 100%;
+  }
+
+  .section-card,
+  .metric-card,
+  .knowledge-import-card,
+  .knowledge-summary-card,
+  .knowledge-safety-card,
+  .movement-library-card,
+  .movement-finder-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Prevent fixed minimum card widths from producing oddly wide/skinny cards. */
+  .movement-finder-results,
+  .knowledge-summary-grid,
+  .knowledge-rule-grid,
+  .research-form-grid,
+  .research-proposal-values,
+  .passport-grid,
+  .passport-measure-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .candidate-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .media-gallery {
+    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)) !important;
+  }
+
+  .research-heading,
+  .research-heading.compact,
+  .research-finding-top,
+  .research-proposal-heading,
+  .passport-toolbar,
+  .passport-hero-main,
+  .passport-section-heading,
+  .passport-finder-heading,
+  .passport-proposal-heading,
+  .movement-library-heading,
+  .movement-finder-heading,
+  .movement-detail-header {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .research-finding-top,
+  .movement-library-heading,
+  .movement-finder-heading {
+    align-items: flex-start;
+  }
+
+  .passport-linked-movement {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+
+  /* Mobile actions should not create narrow orphan buttons beside long fields. */
+  .passport-proposal-actions,
+  .research-proposal-actions,
+  .research-decisions,
+  .media-card-actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  /* Very narrow phones: prioritise readable cards over squeezing two columns. */
+  .media-gallery,
+  .candidate-specs,
+  .passport-linked-movement {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .passport-proposal-actions button,
+  .research-proposal-actions button,
+  .research-decisions button {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
