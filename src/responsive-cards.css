@@ -45,15 +45,7 @@
   min-width: 0;
 }
 
-/* Calibre is mounted inside the legacy placeholder route. Do not let the shell
-   add a second page inset around KnowledgePage. */
-.knowledge-route-active .placeholder-page {
-  width: 100% !important;
-  max-width: none !important;
-  padding: 0 !important;
-}
-
-.knowledge-route-active .knowledge-page {
+.knowledge-page {
   width: min(100%, 1240px);
   margin: 0 auto;
 }
