@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
+import './invoice-intake.css'
 
 type Invoice = {
   id: string
