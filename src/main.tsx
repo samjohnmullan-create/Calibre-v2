@@ -31,6 +31,7 @@ import './home-v2.css'
 import './global-actions.css'
 import './workbench-v2.css'
 import './library-v2.css'
+import './business-v2.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
