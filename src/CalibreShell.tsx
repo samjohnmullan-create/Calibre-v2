@@ -44,9 +44,13 @@ export default function CalibreShell() {
   const [section, setSection] = useState<ShellSection>(initial)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newOpen, setNewOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   useEffect(() => {
-    const sync = () => setSection(readSection())
+    const sync = () => {
+      setSection(readSection())
+      setMoreOpen(false)
+    }
     window.addEventListener('hashchange', sync)
     sync()
     return () => window.removeEventListener('hashchange', sync)
@@ -57,13 +61,16 @@ export default function CalibreShell() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setNewOpen(false)
+        setMoreOpen(false)
         setSearchOpen(true)
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
         event.preventDefault()
         setSearchOpen(false)
+        setMoreOpen(false)
         setNewOpen(true)
       }
+      if (event.key === 'Escape') setMoreOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -72,16 +79,19 @@ export default function CalibreShell() {
   function navigate(hash: string) {
     setSearchOpen(false)
     setNewOpen(false)
+    setMoreOpen(false)
     window.location.hash = hash
   }
 
   function openSearch() {
     setNewOpen(false)
+    setMoreOpen(false)
     setSearchOpen(true)
   }
 
   function openNew() {
     setSearchOpen(false)
+    setMoreOpen(false)
     setNewOpen(true)
   }
 
@@ -140,12 +150,23 @@ export default function CalibreShell() {
         </div>
       </div>
 
+      {moreOpen && (
+        <div className="calibre-mobile-more-backdrop" role="presentation" onClick={() => setMoreOpen(false)}>
+          <div className="calibre-mobile-more" role="dialog" aria-modal="true" aria-label="More Calibre sections" onClick={(event) => event.stopPropagation()}>
+            <div className="calibre-mobile-more-heading"><div><span className="eyebrow">MORE</span><strong>Calibre</strong></div><button type="button" className="secondary small" onClick={() => setMoreOpen(false)}>Close</button></div>
+            <button type="button" className={section === 'intake' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>↧</span><div><strong>Intake</strong><small>Invoices, purchases and incoming records</small></div></button>
+            <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business')}><span>◎</span><div><strong>Business</strong><small>Stock value, listings, sales and costs</small></div></button>
+            <button type="button" className={section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/calibre')}><span>◇</span><div><strong>Library</strong><small>Movement research and compatibility</small></div></button>
+          </div>
+        </div>
+      )}
+
       <nav className="calibre-mobile-nav" aria-label="Mobile navigation">
         <button type="button" className={section === 'home' ? 'active' : ''} onClick={() => navigate('#/home')}><span>⌂</span><strong>Home</strong></button>
         <button type="button" className={section === 'items' ? 'active' : ''} onClick={() => navigate('#/items')}><span>◫</span><strong>Items</strong></button>
         <button type="button" className="mobile-new" onClick={openNew}><span>＋</span><strong>New</strong></button>
         <button type="button" className={section === 'workbench' ? 'active' : ''} onClick={() => navigate('#/workbench')}><span>⌁</span><strong>Work</strong></button>
-        <button type="button" className={section === 'intake' || section === 'business' || section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>•••</span><strong>More</strong></button>
+        <button type="button" className={section === 'intake' || section === 'business' || section === 'calibre' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
       </nav>
     </div>
   )
