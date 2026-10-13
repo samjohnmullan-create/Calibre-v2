@@ -1,0 +1,20 @@
+create index if not exists items_global_search_title_trgm_idx
+  on public.items using gin (title extensions.gin_trgm_ops);
+create index if not exists items_global_search_notes_trgm_idx
+  on public.items using gin (notes extensions.gin_trgm_ops);
+create index if not exists item_identity_global_search_reference_trgm_idx
+  on public.item_identity using gin (reference extensions.gin_trgm_ops);
+create index if not exists item_identity_global_search_serial_trgm_idx
+  on public.item_identity using gin (serial extensions.gin_trgm_ops);
+create index if not exists work_records_global_search_title_trgm_idx
+  on public.work_records using gin (title extensions.gin_trgm_ops);
+create index if not exists work_records_global_search_next_action_trgm_idx
+  on public.work_records using gin (next_action extensions.gin_trgm_ops);
+create index if not exists parts_global_search_description_trgm_idx
+  on public.parts using gin (description extensions.gin_trgm_ops);
+create index if not exists parts_global_search_reference_trgm_idx
+  on public.parts using gin (reference extensions.gin_trgm_ops);
+create index if not exists acquisition_invoices_global_search_vendor_trgm_idx
+  on public.acquisition_invoices using gin (vendor_name extensions.gin_trgm_ops);
+create index if not exists acquisition_invoices_global_search_number_trgm_idx
+  on public.acquisition_invoices using gin (invoice_number extensions.gin_trgm_ops);
