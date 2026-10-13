@@ -14,6 +14,7 @@ type Invoice = {
   byte_size: number | null
   storage_path: string
   extraction_status: string
+  extraction_payload?: Record<string, unknown> | null
   created_at: string
 }
 
@@ -60,8 +61,27 @@ type ParsedInvoice = {
   lines?: ParsedLine[]
 }
 
+type TesseractLike = {
+  recognize: (image: Blob | HTMLCanvasElement, language: string, options?: { logger?: (event: { status?: string; progress?: number }) => void }) => Promise<{ data: { text: string } }>
+}
+
+type PdfJsLike = {
+  GlobalWorkerOptions: { workerSrc: string }
+  getDocument: (input: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage: (pageNumber: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str?: string }> }>; getViewport: (input: { scale: number }) => { width: number; height: number }; render: (input: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }) => { promise: Promise<void> } }> }> }
+}
+
+declare global {
+  interface Window {
+    Tesseract?: TesseractLike
+    pdfjsLib?: PdfJsLike
+  }
+}
+
 const itemTypes = new Set(['watch', 'clock', 'jewellery', 'accessory', 'other'])
 const itemPurposes = new Set(['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other'])
+const PDF_JS_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js'
+const PDF_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'
 
 function safeName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'invoice'
@@ -72,15 +92,91 @@ function money(value: number | null, currency = 'AUD') {
   return new Intl.NumberFormat('en-AU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 }
 
+function loadScript(src: string, id: string) {
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById(id) as HTMLScriptElement | null
+    if (existing?.dataset.loaded === 'true') {
+      resolve()
+      return
+    }
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error(`Could not load ${src}`)), { once: true })
+      return
+    }
+    const script = document.createElement('script')
+    script.id = id
+    script.src = src
+    script.async = true
+    script.onload = () => { script.dataset.loaded = 'true'; resolve() }
+    script.onerror = () => reject(new Error(`Could not load ${src}`))
+    document.head.appendChild(script)
+  })
+}
+
+function inferType(text: string) {
+  const value = text.toLowerCase()
+  if (/\b(watch|wristwatch|pocket watch|timepiece)\b/.test(value)) return 'watch'
+  if (/\b(clock|alarm clock|mantel clock|carriage clock)\b/.test(value)) return 'clock'
+  if (/\b(ring|bracelet|necklace|brooch|earring|earrings|pendant|chain|jewellery|jewelry|bangle|cufflink|cufflinks)\b/.test(value)) return 'jewellery'
+  if (/\b(strap|watch band|watchband|case|box|wallet|purse|keyring|accessory)\b/.test(value)) return 'accessory'
+  return 'other'
+}
+
+function draftLinesFromText(text: string): ParsedLine[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length >= 4)
+
+  const candidates: ParsedLine[] = []
+  lines.forEach((line, index) => {
+    const type = inferType(line)
+    const hasInventoryWord = type !== 'other'
+    const lotMatch = line.match(/^(?:lot\s*)?([A-Za-z]?\d{1,6})\s*[-:.)]?\s+(.+)/i)
+    const priceMatch = line.match(/(?:AUD\s*|\$)\s*([0-9][0-9,]*(?:\.\d{2})?)\s*$/i)
+    const endsWithAmount = line.match(/\b([0-9][0-9,]*\.\d{2})\s*$/)
+    const hasLotWord = /^lot\b/i.test(line)
+
+    if (!hasInventoryWord && !lotMatch && !hasLotWord) return
+
+    const rawAmount = priceMatch?.[1] ?? endsWithAmount?.[1]
+    const amount = rawAmount ? Number(rawAmount.replace(/,/g, '')) : null
+    const titleSource = lotMatch?.[2] ?? line
+    const cleanTitle = titleSource
+      .replace(/(?:AUD\s*|\$)\s*[0-9][0-9,]*(?:\.\d{2})?\s*$/i, '')
+      .replace(/\b[0-9][0-9,]*\.\d{2}\s*$/, '')
+      .trim()
+
+    candidates.push({
+      line_number: index + 1,
+      lot_number: lotMatch?.[1] ?? '',
+      raw_text: line,
+      title: cleanTitle || line,
+      type,
+      purpose: 'resale',
+      quantity: 1,
+      unit_price: amount,
+      line_total: amount,
+      confidence: hasInventoryWord && (lotMatch || amount != null) ? 0.72 : hasInventoryWord ? 0.55 : 0.4,
+      review_note: 'Automatically proposed from OCR/text extraction — review before import.',
+    })
+  })
+
+  return candidates.slice(0, 150)
+}
+
 export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) {
   const [open, setOpen] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [lines, setLines] = useState<DraftLine[]>([])
   const [uploading, setUploading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [jsonText, setJsonText] = useState('')
+  const [rawText, setRawText] = useState('')
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const selected = invoices.find((invoice) => invoice.id === selectedId) ?? null
@@ -90,7 +186,7 @@ export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) 
     setLoading(true)
     const { data, error } = await supabase
       .from('acquisition_invoices')
-      .select('id,vendor_name,invoice_number,invoice_date,currency,total,original_filename,mime_type,byte_size,storage_path,extraction_status,created_at')
+      .select('id,vendor_name,invoice_number,invoice_date,currency,total,original_filename,mime_type,byte_size,storage_path,extraction_status,extraction_payload,created_at')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
     setLoading(false)
@@ -129,7 +225,12 @@ export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) 
 
   useEffect(() => {
     if (open && selectedId) void loadLines(selectedId)
-  }, [open, selectedId])
+    const current = invoices.find((invoice) => invoice.id === selectedId)
+    const payloadText = current?.extraction_payload && typeof current.extraction_payload.raw_text === 'string'
+      ? current.extraction_payload.raw_text
+      : ''
+    setRawText(payloadText)
+  }, [open, selectedId, invoices])
 
   async function uploadInvoice(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -178,16 +279,121 @@ export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) 
     await loadInvoices(id)
   }
 
-  async function copyExtractionRequest() {
-    if (!selected) return
-    const { data, error } = await supabase.storage.from('calibre-media').createSignedUrl(selected.storage_path, 3600)
-    if (error || !data?.signedUrl) {
-      setMessage(`Could not create document link: ${error?.message ?? 'No link returned.'}`)
+  async function ensureTesseract() {
+    if (!window.Tesseract) await loadScript(TESSERACT_URL, 'calibre-tesseract')
+    if (!window.Tesseract) throw new Error('OCR library did not initialize.')
+    return window.Tesseract
+  }
+
+  async function ocr(input: Blob | HTMLCanvasElement) {
+    const engine = await ensureTesseract()
+    const result = await engine.recognize(input, 'eng', {
+      logger: (event) => {
+        if (event.status === 'recognizing text' && typeof event.progress === 'number') {
+          setMessage(`Reading invoice… ${Math.round(event.progress * 100)}%`)
+        }
+      },
+    })
+    return result.data.text.trim()
+  }
+
+  async function extractPdf(blob: Blob) {
+    if (!window.pdfjsLib) await loadScript(PDF_JS_URL, 'calibre-pdfjs')
+    if (!window.pdfjsLib) throw new Error('PDF reader did not initialize.')
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise
+    const textPages: string[] = []
+
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
+      setMessage(`Reading PDF page ${pageNo} of ${pdf.numPages}…`)
+      const page = await pdf.getPage(pageNo)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item) => item.str ?? '').join(' ').replace(/\s+/g, ' ').trim()
+      if (pageText.length >= 30) {
+        textPages.push(pageText)
+        continue
+      }
+
+      const viewport = page.getViewport({ scale: 1.8 })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.ceil(viewport.width)
+      canvas.height = Math.ceil(viewport.height)
+      const context = canvas.getContext('2d')
+      if (!context) continue
+      await page.render({ canvasContext: context, viewport }).promise
+      const pageOcr = await ocr(canvas)
+      textPages.push(pageOcr)
+    }
+
+    return textPages.join('\n').trim()
+  }
+
+  async function readInvoice() {
+    if (!selected || extracting) return
+    setExtracting(true)
+    setMessage('Opening stored invoice…')
+
+    const download = await supabase.storage.from('calibre-media').download(selected.storage_path)
+    if (download.error || !download.data) {
+      setExtracting(false)
+      setMessage(`Could not open invoice: ${download.error?.message ?? 'No file returned.'}`)
       return
     }
-    const request = `Read this acquisition invoice for Calibre & Co. The document may be a scanned/image PDF. Extract only what is actually visible; do not invent missing values.\n\nDocument: ${data.signedUrl}\nInvoice ID: ${selected.id}\n\nReturn ONLY valid JSON in this shape:\n{\n  "vendor_name": "",\n  "invoice_number": "",\n  "invoice_date": null,\n  "currency": "AUD",\n  "subtotal": null,\n  "fees": null,\n  "postage": null,\n  "total": null,\n  "lines": [\n    {\n      "line_number": 1,\n      "lot_number": "",\n      "raw_text": "exact visible line/lot description",\n      "title": "short inventory title",\n      "type": "watch|clock|jewellery|accessory|other",\n      "purpose": "resale",\n      "quantity": 1,\n      "unit_price": null,\n      "line_total": null,\n      "confidence": 0.0,\n      "review_note": "anything uncertain"\n    }\n  ]\n}\n\nIf a line is a mixed bundle/lot, keep it as ONE line rather than inventing individual objects. Fees/postage belong at invoice level unless explicitly line-specific.`
-    await navigator.clipboard.writeText(request)
-    setMessage('Extraction request copied. Paste it into ChatGPT, then paste the returned JSON back here.')
+
+    try {
+      const isPdf = selected.mime_type === 'application/pdf' || selected.original_filename.toLowerCase().endsWith('.pdf')
+      const text = isPdf ? await extractPdf(download.data) : await ocr(download.data)
+      if (!text.trim()) {
+        setMessage('Calibre could not detect readable text in this invoice.')
+        setExtracting(false)
+        return
+      }
+
+      const proposed = draftLinesFromText(text)
+      const payload = { raw_text: text, extraction_method: isPdf ? 'pdf_text_or_ocr' : 'image_ocr', extracted_at: new Date().toISOString() }
+      const updateResult = await supabase.from('acquisition_invoices').update({
+        extraction_status: proposed.length ? 'needs_review' : 'text_extracted',
+        extraction_payload: payload,
+        updated_at: new Date().toISOString(),
+      }).eq('workspace_id', workspaceId).eq('id', selected.id)
+      if (updateResult.error) throw updateResult.error
+
+      const clearResult = await supabase.from('acquisition_invoice_lines').delete().eq('workspace_id', workspaceId).eq('invoice_id', selected.id)
+      if (clearResult.error) throw clearResult.error
+
+      if (proposed.length) {
+        const rows = proposed.map((line, index) => ({
+          workspace_id: workspaceId,
+          invoice_id: selected.id,
+          line_number: line.line_number ?? index + 1,
+          lot_number: String(line.lot_number ?? ''),
+          raw_text: String(line.raw_text ?? ''),
+          proposed_title: String(line.title ?? line.raw_text ?? '').trim(),
+          proposed_type: itemTypes.has(String(line.type ?? '')) ? String(line.type) : 'other',
+          proposed_purpose: itemPurposes.has(String(line.purpose ?? '')) ? String(line.purpose) : 'resale',
+          quantity: Math.max(1, Number(line.quantity) || 1),
+          unit_price: line.unit_price == null ? null : Number(line.unit_price),
+          line_total: line.line_total == null ? null : Number(line.line_total),
+          confidence: line.confidence == null ? null : Number(line.confidence),
+          review_note: String(line.review_note ?? ''),
+          include_on_import: true,
+        }))
+        const insertResult = await supabase.from('acquisition_invoice_lines').insert(rows)
+        if (insertResult.error) throw insertResult.error
+      }
+
+      setRawText(text)
+      await loadInvoices(selected.id)
+      await loadLines(selected.id)
+      setMessage(proposed.length
+        ? `Calibre read the invoice and proposed ${proposed.length} draft line${proposed.length === 1 ? '' : 's'}. Review them before import.`
+        : 'Calibre extracted the invoice text, but could not safely identify stock lines yet. Review the extracted text below.')
+    } catch (error) {
+      setMessage(`Invoice reading failed: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setExtracting(false)
+    }
   }
 
   async function applyExtractedJson(event: FormEvent) {
@@ -230,7 +436,7 @@ export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) 
       postage: parsed.postage == null ? null : Number(parsed.postage),
       total: parsed.total == null ? null : Number(parsed.total),
       extraction_status: 'needs_review',
-      extraction_payload: parsed,
+      extraction_payload: { ...parsed, raw_text: rawText },
       updated_at: new Date().toISOString(),
     }).eq('workspace_id', workspaceId).eq('id', selected.id)
     if (invoiceUpdate.error) {
@@ -264,7 +470,7 @@ export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) 
   return (
     <section className="invoice-intake-card">
       <div className="invoice-intake-heading">
-        <div><p className="eyebrow">BULK INTAKE</p><h2>Invoice intake</h2><p className="muted">Upload the original first. Extraction creates draft rows only; you review them before any stock is created.</p></div>
+        <div><p className="eyebrow">BULK INTAKE</p><h2>Invoice intake</h2><p className="muted">Upload the original first. Calibre reads it into draft rows; you review them before any stock is created.</p></div>
         <button type="button" className="secondary small" onClick={() => setOpen(false)}>Close</button>
       </div>
 
@@ -297,16 +503,26 @@ export default function InvoiceIntake({ workspaceId }: { workspaceId: string }) 
             </div>
 
             <div className="invoice-extraction-actions">
-              <button type="button" onClick={copyExtractionRequest}>Copy for ChatGPT</button>
-              <span>Works with text PDFs and scanned/image invoices because ChatGPT reviews the original document.</span>
+              <button type="button" onClick={readInvoice} disabled={extracting}>{extracting ? 'Reading invoice…' : 'Read invoice'}</button>
+              <span>Text PDFs are read directly. Scans and photos use OCR. Nothing becomes inventory until you approve it.</span>
             </div>
 
-            <form className="invoice-json-form" onSubmit={applyExtractedJson}>
-              <label>Paste extracted JSON
-                <textarea rows={7} value={jsonText} onChange={(event) => setJsonText(event.target.value)} placeholder="Paste the JSON returned by ChatGPT here…" />
-              </label>
-              <button type="submit" disabled={!jsonText.trim()}>Load draft rows</button>
-            </form>
+            {rawText && (
+              <details className="invoice-raw-text">
+                <summary>Extracted text</summary>
+                <pre>{rawText}</pre>
+              </details>
+            )}
+
+            <details className="invoice-json-fallback">
+              <summary>Advanced: paste structured extraction</summary>
+              <form className="invoice-json-form" onSubmit={applyExtractedJson}>
+                <label>Paste extracted JSON
+                  <textarea rows={7} value={jsonText} onChange={(event) => setJsonText(event.target.value)} placeholder="Optional structured JSON override…" />
+                </label>
+                <button type="submit" disabled={!jsonText.trim()}>Load draft rows</button>
+              </form>
+            </details>
 
             <div className="invoice-draft-lines">
               <div className="invoice-lines-heading"><strong>Draft lines</strong><span>{lines.length}</span></div>
