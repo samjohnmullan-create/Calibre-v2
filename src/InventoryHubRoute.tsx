@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
 import InvoiceIntakeServer from './InvoiceIntakeServer'
+import InvoiceFiles from './InvoiceFiles'
 
 type ItemRow = {
   id: string
@@ -14,7 +15,7 @@ type ItemRow = {
   created_at: string
 }
 
-type InventoryTab = 'all' | 'watch' | 'jewellery' | 'clock' | 'accessory' | 'parts' | 'donor' | 'other'
+type InventoryTab = 'all' | 'watch' | 'jewellery' | 'clock' | 'accessory' | 'parts' | 'donor' | 'other' | 'files'
 
 const tabs: { key: InventoryTab; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -25,6 +26,7 @@ const tabs: { key: InventoryTab; label: string }[] = [
   { key: 'parts', label: 'Parts' },
   { key: 'donor', label: 'Donors' },
   { key: 'other', label: 'Other' },
+  { key: 'files', label: 'Files' },
 ]
 
 function titleCase(value: string) {
@@ -128,7 +130,7 @@ export default function InventoryHubRoute() {
       const categoryMatch = tab === 'all'
         || (tab === 'donor' && item.purpose === 'donor')
         || (tab === 'other' && !knownTypes.has(item.type))
-        || (tab !== 'parts' && tab !== 'donor' && tab !== 'other' && item.type === tab)
+        || (tab !== 'parts' && tab !== 'donor' && tab !== 'other' && tab !== 'files' && item.type === tab)
       if (!categoryMatch) return false
       if (!text) return true
       return [item.title, item.type, item.purpose, item.status, item.notes, String(item.item_number)]
@@ -155,7 +157,7 @@ export default function InventoryHubRoute() {
 
       <nav className="inventory-category-tabs" aria-label="Inventory categories">
         {tabs.map(({ key, label }) => {
-          const count = key === 'parts' ? null : counts[key as keyof typeof counts]
+          const count = key === 'parts' || key === 'files' ? null : counts[key as keyof typeof counts]
           return (
             <button key={key} type="button" className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
               <span>{label}</span>{count != null && <strong>{count}</strong>}
@@ -166,6 +168,8 @@ export default function InventoryHubRoute() {
 
       {tab === 'parts' ? (
         <PartsInventory />
+      ) : tab === 'files' ? (
+        <InvoiceFiles workspaceId={workspaceId} />
       ) : (
         <section className="inventory-list-panel">
           <div className="inventory-list-toolbar">
