@@ -10,13 +10,19 @@ type SearchResult = {
   subtitle: string
   meta?: string
   href: string
+  rank: number
 }
 
-type ItemRow = { id: string; item_number: number; title: string; type: string; purpose: string; status: string; notes: string }
-type IdentityRow = { item_id: string; maker: string; model: string; reference: string; serial: string; movement_markings: string }
-type WorkRow = { id: string; item_id: string; work_number: number; title: string; status: string; next_action: string; diagnosis: string }
-type PartRow = { id: string; part_type: string; manufacturer: string; reference: string; description: string; condition: string; quantity: number }
-type InvoiceRow = { id: string; vendor_name: string; invoice_number: string; original_filename: string; extraction_status: string }
+type SearchIndexRow = {
+  kind: SearchKind
+  record_id: string
+  item_id: string | null
+  record_number: number | null
+  title: string
+  subtitle: string
+  meta: string
+  href: string
+}
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -24,6 +30,19 @@ function titleCase(value: string) {
 
 function cleanSearchTerm(value: string) {
   return value.trim().replace(/[,%()]/g, ' ').replace(/\s+/g, ' ').slice(0, 80)
+}
+
+function scoreResult(row: SearchIndexRow, term: string, numeric: number | null) {
+  if (numeric != null && row.record_number === numeric) return row.kind === 'item' ? 1000 : row.kind === 'work' ? 990 : 900
+  const needle = term.toLowerCase()
+  const title = row.title.toLowerCase()
+  const subtitle = row.subtitle.toLowerCase()
+  const base = row.kind === 'item' ? 500 : row.kind === 'work' ? 450 : row.kind === 'part' ? 400 : 350
+  if (title === needle) return base + 300
+  if (title.startsWith(needle) || title.includes(` · ${needle}`)) return base + 220
+  if (title.includes(needle)) return base + 160
+  if (subtitle.includes(needle)) return base + 100
+  return base
 }
 
 export default function GlobalSearch({ open, onClose }: Props) {
@@ -65,9 +84,11 @@ export default function GlobalSearch({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) {
+      requestRef.current += 1
       setQuery('')
       setResults([])
       setMessage('')
+      setLoading(false)
     }
   }, [open])
 
@@ -75,6 +96,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
     if (!open || !workspaceId) return
     const term = cleanSearchTerm(query)
     if (term.length < 2) {
+      requestRef.current += 1
       setResults([])
       setLoading(false)
       setMessage(term ? 'Type at least 2 characters.' : '')
@@ -85,135 +107,77 @@ export default function GlobalSearch({ open, onClose }: Props) {
     const timer = window.setTimeout(async () => {
       setLoading(true)
       setMessage('')
-      const pattern = `%${term}%`
+
       const numeric = /^#?\d+$/.test(term) ? Number(term.replace('#', '')) : null
+      const searchTerm = numeric == null ? term.toLowerCase() : term.replace('#', '')
+      const pattern = `%${searchTerm}%`
+      const fields = 'kind,record_id,item_id,record_number,title,subtitle,meta,href'
 
-      const itemQuery = supabase.from('items')
-        .select('id,item_number,title,type,purpose,status,notes')
-        .eq('workspace_id', workspaceId)
-        .is('archived_at', null)
-        .or(`title.ilike.${pattern},notes.ilike.${pattern},type.ilike.${pattern},purpose.ilike.${pattern}`)
-        .limit(12)
+      function categoryQuery(kind: SearchKind, limit: number) {
+        let request = supabase
+          .from('calibre_search_index')
+          .select(fields)
+          .eq('workspace_id', workspaceId)
+          .eq('kind', kind)
 
-      const identityQuery = supabase.from('item_identity')
-        .select('item_id,maker,model,reference,serial,movement_markings')
-        .eq('workspace_id', workspaceId)
-        .or(`maker.ilike.${pattern},model.ilike.${pattern},reference.ilike.${pattern},serial.ilike.${pattern},movement_markings.ilike.${pattern}`)
-        .limit(12)
+        if (numeric != null && (kind === 'item' || kind === 'work')) {
+          request = request.or(`record_number.eq.${numeric},search_text.ilike.${pattern}`)
+        } else {
+          request = request.ilike('search_text', pattern)
+        }
+        return request.limit(limit)
+      }
 
-      const workQuery = supabase.from('work_records')
-        .select('id,item_id,work_number,title,status,next_action,diagnosis')
-        .eq('workspace_id', workspaceId)
-        .or(`title.ilike.${pattern},next_action.ilike.${pattern},diagnosis.ilike.${pattern}`)
-        .limit(12)
-
-      const partQuery = supabase.from('parts')
-        .select('id,part_type,manufacturer,reference,description,condition,quantity')
-        .eq('workspace_id', workspaceId)
-        .or(`part_type.ilike.${pattern},manufacturer.ilike.${pattern},reference.ilike.${pattern},description.ilike.${pattern}`)
-        .limit(12)
-
-      const invoiceQuery = supabase.from('acquisition_invoices')
-        .select('id,vendor_name,invoice_number,original_filename,extraction_status')
-        .eq('workspace_id', workspaceId)
-        .or(`vendor_name.ilike.${pattern},invoice_number.ilike.${pattern},original_filename.ilike.${pattern}`)
-        .limit(10)
-
-      const exactItemQuery = numeric == null
-        ? Promise.resolve({ data: [], error: null } as const)
-        : supabase.from('items').select('id,item_number,title,type,purpose,status,notes').eq('workspace_id', workspaceId).eq('item_number', numeric).limit(1)
-
-      const exactWorkQuery = numeric == null
-        ? Promise.resolve({ data: [], error: null } as const)
-        : supabase.from('work_records').select('id,item_id,work_number,title,status,next_action,diagnosis').eq('workspace_id', workspaceId).eq('work_number', numeric).limit(1)
-
-      const [itemsResult, identitiesResult, workResult, partsResult, invoicesResult, exactItemsResult, exactWorksResult] = await Promise.all([
-        itemQuery, identityQuery, workQuery, partQuery, invoiceQuery, exactItemQuery, exactWorkQuery,
+      const [itemsResult, workResult, partsResult, invoicesResult] = await Promise.all([
+        categoryQuery('item', 12),
+        categoryQuery('work', 12),
+        categoryQuery('part', 12),
+        categoryQuery('invoice', 10),
       ])
 
       if (requestId !== requestRef.current) return
       setLoading(false)
 
-      const firstError = itemsResult.error ?? identitiesResult.error ?? workResult.error ?? partsResult.error ?? invoicesResult.error ?? exactItemsResult.error ?? exactWorksResult.error
-      if (firstError) {
-        setMessage(`Search failed: ${firstError.message}`)
+      const error = itemsResult.error ?? workResult.error ?? partsResult.error ?? invoicesResult.error
+      if (error) {
+        setMessage(`Search failed: ${error.message}`)
         setResults([])
         return
       }
 
-      const itemMap = new Map<string, ItemRow>()
-      ;([...(exactItemsResult.data ?? []), ...(itemsResult.data ?? [])] as ItemRow[]).forEach((row) => itemMap.set(row.id, row))
+      const rows = [
+        ...(itemsResult.data ?? []),
+        ...(workResult.data ?? []),
+        ...(partsResult.data ?? []),
+        ...(invoicesResult.data ?? []),
+      ] as SearchIndexRow[]
 
-      const identityRows = (identitiesResult.data ?? []) as IdentityRow[]
-      const missingItemIds = [...new Set(identityRows.map((row) => row.item_id).filter((id) => !itemMap.has(id)))]
-      if (missingItemIds.length) {
-        const identityItems = await supabase.from('items')
-          .select('id,item_number,title,type,purpose,status,notes')
-          .eq('workspace_id', workspaceId)
-          .in('id', missingItemIds)
-        if (requestId !== requestRef.current) return
-        if (!identityItems.error) (identityItems.data ?? []).forEach((row) => itemMap.set(row.id, row as ItemRow))
-      }
+      const mapped = rows
+        .map((row) => ({
+          key: `${row.kind}-${row.record_id}`,
+          kind: row.kind,
+          title: row.title,
+          subtitle: row.subtitle,
+          meta: row.meta ? titleCase(row.meta) : undefined,
+          href: row.href,
+          rank: scoreResult(row, searchTerm, numeric),
+        }))
+        .sort((a, b) => b.rank - a.rank || a.title.localeCompare(b.title))
+        .slice(0, 36)
 
-      const identityByItem = new Map(identityRows.map((row) => [row.item_id, row]))
-      const itemResults: SearchResult[] = [...itemMap.values()].map((row) => {
-        const identity = identityByItem.get(row.id)
-        const identityText = [identity?.maker, identity?.model, identity?.reference, identity?.serial].filter(Boolean).join(' · ')
-        return {
-          key: `item-${row.id}`,
-          kind: 'item',
-          title: `#${row.item_number} · ${row.title}`,
-          subtitle: identityText || `${titleCase(row.type)} · ${titleCase(row.purpose)}`,
-          meta: titleCase(row.status),
-          href: `#/items/${encodeURIComponent(row.id)}`,
-        }
-      })
-
-      const seenWork = new Map<string, WorkRow>()
-      ;([...(exactWorksResult.data ?? []), ...(workResult.data ?? [])] as WorkRow[]).forEach((row) => seenWork.set(row.id, row))
-      const workResults: SearchResult[] = [...seenWork.values()].map((row) => ({
-        key: `work-${row.id}`,
-        kind: 'work',
-        title: `Work #${row.work_number} · ${row.title}`,
-        subtitle: row.next_action || row.diagnosis || 'No next action recorded',
-        meta: titleCase(row.status),
-        href: `#/work/${encodeURIComponent(row.id)}`,
-      }))
-
-      const partResults: SearchResult[] = ((partsResult.data ?? []) as PartRow[]).map((row) => ({
-        key: `part-${row.id}`,
-        kind: 'part',
-        title: row.description || titleCase(row.part_type),
-        subtitle: [row.manufacturer, row.reference, titleCase(row.part_type)].filter(Boolean).join(' · '),
-        meta: `${row.quantity} in stock`,
-        href: '#/items?view=parts',
-      }))
-
-      const invoiceResults: SearchResult[] = ((invoicesResult.data ?? []) as InvoiceRow[]).map((row) => ({
-        key: `invoice-${row.id}`,
-        kind: 'invoice',
-        title: row.vendor_name || row.original_filename,
-        subtitle: row.invoice_number ? `Invoice ${row.invoice_number}` : row.original_filename,
-        meta: titleCase(row.extraction_status),
-        href: '#/intake',
-      }))
-
-      const combined = [...itemResults, ...workResults, ...partResults, ...invoiceResults].slice(0, 36)
-      setResults(combined)
-      setMessage(combined.length ? '' : 'No matching Calibre records.')
+      setResults(mapped)
+      setMessage(mapped.length ? '' : 'No matching Calibre records.')
     }, 180)
 
     return () => window.clearTimeout(timer)
   }, [open, workspaceId, query])
 
-  const grouped = useMemo(() => {
-    return {
-      item: results.filter((result) => result.kind === 'item'),
-      work: results.filter((result) => result.kind === 'work'),
-      part: results.filter((result) => result.kind === 'part'),
-      invoice: results.filter((result) => result.kind === 'invoice'),
-    }
-  }, [results])
+  const grouped = useMemo(() => ({
+    item: results.filter((result) => result.kind === 'item'),
+    work: results.filter((result) => result.kind === 'work'),
+    part: results.filter((result) => result.kind === 'part'),
+    invoice: results.filter((result) => result.kind === 'invoice'),
+  }), [results])
 
   if (!open) return null
 
