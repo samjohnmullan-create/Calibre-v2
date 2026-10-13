@@ -29,6 +29,7 @@ import './ux-shell-v2.css'
 import './inventory-ux-v2.css'
 import './item-workspace-v2.css'
 import './home-v2.css'
+import './global-actions.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
