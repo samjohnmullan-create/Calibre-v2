@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
+import InvoiceIntake from './InvoiceIntake'
 
 type ItemRow = {
   id: string
@@ -147,6 +148,10 @@ export default function InventoryHubRoute() {
         </div>
         <button type="button" aria-label="Create item">＋ Add Item</button>
       </header>
+
+      <div className="inventory-intake-row">
+        <InvoiceIntake workspaceId={workspaceId} />
+      </div>
 
       <nav className="inventory-category-tabs" aria-label="Inventory categories">
         {tabs.map(({ key, label }) => {
