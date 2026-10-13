@@ -86,6 +86,15 @@ export default function PartsInventory() {
     return () => { active = false }
   }, [])
 
+  useEffect(() => {
+    const openPartForm = () => {
+      setShowForm(true)
+      setMessage('')
+    }
+    window.addEventListener('calibre:add-part', openPartForm)
+    return () => window.removeEventListener('calibre:add-part', openPartForm)
+  }, [])
+
   async function load() {
     if (!workspaceId) return
     setLoading(true)
@@ -186,7 +195,7 @@ export default function PartsInventory() {
 
       {showForm && (
         <form className="part-entry-form" onSubmit={addPart}>
-          <label>Part type<input value={partType} onChange={(event) => setPartType(event.target.value)} placeholder="e.g. balance staff" required /></label>
+          <label>Part type<input autoFocus value={partType} onChange={(event) => setPartType(event.target.value)} placeholder="e.g. balance staff" required /></label>
           <label>Manufacturer<input value={manufacturer} onChange={(event) => setManufacturer(event.target.value)} placeholder="Maker if known" /></label>
           <label>Reference<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Factory / supplier reference" /></label>
           <label>Condition<select value={condition} onChange={(event) => setCondition(event.target.value)}><option value="new">New</option><option value="new_old_stock">New old stock</option><option value="used">Used</option><option value="salvaged">Salvaged</option><option value="for_parts">For parts</option><option value="unknown">Unknown</option></select></label>
