@@ -1,0 +1,417 @@
+/* Calibre UX shell v2 — migration layer while feature surfaces are consolidated. */
+:root {
+  --calibre-rail-width: 188px;
+  --calibre-utility-height: 66px;
+  --calibre-mobile-nav-height: 68px;
+}
+
+.calibre-os {
+  min-height: 100dvh;
+  background: #182127;
+}
+
+.calibre-os .calibre-legacy-host > .app-shell > .topbar {
+  display: none !important;
+}
+
+.calibre-os[data-shell-section="intake"] .calibre-legacy-host {
+  display: none;
+}
+
+/* Invoice intake now belongs to Intake, not Inventory. */
+.calibre-os .inventory-hub-page > .inventory-intake-row {
+  display: none !important;
+}
+
+.calibre-rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 300;
+  width: var(--calibre-rail-width);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 12px 14px;
+  border-right: 1px solid rgba(135, 151, 156, .16);
+  background: #161f24;
+}
+
+.calibre-rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--calibre-text, #edf1ee);
+  text-align: left;
+}
+
+.calibre-rail-mark {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
+.calibre-rail-moon {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 2px solid #dcc3a3;
+  clip-path: inset(0 0 0 42%);
+  transform: rotate(-18deg);
+}
+
+.calibre-rail-star {
+  position: absolute;
+  right: 0;
+  top: 0;
+  color: #dcc3a3;
+  font-size: 13px;
+}
+
+.calibre-rail-brand-copy {
+  display: grid;
+  gap: 0;
+}
+
+.calibre-rail-brand-copy strong {
+  font: 600 17px/1.1 inherit;
+}
+
+.calibre-rail-brand-copy small {
+  color: var(--calibre-muted, #97a5aa);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.calibre-rail-nav,
+.calibre-rail-secondary {
+  display: grid;
+  gap: 5px;
+}
+
+.calibre-rail-secondary {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(135, 151, 156, .13);
+}
+
+.calibre-rail-nav button,
+.calibre-rail-secondary button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--calibre-muted, #9aa7ab);
+  text-align: left;
+}
+
+.calibre-rail-nav button > span,
+.calibre-rail-secondary button > span {
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+}
+
+.calibre-rail-nav button strong,
+.calibre-rail-secondary button strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calibre-rail-nav button:hover,
+.calibre-rail-secondary button:hover:not(:disabled) {
+  background: rgba(255,255,255,.035);
+  color: var(--calibre-text, #edf1ee);
+}
+
+.calibre-rail-nav button.active,
+.calibre-rail-secondary button.active {
+  border-color: rgba(216, 189, 152, .26);
+  background: rgba(216, 189, 152, .09);
+  color: #ead5b8;
+}
+
+.calibre-rail-secondary button:disabled {
+  opacity: .42;
+}
+
+.calibre-stage {
+  min-width: 0;
+  min-height: 100dvh;
+  margin-left: var(--calibre-rail-width);
+}
+
+.calibre-utility-bar {
+  position: sticky;
+  top: 0;
+  z-index: 250;
+  height: var(--calibre-utility-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(135, 151, 156, .16);
+  background: rgba(24, 33, 39, .96);
+  backdrop-filter: blur(12px);
+}
+
+.calibre-utility-title {
+  display: grid;
+  gap: 1px;
+}
+
+.calibre-utility-title .eyebrow {
+  margin: 0;
+  font-size: 9px;
+}
+
+.calibre-utility-title > strong {
+  font-size: 17px;
+}
+
+.calibre-utility-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.calibre-search-button,
+.calibre-new-button {
+  min-height: 38px;
+  border-radius: 9px;
+}
+
+.calibre-search-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 210px;
+  justify-content: flex-start;
+  padding-inline: 12px;
+  border: 1px solid var(--calibre-line, rgba(135,151,156,.22));
+  background: rgba(13, 19, 23, .45);
+  color: var(--calibre-muted, #9aa7ab);
+}
+
+.calibre-new-button {
+  padding-inline: 14px;
+}
+
+.calibre-search-preview {
+  position: fixed;
+  z-index: 600;
+  top: calc(var(--calibre-utility-height) + 10px);
+  right: 24px;
+  width: min(520px, calc(100vw - var(--calibre-rail-width) - 48px));
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--calibre-line-strong, rgba(135,151,156,.3));
+  border-radius: 14px;
+  background: #202b32;
+  box-shadow: 0 22px 70px rgba(0,0,0,.42);
+}
+
+.calibre-search-preview h2,
+.calibre-search-preview p {
+  margin-top: 0;
+}
+
+.calibre-content-host {
+  min-width: 0;
+}
+
+.calibre-content-host .inventory-hub-page,
+.calibre-content-host .knowledge-page,
+.intake-page {
+  margin-top: 0;
+  padding-top: 28px;
+}
+
+.intake-page {
+  width: min(1240px, calc(100% - 44px));
+  margin: 0 auto 48px;
+}
+
+.intake-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.intake-heading h1 {
+  margin: 2px 0 6px;
+}
+
+.intake-heading p {
+  margin-top: 0;
+}
+
+.intake-tabs {
+  display: flex;
+  gap: 7px;
+  margin: 0 0 16px;
+  overflow-x: auto;
+}
+
+.intake-tabs button {
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid var(--calibre-line, rgba(135,151,156,.22));
+  border-radius: 9px;
+  background: rgba(31, 41, 48, .72);
+  color: var(--calibre-muted, #9aa7ab);
+}
+
+.intake-tabs button.active {
+  color: var(--calibre-text, #edf1ee);
+  border-color: rgba(216, 189, 152, .5);
+  background: rgba(216, 189, 152, .08);
+}
+
+.intake-message {
+  padding: 14px;
+  border: 1px solid var(--calibre-line, rgba(135,151,156,.22));
+  border-radius: 10px;
+  color: var(--calibre-muted, #9aa7ab);
+}
+
+.calibre-mobile-nav {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  :root {
+    --calibre-rail-width: 0px;
+    --calibre-utility-height: 58px;
+  }
+
+  .calibre-rail {
+    display: none;
+  }
+
+  .calibre-stage {
+    margin-left: 0;
+    padding-bottom: calc(var(--calibre-mobile-nav-height) + env(safe-area-inset-bottom));
+  }
+
+  .calibre-utility-bar {
+    height: var(--calibre-utility-height);
+    padding: 0 14px;
+  }
+
+  .calibre-utility-title .eyebrow {
+    display: none;
+  }
+
+  .calibre-utility-title > strong {
+    font-size: 18px;
+  }
+
+  .calibre-search-button {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .calibre-search-button span:last-child {
+    display: none;
+  }
+
+  .calibre-new-button {
+    display: none;
+  }
+
+  .calibre-search-preview {
+    top: calc(var(--calibre-utility-height) + 8px);
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+
+  .calibre-mobile-nav {
+    position: fixed;
+    z-index: 500;
+    inset: auto 0 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: calc(var(--calibre-mobile-nav-height) + env(safe-area-inset-bottom));
+    padding: 5px 6px env(safe-area-inset-bottom);
+    border-top: 1px solid rgba(135, 151, 156, .2);
+    background: rgba(20, 28, 33, .97);
+    backdrop-filter: blur(14px);
+  }
+
+  .calibre-mobile-nav button {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 54px;
+    padding: 3px;
+    border: 0;
+    background: transparent;
+    color: var(--calibre-muted, #9aa7ab);
+    border-radius: 9px;
+  }
+
+  .calibre-mobile-nav button span {
+    font-size: 19px;
+    line-height: 1;
+  }
+
+  .calibre-mobile-nav button strong {
+    font-size: 9px;
+    font-weight: 600;
+  }
+
+  .calibre-mobile-nav button.active {
+    color: #ead5b8;
+    background: rgba(216, 189, 152, .06);
+  }
+
+  .calibre-mobile-nav .mobile-new span {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-top: -13px;
+    border-radius: 50%;
+    background: #e3d5c2;
+    color: #172026;
+    font-size: 24px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.28);
+  }
+
+  .intake-page {
+    width: min(100%, calc(100% - 24px));
+    padding-top: 18px;
+  }
+
+  .intake-heading {
+    align-items: flex-start;
+  }
+
+  /* The new shell owns mobile chrome; legacy phone header/nav are no longer needed. */
+  .calibre-os .phone-shell .topbar,
+  .calibre-os .topbar {
+    display: none !important;
+  }
+}
