@@ -3,5 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/Calibre-v2/',
+  // Relative assets keep the current /Calibre-v2/ preview working and also
+  // allow the same build to run at app.calibreco.com.au after cutover.
+  base: './',
 })
