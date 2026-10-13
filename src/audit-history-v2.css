@@ -1,0 +1,130 @@
+.audit-v2-card {
+  grid-column: 1 / -1;
+}
+
+.audit-v2-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.audit-v2-heading .muted {
+  max-width: 760px;
+  margin-bottom: 0;
+}
+
+.audit-v2-heading select {
+  width: min(260px, 100%);
+}
+
+.audit-v2-list {
+  display: grid;
+  margin-top: 18px;
+}
+
+.audit-v2-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.audit-v2-row:last-child {
+  border-bottom: 0;
+}
+
+.audit-v2-row:not(:disabled):hover {
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
+}
+
+.audit-v2-row:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.audit-v2-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.audit-v2-copy strong,
+.audit-v2-copy small,
+.audit-v2-meta strong,
+.audit-v2-meta small {
+  display: block;
+}
+
+.audit-v2-copy small,
+.audit-v2-meta small {
+  margin-top: 3px;
+  color: var(--text-muted);
+}
+
+.audit-v2-meta {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.audit-v2-empty {
+  display: grid;
+  gap: 5px;
+  padding: 26px 0 8px;
+  color: var(--text-muted);
+}
+
+.audit-v2-empty strong {
+  color: var(--text);
+}
+
+.audit-v2-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .audit-v2-heading {
+    display: grid;
+  }
+
+  .audit-v2-heading select {
+    width: 100%;
+  }
+
+  .audit-v2-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .audit-v2-meta {
+    grid-column: 2;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .audit-v2-pagination {
+    flex-wrap: wrap;
+  }
+}
