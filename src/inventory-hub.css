@@ -24,6 +24,80 @@ body.inventory-hub-route-active .items-layout {
   margin: 0;
 }
 
+.inventory-create-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 12, 15, .72);
+  backdrop-filter: blur(6px);
+}
+
+.inventory-create-card {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--calibre-line-strong);
+  border-radius: 16px;
+  background: rgba(29, 39, 46, .98);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+}
+
+.inventory-create-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.inventory-create-heading h2,
+.inventory-create-heading p {
+  margin: 0;
+}
+
+.inventory-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.inventory-create-field {
+  display: grid;
+  gap: 6px;
+  color: var(--calibre-muted);
+  font-size: 12px;
+}
+
+.inventory-create-field input,
+.inventory-create-field select,
+.inventory-create-field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 9px;
+  background: rgba(20, 28, 34, .92);
+  color: inherit;
+  font: inherit;
+}
+
+.inventory-create-field textarea {
+  resize: vertical;
+}
+
+.inventory-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
 .inventory-category-tabs {
   display: flex;
   gap: 8px;
@@ -227,14 +301,41 @@ body.inventory-hub-route-active .items-layout {
   }
 
   .inventory-hub-heading,
-  .invoice-files-heading {
+  .invoice-files-heading,
+  .inventory-create-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
   .inventory-hub-heading > button,
-  .invoice-files-heading > button {
+  .invoice-files-heading > button,
+  .inventory-create-heading > button {
     width: 100%;
+  }
+
+  .inventory-create-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .inventory-create-card {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    padding: 16px;
+  }
+
+  .inventory-create-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inventory-create-actions,
+  .inventory-create-actions > button {
+    width: 100%;
+  }
+
+  .inventory-create-actions {
+    flex-direction: column-reverse;
   }
 
   .inventory-category-tabs {
