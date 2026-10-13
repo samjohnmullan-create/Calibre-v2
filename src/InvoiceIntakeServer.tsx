@@ -79,6 +79,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const selected = invoices.find((invoice) => invoice.id === selectedId) ?? null
+  const pendingInvoices = invoices.filter((invoice) => invoice.extraction_status === 'uploaded')
   const includedCount = lines.filter((line) => line.include_on_import && !line.created_item_id).length
   const importedCount = lines.filter((line) => Boolean(line.created_item_id)).length
 
@@ -97,8 +98,10 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     }
     const rows = (data ?? []) as Invoice[]
     setInvoices(rows)
-    const target = selectId || selectedId || rows[0]?.id || ''
-    if (target) setSelectedId(target)
+    const pending = rows.filter((invoice) => invoice.extraction_status === 'uploaded')
+    const target = selectId || (rows.some((invoice) => invoice.id === selectedId) ? selectedId : '') || pending[0]?.id || ''
+    setSelectedId(target)
+    if (!target) setLines([])
   }
 
   async function loadLines(invoiceId: string) {
@@ -208,7 +211,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       ? ` Converted to AUD at ${fx.toFixed(5)}${data?.aud_rate_date ? ` (${data.aud_rate_date})` : ''}.`
       : ''
     const warning = data?.aud_warning ? ` ${data.aud_warning}` : ''
-    setMessage(`Invoice read successfully. ${count} draft line${count === 1 ? '' : 's'} ready for review.${fxText}${warning} No Items have been created.`)
+    setMessage(`Invoice read successfully and moved out of the intake queue. ${count} draft line${count === 1 ? '' : 's'} ready for review.${fxText}${warning} The original document remains in Files and will be linked to each Item when imported.`)
     await loadInvoices(selected.id)
     await loadLines(selected.id)
   }
@@ -283,7 +286,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
     const row = Array.isArray(data) ? data[0] : data
     const count = Number(row?.created_count ?? 0)
-    setMessage(`${count} Item${count === 1 ? '' : 's'} created from the reviewed invoice. Imported rows are now locked to prevent duplicates.`)
+    setMessage(`${count} Item${count === 1 ? '' : 's'} created. The source invoice is linked to each Item under Photos & Media → Invoice, while the original remains in Files.`)
     await loadInvoices(selected.id)
     await loadLines(selected.id)
   }
@@ -298,7 +301,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
         <div>
           <p className="eyebrow">BULK INTAKE</p>
           <h2>Invoice intake</h2>
-          <p className="muted">Upload → read → review → import. Foreign invoices keep their original values and receive an AUD conversion using the historical invoice-date rate.</p>
+          <p className="muted">Upload → read → review → import. Read invoices leave this queue and remain permanently available in Files.</p>
         </div>
         <button type="button" className="secondary small" onClick={() => setOpen(false)}>Close</button>
       </div>
@@ -311,10 +314,10 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
       <div className="invoice-intake-grid">
         <aside className="invoice-list-panel">
-          <strong>Invoices</strong>
+          <strong>Pending invoices</strong>
           {loading && <p className="muted">Loading…</p>}
-          {!loading && invoices.length === 0 && <p className="muted">No invoices uploaded yet.</p>}
-          {invoices.map((invoice) => (
+          {!loading && pendingInvoices.length === 0 && <p className="muted">No unread invoices. Read documents are kept in Files.</p>}
+          {pendingInvoices.map((invoice) => (
             <button type="button" key={invoice.id} className={selectedId === invoice.id ? 'active' : ''} onClick={() => setSelectedId(invoice.id)}>
               <span>{invoice.vendor_name || invoice.original_filename}</span>
               <small>{invoice.invoice_number || invoice.extraction_status}</small>
@@ -342,8 +345,10 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
             </div>}
 
             <div className="invoice-extraction-actions">
-              <button type="button" onClick={readInvoice} disabled={reading || importing}>{reading ? 'Reading invoice…' : lines.length ? 'Read again' : 'Read invoice'}</button>
-              <span>The private stored file is read server-side. Reading again replaces unimported draft extraction, not your Items.</span>
+              {selected.extraction_status === 'uploaded'
+                ? <button type="button" onClick={readInvoice} disabled={reading || importing}>{reading ? 'Reading invoice…' : 'Read invoice'}</button>
+                : <span>Read complete. This document now lives in Files; finish reviewing the draft lines below.</span>}
+              {selected.extraction_status === 'uploaded' && <span>The private stored file is read server-side. Once read, it leaves the pending queue.</span>}
             </div>
 
             <div className="invoice-draft-lines">
