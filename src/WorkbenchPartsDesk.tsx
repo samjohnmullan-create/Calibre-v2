@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 
-type WorkRow = { id: string; item_id: string; work_number: number; title: string; status: string; waiting_reason: string | null }
+type WorkRow = { id: string; item_id: string; work_number: number; title: string; status: string; waiting_reason: string | null; next_action: string; blocker: string }
 type ItemRow = { id: string; item_number: number; title: string }
 type NeedRow = { id: string; work_record_id: string; item_id: string; part_type: string; description: string; status: string }
 type Candidate = {
@@ -77,7 +77,7 @@ export default function WorkbenchPartsDesk() {
   async function load() {
     if (!workspaceId) return
     const [workResult, itemResult, needsResult] = await Promise.all([
-      supabase.from('work_records').select('id,item_id,work_number,title,status,waiting_reason').eq('workspace_id', workspaceId).not('status', 'in', '(complete,cancelled)').order('priority', { ascending: false }).order('work_number', { ascending: true }),
+      supabase.from('work_records').select('id,item_id,work_number,title,status,waiting_reason,next_action,blocker').eq('workspace_id', workspaceId).not('status', 'in', '(complete,cancelled)').order('priority', { ascending: false }).order('work_number', { ascending: true }),
       supabase.from('items').select('id,item_number,title').eq('workspace_id', workspaceId).is('archived_at', null),
       supabase.from('work_part_needs').select('id,work_record_id,item_id,part_type,description,status').eq('workspace_id', workspaceId).in('status', ['open', 'reserved']),
     ])
@@ -113,8 +113,13 @@ export default function WorkbenchPartsDesk() {
     setResults([])
     setMessage('Recording part need…')
 
+    const cleanPartType = partType.trim()
+    const cleanDescription = description.trim()
+    const blockerSummary = cleanDescription ? `${cleanPartType} · ${cleanDescription}` : cleanPartType
+    const nextAction = selectedWork.next_action.trim() || `Source ${cleanPartType}`
+
     const workUpdate = await supabase.from('work_records')
-      .update({ status: 'waiting', waiting_reason: 'parts' })
+      .update({ status: 'waiting', waiting_reason: 'parts', blocker: blockerSummary, next_action: nextAction })
       .eq('workspace_id', workspaceId)
       .eq('id', selectedWork.id)
 
@@ -128,8 +133,8 @@ export default function WorkbenchPartsDesk() {
       workspace_id: workspaceId,
       work_record_id: selectedWork.id,
       item_id: selectedWork.item_id,
-      part_type: partType.trim(),
-      description: description.trim(),
+      part_type: cleanPartType,
+      description: cleanDescription,
       status: 'open',
       updated_at: new Date().toISOString(),
     }
@@ -148,7 +153,7 @@ export default function WorkbenchPartsDesk() {
     const matchResult = await supabase.rpc('find_owned_compatibility_candidates', {
       p_workspace_id: workspaceId,
       p_item_id: selectedWork.item_id,
-      p_part_type: partType.trim(),
+      p_part_type: cleanPartType,
       p_limit: 30,
     })
     setBusy(false)
