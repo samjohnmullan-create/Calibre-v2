@@ -1,143 +1,128 @@
 /*
- * Brushed bronze material accents.
+ * Satin bronze material accents.
  *
- * This layer intentionally changes accents only. Structural cards and the
- * charcoal/steel workshop palette remain owned by the existing theme files.
+ * Keep bronze restrained: dark surfaces stay charcoal/steel while bronze reads
+ * as machined hardware and edge detail rather than a textured skin.
  */
 
 :root {
-  --calibre-bronze-dark: #5f4937;
-  --calibre-bronze: #8a6848;
-  --calibre-bronze-warm: #a98255;
-  --calibre-bronze-light: #c4a273;
-  --calibre-bronze-ink: #211911;
-  --calibre-bronze-line: rgba(196, 162, 115, 0.46);
-  --calibre-bronze-glow: rgba(169, 130, 85, 0.18);
+  --calibre-bronze-dark: #5a4637;
+  --calibre-bronze: #7d6248;
+  --calibre-bronze-mid: #9a7956;
+  --calibre-bronze-light: #b79267;
+  --calibre-bronze-pale: #c6aa83;
+  --calibre-bronze-ink: #201a15;
+  --calibre-bronze-line: rgba(183, 146, 103, 0.42);
+  --calibre-bronze-glow: rgba(154, 121, 86, 0.12);
 }
 
-/* A restrained horizontal brushed-metal grain. */
+/* Primary controls: satin bronze, no visible stripe/grain pattern. */
 button:not(.secondary):not(.icon-button):not(.brand-button):not(.profile-chip):not(.work-card-title),
 .knowledge-file-picker > span {
   color: var(--calibre-bronze-ink);
-  border-color: rgba(196, 162, 115, 0.62);
+  border-color: rgba(183, 146, 103, 0.54);
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.055) 0,
-      rgba(255, 255, 255, 0.055) 1px,
-      rgba(40, 24, 13, 0.035) 1px,
-      rgba(40, 24, 13, 0.035) 2px
-    ),
     linear-gradient(
-      100deg,
-      #654b35 0%,
-      #98734e 24%,
-      #b18a5c 48%,
-      #8a6848 70%,
-      #6b5038 100%
+      105deg,
+      #6b523d 0%,
+      #806348 18%,
+      #9b7b57 42%,
+      #a98760 52%,
+      #8a6b4d 72%,
+      #654d3a 100%
     );
   box-shadow:
-    inset 0 1px 0 rgba(255, 230, 190, 0.20),
-    inset 0 -1px 0 rgba(52, 32, 18, 0.28),
-    0 5px 14px rgba(7, 10, 12, 0.16);
+    inset 0 1px 0 rgba(238, 213, 179, 0.16),
+    inset 0 -1px 0 rgba(44, 31, 22, 0.24),
+    0 4px 12px rgba(7, 10, 12, 0.14);
 }
 
 button:not(.secondary):not(.icon-button):not(.brand-button):not(.profile-chip):not(.work-card-title):hover:not(:disabled) {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.065) 0,
-      rgba(255, 255, 255, 0.065) 1px,
-      rgba(40, 24, 13, 0.035) 1px,
-      rgba(40, 24, 13, 0.035) 2px
-    ),
-    linear-gradient(100deg, #74563b 0%, #a27a50 24%, #c09a69 48%, #97714b 70%, #76583e 100%);
-  border-color: rgba(212, 178, 129, 0.74);
+    linear-gradient(
+      105deg,
+      #715741 0%,
+      #886a4c 18%,
+      #a6855f 42%,
+      #b08e67 52%,
+      #927153 72%,
+      #6b523e 100%
+    );
+  border-color: rgba(198, 170, 131, 0.60);
 }
 
-/* Navigation reads as an inset bronze nameplate rather than a glowing button. */
+/* Navigation stays dark; bronze is the selected hardware accent, not the whole button. */
 .topnav button.active {
-  color: #f0dfc5;
-  border-color: rgba(169, 130, 85, 0.38);
-  background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.025) 0,
-      rgba(255, 255, 255, 0.025) 1px,
-      transparent 1px,
-      transparent 3px
-    ),
-    linear-gradient(180deg, rgba(138, 104, 72, 0.48), rgba(95, 73, 55, 0.34));
+  color: #eadac2;
+  border-color: rgba(183, 146, 103, 0.24);
+  background: linear-gradient(180deg, rgba(90, 70, 55, 0.34), rgba(46, 57, 68, 0.56));
   box-shadow:
-    inset 0 0 0 1px rgba(196, 162, 115, 0.13),
-    0 5px 16px rgba(5, 10, 13, 0.16);
+    inset 0 0 0 1px rgba(183, 146, 103, 0.08),
+    inset 0 -2px 0 rgba(183, 146, 103, 0.70),
+    0 4px 14px rgba(5, 10, 13, 0.13);
 }
 
 .topnav button.active::after {
-  background: linear-gradient(90deg, var(--calibre-bronze-dark), var(--calibre-bronze-light), var(--calibre-bronze-dark));
+  background: linear-gradient(90deg, transparent, var(--calibre-bronze-light), transparent);
 }
 
-/* Tabs and selected rows get bronze edges, keeping the surfaces themselves dark. */
 .item-tabs button.active {
-  color: #e8d8bf;
-  border-bottom-color: var(--calibre-bronze-warm);
+  color: #e6d4ba;
+  border-bottom-color: var(--calibre-bronze-mid);
 }
 
 .item-row.selected {
-  background: linear-gradient(90deg, rgba(138, 104, 72, 0.24), rgba(46, 57, 68, 0.66));
-  border-color: rgba(169, 130, 85, 0.32);
-  box-shadow: inset 3px 0 0 var(--calibre-bronze-warm);
+  background: linear-gradient(90deg, rgba(125, 98, 72, 0.13), rgba(46, 57, 68, 0.68));
+  border-color: rgba(154, 121, 86, 0.26);
+  box-shadow: inset 3px 0 0 var(--calibre-bronze-mid);
 }
 
-/* Small instrument labels use bronze sparingly, rather than becoming gold pills. */
+/* Small instrument details: mostly dark with bronze outline/text. */
 .count-chip,
 .confidence,
 .priority-chip {
-  color: #d1b894;
-  border-color: rgba(169, 130, 85, 0.40);
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px),
-    rgba(95, 73, 55, 0.16);
+  color: #c8ad88;
+  border-color: rgba(154, 121, 86, 0.34);
+  background: rgba(90, 70, 55, 0.10);
 }
 
 .stage-strip span.current {
-  color: #ead8bd;
-  border-color: rgba(169, 130, 85, 0.60);
-  background: rgba(95, 73, 55, 0.26);
-  box-shadow: inset 0 0 0 1px rgba(196, 162, 115, 0.08);
+  color: #e6d3b9;
+  border-color: rgba(154, 121, 86, 0.48);
+  background: rgba(90, 70, 55, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(183, 146, 103, 0.06);
 }
 
-/* Logo becomes the clearest material signature. */
+/* Logo carries the clearest bronze signature. */
 .moon {
-  border-color: var(--calibre-bronze-light);
-  filter: drop-shadow(0 0 7px rgba(169, 130, 85, 0.16));
+  border-color: var(--calibre-bronze-pale);
+  filter: drop-shadow(0 0 5px rgba(154, 121, 86, 0.12));
 }
 
 .star {
-  color: #c9a979;
-  text-shadow: 0 0 12px rgba(169, 130, 85, 0.22);
+  color: #c4a477;
+  text-shadow: 0 0 8px rgba(154, 121, 86, 0.16);
 }
 
-/* Focus accents tie forms into the material without sacrificing readability. */
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #a98255;
-  box-shadow: 0 0 0 3px rgba(169, 130, 85, 0.16);
+  border-color: var(--calibre-bronze-mid);
+  box-shadow: 0 0 0 3px rgba(154, 121, 86, 0.12);
 }
 
-/* Evidence / verified UI gets a subtle bronze technical plate treatment. */
 .passport-linked-movement,
 .passport-movement-proposal,
 .knowledge-safety-card {
-  border-color: rgba(169, 130, 85, 0.24);
+  border-color: rgba(154, 121, 86, 0.20);
 }
 
 @media (max-width: 720px) {
   .topnav button.active {
-    color: #f1dfc5;
-    background:
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 3px),
-      linear-gradient(180deg, rgba(138, 104, 72, 0.48), rgba(95, 73, 55, 0.38));
+    color: #eadac2;
+    background: linear-gradient(180deg, rgba(90, 70, 55, 0.28), rgba(35, 45, 52, 0.72));
+    box-shadow:
+      inset 0 -2px 0 rgba(183, 146, 103, 0.72),
+      0 3px 10px rgba(5, 10, 13, 0.12);
   }
 }
