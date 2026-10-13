@@ -27,16 +27,23 @@ export default function CreateItemFlow() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
+    const openFlow = () => {
+      setMessage('')
+      setOpen(true)
+    }
     const handleClick = (event: MouseEvent) => {
       const target = event.target as Element | null
       const button = target?.closest('button[aria-label="Create item"]')
       if (!button) return
       event.preventDefault()
-      setMessage('')
-      setOpen(true)
+      openFlow()
     }
     document.addEventListener('click', handleClick)
-    return () => document.removeEventListener('click', handleClick)
+    window.addEventListener('calibre:new-item', openFlow)
+    return () => {
+      document.removeEventListener('click', handleClick)
+      window.removeEventListener('calibre:new-item', openFlow)
+    }
   }, [])
 
   useEffect(() => {
