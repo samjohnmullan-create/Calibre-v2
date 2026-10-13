@@ -26,6 +26,7 @@ import './responsive-cards.css'
 import './device-shell'
 import './dex-scroll'
 import './ux-shell-v2.css'
+import './inventory-ux-v2.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
