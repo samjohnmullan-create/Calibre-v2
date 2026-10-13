@@ -1,16 +1,16 @@
 .workbench-parts-desk {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  width: min(520px, calc(100vw - 36px));
-  max-height: min(78vh, 760px);
-  overflow: auto;
-  z-index: 45;
+  position: static;
+  width: min(1240px, calc(100% - 36px));
+  max-height: none;
+  overflow: visible;
+  z-index: auto;
+  margin: 18px auto 28px;
   border: 1px solid var(--calibre-line-strong);
   border-radius: 16px;
   background: rgba(30, 40, 47, 0.98);
-  box-shadow: 0 24px 70px rgba(3, 8, 11, 0.38);
+  box-shadow: 0 12px 32px rgba(3, 8, 11, 0.20);
   padding: 18px;
+  box-sizing: border-box;
 }
 
 .parts-desk-heading h2 { margin: 0 0 4px; }
@@ -89,11 +89,8 @@
 
 @media (max-width: 720px) {
   .workbench-parts-desk {
-    right: 10px;
-    left: 10px;
-    bottom: calc(74px + env(safe-area-inset-bottom));
-    width: auto;
-    max-height: 66vh;
+    width: calc(100% - 20px);
+    margin: 12px 10px 22px;
     padding: 14px;
     border-radius: 14px;
   }
