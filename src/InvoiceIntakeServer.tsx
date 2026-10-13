@@ -70,6 +70,12 @@ function roundMoney(value: number | null) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100
 }
 
+async function sha256File(file: File) {
+  const bytes = await file.arrayBuffer()
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('')
+}
+
 export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: string }) {
   const [open, setOpen] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -171,6 +177,41 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
     setImportedItems([])
     setUploading(true)
+    setMessage('Checking invoice…')
+
+    let fileHash = ''
+    try {
+      fileHash = await sha256File(file)
+    } catch {
+      setUploading(false)
+      setMessage('This device could not fingerprint the invoice file. Try the upload again.')
+      return
+    }
+
+    const duplicateResult = await supabase
+      .from('acquisition_invoices')
+      .select('id,vendor_name,invoice_number,original_filename,extraction_status')
+      .eq('workspace_id', workspaceId)
+      .eq('file_sha256', fileHash)
+      .neq('extraction_status', 'duplicate')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (duplicateResult.error) {
+      setUploading(false)
+      setMessage(`Duplicate check failed: ${duplicateResult.error.message}`)
+      return
+    }
+    if (duplicateResult.data) {
+      if (fileRef.current) fileRef.current.value = ''
+      setUploading(false)
+      const label = [duplicateResult.data.vendor_name, duplicateResult.data.invoice_number ? `invoice ${duplicateResult.data.invoice_number}` : ''].filter(Boolean).join(' · ')
+      setMessage(`This exact invoice file is already in Calibre${label ? ` (${label})` : ''}. The existing record has been kept; no duplicate was uploaded.`)
+      await loadInvoices(duplicateResult.data.id)
+      return
+    }
+
     setMessage('Uploading invoice…')
     const id = crypto.randomUUID()
     const path = `${workspaceId}/invoices/${id}/${safeName(file.name)}`
@@ -192,12 +233,14 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       mime_type: file.type || (isPdf ? 'application/pdf' : ''),
       byte_size: file.size,
       storage_path: path,
+      file_sha256: fileHash,
       extraction_status: 'uploaded',
     })
     if (rowResult.error) {
       await supabase.storage.from('calibre-media').remove([path])
       setUploading(false)
-      setMessage(`Invoice record failed: ${rowResult.error.message}`)
+      const duplicate = rowResult.error.code === '23505' || rowResult.error.message.toLowerCase().includes('duplicate')
+      setMessage(duplicate ? 'That invoice is already in Calibre. The existing record has been kept and the duplicate upload was discarded.' : `Invoice record failed: ${rowResult.error.message}`)
       return
     }
 
@@ -229,7 +272,8 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
           // Keep the original function error.
         }
       }
-      setMessage(`Invoice reading failed: ${detail}`)
+      const duplicate = detail.toLowerCase().includes('duplicate') || detail.toLowerCase().includes('acquisition_invoices_business_identity_uq')
+      setMessage(duplicate ? 'This appears to be the same vendor invoice already stored in Calibre. The existing invoice has been kept rather than creating another financial record.' : `Invoice reading failed: ${detail}`)
       return
     }
 
