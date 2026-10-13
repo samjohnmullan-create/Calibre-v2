@@ -1,8 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
-import InvoiceIntakeServer from './InvoiceIntakeServer'
-import InvoiceFiles from './InvoiceFiles'
 
 type ItemRow = {
   id: string
@@ -15,22 +13,11 @@ type ItemRow = {
   created_at: string
 }
 
-type InventoryTab = 'all' | 'watch' | 'jewellery' | 'clock' | 'accessory' | 'parts' | 'donor' | 'other' | 'files'
-
-const tabs: { key: InventoryTab; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'watch', label: 'Watches' },
-  { key: 'jewellery', label: 'Jewellery' },
-  { key: 'clock', label: 'Clocks' },
-  { key: 'accessory', label: 'Accessories' },
-  { key: 'parts', label: 'Parts' },
-  { key: 'donor', label: 'Donors' },
-  { key: 'other', label: 'Other' },
-  { key: 'files', label: 'Files' },
-]
+type InventoryView = 'items' | 'parts' | 'workshop'
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
+const itemStatuses = ['acquired', 'researching', 'preparing', 'ready_for_sale', 'listed', 'sold', 'archived']
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -47,33 +34,17 @@ export default function InventoryHubRoute() {
   const [items, setItems] = useState<ItemRow[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [tab, setTab] = useState<InventoryTab>('all')
+  const [view, setView] = useState<InventoryView>('items')
   const [query, setQuery] = useState('')
-  const [createOpen, setCreateOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newType, setNewType] = useState('watch')
-  const [newPurpose, setNewPurpose] = useState('resale')
-  const [newNotes, setNewNotes] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [purposeFilter, setPurposeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => {
     const sync = () => setActive(isInventoryRoot())
     window.addEventListener('hashchange', sync)
     sync()
     return () => window.removeEventListener('hashchange', sync)
-  }, [])
-
-  useEffect(() => {
-    const interceptItemsNav = (event: MouseEvent) => {
-      const target = event.target as Element | null
-      const button = target?.closest('.topnav button')
-      if (!button || button.textContent?.trim().toLowerCase() !== 'items') return
-      event.preventDefault()
-      event.stopPropagation()
-      window.location.hash = '#/items'
-    }
-    document.addEventListener('click', interceptItemsNav, true)
-    return () => document.removeEventListener('click', interceptItemsNav, true)
   }, [])
 
   useEffect(() => {
@@ -119,173 +90,138 @@ export default function InventoryHubRoute() {
     void loadItems()
   }, [active, workspaceId])
 
-  async function createItem(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!workspaceId || creating) return
-    const title = newTitle.trim()
-    if (!title) {
-      setMessage('Item title is required.')
-      return
-    }
-
-    setCreating(true)
-    setMessage('Creating item…')
-    const { data, error } = await supabase.rpc('create_item', {
-      p_workspace_id: workspaceId,
-      p_title: title,
-      p_type: itemTypes.includes(newType) ? newType : 'other',
-      p_purpose: itemPurposes.includes(newPurpose) ? newPurpose : 'resale',
-      p_notes: newNotes.trim(),
-    })
-    setCreating(false)
-
-    if (error) {
-      setMessage(`Item could not be created: ${error.message}`)
-      return
-    }
-
-    const created = (Array.isArray(data) ? data[0] : data) as Partial<ItemRow> | null
-    setCreateOpen(false)
-    setNewTitle('')
-    setNewType('watch')
-    setNewPurpose('resale')
-    setNewNotes('')
-    setMessage('Item created.')
-    await loadItems()
-    if (created?.id) window.location.hash = `#/items/${encodeURIComponent(created.id)}`
-  }
-
-  const counts = useMemo(() => {
-    const knownTypes = new Set(['watch', 'jewellery', 'clock', 'accessory'])
-    return {
-      all: items.length,
-      watch: items.filter((item) => item.type === 'watch').length,
-      jewellery: items.filter((item) => item.type === 'jewellery').length,
-      clock: items.filter((item) => item.type === 'clock').length,
-      accessory: items.filter((item) => item.type === 'accessory').length,
-      donor: items.filter((item) => item.purpose === 'donor').length,
-      other: items.filter((item) => !knownTypes.has(item.type)).length,
-    }
-  }, [items])
-
   const filtered = useMemo(() => {
     const text = query.trim().toLowerCase()
-    const knownTypes = new Set(['watch', 'jewellery', 'clock', 'accessory'])
     return items.filter((item) => {
-      const categoryMatch = tab === 'all'
-        || (tab === 'donor' && item.purpose === 'donor')
-        || (tab === 'other' && !knownTypes.has(item.type))
-        || (tab !== 'parts' && tab !== 'donor' && tab !== 'other' && tab !== 'files' && item.type === tab)
-      if (!categoryMatch) return false
+      if (typeFilter && item.type !== typeFilter) return false
+      if (purposeFilter && item.purpose !== purposeFilter) return false
+      if (statusFilter && item.status !== statusFilter) return false
       if (!text) return true
       return [item.title, item.type, item.purpose, item.status, item.notes, String(item.item_number)]
         .some((value) => value?.toLowerCase().includes(text))
     })
-  }, [items, query, tab])
+  }, [items, query, typeFilter, purposeFilter, statusFilter])
+
+  const activeFilterCount = [typeFilter, purposeFilter, statusFilter].filter(Boolean).length
+  const readyCount = items.filter((item) => item.status === 'ready_for_sale').length
+  const donorCount = items.filter((item) => item.purpose === 'donor').length
+
+  function clearFilters() {
+    setTypeFilter('')
+    setPurposeFilter('')
+    setStatusFilter('')
+    setQuery('')
+  }
 
   if (!active) return null
 
   return (
-    <main className="inventory-hub-page">
-      <header className="inventory-hub-heading">
+    <main className="inventory-hub-page inventory-v2-page">
+      <header className="inventory-hub-heading inventory-v2-heading">
         <div>
           <p className="eyebrow">INVENTORY</p>
-          <h1>Items</h1>
-          <p className="muted">Browse the collection first. Open an Item only when you need its Passport, Work, media or commerce record.</p>
+          <h1>Inventory</h1>
+          <p className="muted">Everything Calibre owns or manages, separated by what it is — not by a growing list of feature tabs.</p>
         </div>
-        <button type="button" aria-label="Create item" onClick={() => setCreateOpen(true)}>＋ Add Item</button>
+        <button type="button" aria-label="Create item">＋ Add Item</button>
       </header>
 
-      {createOpen && (
-        <div className="inventory-create-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !creating) setCreateOpen(false)
-        }}>
-          <form className="inventory-create-card" onSubmit={createItem}>
-            <div className="inventory-create-heading">
-              <div>
-                <p className="eyebrow">NEW INVENTORY</p>
-                <h2>Add Item</h2>
-              </div>
-              <button type="button" className="secondary small" onClick={() => setCreateOpen(false)} disabled={creating}>Close</button>
+      <nav className="inventory-v2-primary" aria-label="Inventory views">
+        <button type="button" className={view === 'items' ? 'active' : ''} onClick={() => setView('items')}>
+          <span>Items</span><strong>{items.length}</strong>
+        </button>
+        <button type="button" className={view === 'parts' ? 'active' : ''} onClick={() => setView('parts')}>
+          <span>Parts</span>
+        </button>
+        <button type="button" className={view === 'workshop' ? 'active' : ''} onClick={() => setView('workshop')}>
+          <span>Workshop</span>
+        </button>
+      </nav>
+
+      {view === 'items' && (
+        <>
+          <section className="inventory-v2-summary" aria-label="Inventory summary">
+            <div><span>Total Items</span><strong>{items.length}</strong></div>
+            <button type="button" onClick={() => setStatusFilter('ready_for_sale')}><span>Ready for sale</span><strong>{readyCount}</strong></button>
+            <button type="button" onClick={() => setPurposeFilter('donor')}><span>Donors</span><strong>{donorCount}</strong></button>
+          </section>
+
+          <section className="inventory-v2-controls">
+            <div className="inventory-v2-search-row">
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search Item #, title, type, status or notes…"
+                aria-label="Search inventory"
+              />
+              <span>{filtered.length} shown</span>
             </div>
 
-            <label className="inventory-create-field">Title
-              <input autoFocus value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="e.g. Seiko Kinetic" />
-            </label>
-
-            <div className="inventory-create-grid">
-              <label className="inventory-create-field">Type
-                <select value={newType} onChange={(event) => setNewType(event.target.value)}>
+            <div className="inventory-v2-filters" aria-label="Inventory filters">
+              <label>Type
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                  <option value="">All types</option>
                   {itemTypes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
                 </select>
               </label>
-              <label className="inventory-create-field">Purpose
-                <select value={newPurpose} onChange={(event) => setNewPurpose(event.target.value)}>
+              <label>Purpose
+                <select value={purposeFilter} onChange={(event) => setPurposeFilter(event.target.value)}>
+                  <option value="">All purposes</option>
                   {itemPurposes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
                 </select>
               </label>
+              <label>Status
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  <option value="">All statuses</option>
+                  {itemStatuses.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+                </select>
+              </label>
+              {(activeFilterCount > 0 || query) && <button type="button" className="secondary small" onClick={clearFilters}>Clear</button>}
             </div>
+          </section>
 
-            <label className="inventory-create-field">Notes
-              <textarea rows={3} value={newNotes} onChange={(event) => setNewNotes(event.target.value)} placeholder="Condition, source, quick intake note…" />
-            </label>
+          <section className="inventory-list-panel inventory-v2-list-panel">
+            {message && <p className="inventory-message">{message}</p>}
+            {loading && <p className="inventory-empty">Loading inventory…</p>}
+            {!loading && filtered.length === 0 && (
+              <div className="inventory-empty">
+                <strong>No Items match this view.</strong>
+                <span>{items.length ? 'Clear a filter or try another search.' : 'Add your first Item or import a purchase through Intake.'}</span>
+              </div>
+            )}
 
-            <div className="inventory-create-actions">
-              <button type="button" className="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</button>
-              <button type="submit" disabled={creating || !newTitle.trim()}>{creating ? 'Creating…' : 'Create Item'}</button>
+            <div className="inventory-list">
+              {filtered.map((item) => (
+                <button key={item.id} type="button" className="inventory-row" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
+                  <span className="inventory-row-number">#{item.item_number}</span>
+                  <span className="inventory-row-main">
+                    <strong>{item.title}</strong>
+                    <small>{titleCase(item.type)} · {titleCase(item.purpose)}</small>
+                  </span>
+                  <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
+                </button>
+              ))}
             </div>
-          </form>
-        </div>
+          </section>
+        </>
       )}
 
-      <div className="inventory-intake-row">
-        <InvoiceIntakeServer workspaceId={workspaceId} />
-      </div>
+      {view === 'parts' && <PartsInventory />}
 
-      <nav className="inventory-category-tabs" aria-label="Inventory categories">
-        {tabs.map(({ key, label }) => {
-          const count = key === 'parts' || key === 'files' ? null : counts[key as keyof typeof counts]
-          return (
-            <button key={key} type="button" className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
-              <span>{label}</span>{count != null && <strong>{count}</strong>}
-            </button>
-          )
-        })}
-      </nav>
-
-      {tab === 'parts' ? (
-        <PartsInventory />
-      ) : tab === 'files' ? (
-        <InvoiceFiles workspaceId={workspaceId} />
-      ) : (
-        <section className="inventory-list-panel">
-          <div className="inventory-list-toolbar">
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={`Search ${tabs.find((entry) => entry.key === tab)?.label.toLowerCase() ?? 'items'}…`}
-              aria-label="Search inventory"
-            />
-            <span>{filtered.length} shown</span>
+      {view === 'workshop' && (
+        <section className="inventory-v2-workshop">
+          <div className="inventory-v2-workshop-copy">
+            <p className="eyebrow">WORKSHOP INVENTORY</p>
+            <h2>Workshop resources belong together.</h2>
+            <p className="muted">Tools, consumables, oils and storage locations will live here instead of becoming separate top-level sections.</p>
           </div>
-
-          {message && <p className="inventory-message">{message}</p>}
-          {loading && <p className="inventory-empty">Loading inventory…</p>}
-          {!loading && filtered.length === 0 && <div className="inventory-empty"><strong>Nothing in this list yet.</strong><span>Add an Item or choose another category.</span></div>}
-
-          <div className="inventory-list">
-            {filtered.map((item) => (
-              <button key={item.id} type="button" className="inventory-row" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
-                <span className="inventory-row-number">#{item.item_number}</span>
-                <span className="inventory-row-main">
-                  <strong>{item.title}</strong>
-                  <small>{titleCase(item.type)} · {titleCase(item.purpose)}</small>
-                </span>
-                <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
-              </button>
-            ))}
+          <div className="inventory-v2-workshop-grid">
+            <article><span>01</span><strong>Tools & equipment</strong><p>Bench tools, machines, test equipment and specialist holders.</p></article>
+            <article><span>02</span><strong>Consumables</strong><p>Oils, cleaning fluids, Rodico, pegwood and workshop supplies.</p></article>
+            <article><span>03</span><strong>Storage</strong><p>Cabinets, drawers, trays and physical locations for stock.</p></article>
           </div>
+          <p className="inventory-v2-workshop-note">This is the destination structure. The existing Tools, Consumables and Storage records will be surfaced here as we connect the next Inventory layer.</p>
         </section>
       )}
     </main>
