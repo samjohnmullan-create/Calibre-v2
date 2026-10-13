@@ -1,9 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
-import WorkbenchPartsDesk from './WorkbenchPartsDesk'
-import CreateItemFlow from './CreateItemFlow'
-import InventoryHubRoute from './InventoryHubRoute'
+import CalibreShell from './CalibreShell'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
@@ -28,12 +25,10 @@ import './bronze-accent.css'
 import './responsive-cards.css'
 import './device-shell'
 import './dex-scroll'
+import './ux-shell-v2.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
-    <WorkbenchPartsDesk />
-    <CreateItemFlow />
-    <InventoryHubRoute />
+    <CalibreShell />
   </StrictMode>,
 )
