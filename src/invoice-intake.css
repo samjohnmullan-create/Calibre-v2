@@ -11,6 +11,16 @@
   border: 1px solid var(--calibre-line-strong);
   border-radius: 16px;
   background: rgba(29, 39, 46, .94);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.invoice-intake-card *,
+.invoice-intake-card *::before,
+.invoice-intake-card *::after {
+  box-sizing: border-box;
 }
 
 .invoice-intake-heading {
@@ -18,6 +28,11 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+  min-width: 0;
+}
+
+.invoice-intake-heading > div {
+  min-width: 0;
 }
 
 .invoice-intake-heading h2,
@@ -35,6 +50,7 @@
   border-radius: 10px;
   cursor: pointer;
   background: rgba(43, 55, 64, .86);
+  max-width: 100%;
 }
 .invoice-upload-button input { display: none; }
 
@@ -42,6 +58,7 @@
   margin: 12px 0 0;
   color: var(--calibre-muted);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .invoice-intake-grid {
@@ -49,15 +66,19 @@
   grid-template-columns: minmax(190px, .34fr) minmax(0, 1fr);
   gap: 14px;
   margin-top: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .invoice-list-panel,
 .invoice-review-panel {
   min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--calibre-line);
   border-radius: 12px;
   background: rgba(35, 46, 54, .72);
   padding: 12px;
+  overflow: hidden;
 }
 
 .invoice-list-panel {
@@ -68,6 +89,8 @@
 
 .invoice-list-panel > button {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: grid;
   gap: 3px;
   padding: 10px;
@@ -76,10 +99,25 @@
   border-radius: 9px;
   background: transparent;
   color: inherit;
+  overflow: hidden;
 }
 .invoice-list-panel > button.active {
   border-color: var(--calibre-bronze-pale, #d8bd98);
 }
+
+.invoice-list-panel > button span,
+.invoice-list-panel > button small,
+.invoice-summary strong,
+.invoice-summary span,
+.invoice-draft-lines strong,
+.invoice-draft-lines small,
+.invoice-draft-lines span,
+.invoice-extraction-actions span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .invoice-list-panel small,
 .invoice-summary span,
 .invoice-draft-lines small,
@@ -92,14 +130,17 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
 }
 .invoice-summary > div {
   min-width: 0;
+  max-width: 100%;
   display: grid;
   gap: 4px;
   padding: 10px;
   border: 1px solid var(--calibre-line);
   border-radius: 9px;
+  overflow: hidden;
 }
 .invoice-summary strong { overflow-wrap: anywhere; }
 
@@ -107,17 +148,19 @@
   display: grid;
   gap: 7px;
   margin-top: 12px;
+  min-width: 0;
 }
 
 .invoice-json-form {
   display: grid;
   gap: 10px;
   margin-top: 14px;
+  min-width: 0;
 }
-.invoice-json-form label { display: grid; gap: 6px; }
-.invoice-json-form textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+.invoice-json-form label { display: grid; gap: 6px; min-width: 0; }
+.invoice-json-form textarea { width: 100%; max-width: 100%; box-sizing: border-box; resize: vertical; }
 
-.invoice-draft-lines { margin-top: 16px; }
+.invoice-draft-lines { margin-top: 16px; min-width: 0; }
 .invoice-lines-heading {
   display: flex;
   justify-content: space-between;
@@ -130,6 +173,7 @@
   gap: 10px;
   padding: 11px 0;
   border-top: 1px solid var(--calibre-line);
+  min-width: 0;
 }
 .invoice-draft-lines article > div { min-width: 0; display: grid; gap: 3px; }
 .invoice-draft-lines article > div:last-child { text-align: right; }
@@ -138,12 +182,16 @@
   margin: 0;
   color: var(--calibre-muted);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {
   .inventory-hub-actions,
   .inventory-hub-actions > button {
     width: 100%;
+  }
+  .invoice-intake-card {
+    padding: 14px;
   }
   .invoice-intake-heading {
     flex-direction: column;
@@ -154,13 +202,13 @@
     box-sizing: border-box;
   }
   .invoice-intake-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .invoice-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .invoice-draft-lines article {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .invoice-draft-lines article > div:last-child {
     text-align: left;
