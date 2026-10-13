@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
-import InvoiceIntake from './InvoiceIntake'
+import InvoiceIntakeServer from './InvoiceIntakeServer'
 
 type ItemRow = {
   id: string
@@ -150,7 +150,7 @@ export default function InventoryHubRoute() {
       </header>
 
       <div className="inventory-intake-row">
-        <InvoiceIntake workspaceId={workspaceId} />
+        <InvoiceIntakeServer workspaceId={workspaceId} />
       </div>
 
       <nav className="inventory-category-tabs" aria-label="Inventory categories">
