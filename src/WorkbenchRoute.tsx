@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import WorkJobCard from './WorkJobCard'
 
@@ -17,8 +17,10 @@ type WorkRow = {
   diagnosis: string
   opened_at: string
   completed_at: string | null
+  item_number: number
+  item_title: string
+  item_type: string
 }
-type ItemRow = { id: string; item_number: number; title: string; type: string }
 type ViewKey = 'active' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete'
 
 const views: { key: ViewKey; label: string }[] = [
@@ -29,6 +31,7 @@ const views: { key: ViewKey; label: string }[] = [
   { key: 'qc', label: 'QC' },
   { key: 'complete', label: 'Complete' },
 ]
+const pageSize = 40
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -38,18 +41,44 @@ function isWorkbench() {
   return window.location.hash.replace(/\/$/, '') === '#/workbench'
 }
 
+function cleanSearch(value: string) {
+  return value.replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function buildSearchExpression(value: string) {
+  const text = cleanSearch(value)
+  if (!text) return ''
+  const pattern = `%${text}%`
+  const clauses = [
+    `item_title.ilike.${pattern}`,
+    `title.ilike.${pattern}`,
+    `type.ilike.${pattern}`,
+    `status.ilike.${pattern}`,
+    `next_action.ilike.${pattern}`,
+    `blocker.ilike.${pattern}`,
+    `diagnosis.ilike.${pattern}`,
+  ]
+  if (/^\d+$/.test(text)) {
+    clauses.push(`work_number.eq.${Number(text)}`)
+    clauses.push(`item_number.eq.${Number(text)}`)
+  }
+  return clauses.join(',')
+}
+
 export default function WorkbenchRoute() {
   const [active, setActive] = useState(isWorkbench)
   const [workspaceId, setWorkspaceId] = useState('')
   const [work, setWork] = useState<WorkRow[]>([])
-  const [items, setItems] = useState<ItemRow[]>([])
   const [view, setView] = useState<ViewKey>('active')
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedWorkId, setSelectedWorkId] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [page, setPage] = useState(0)
+  const [matchCount, setMatchCount] = useState(0)
+  const [counts, setCounts] = useState<Record<ViewKey, number>>({ active: 0, ready: 0, on_bench: 0, waiting: 0, qc: 0, complete: 0 })
 
-  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
   const selectedWork = work.find((record) => record.id === selectedWorkId) ?? null
 
   useEffect(() => {
@@ -58,6 +87,15 @@ export default function WorkbenchRoute() {
     sync()
     return () => window.removeEventListener('hashchange', sync)
   }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  useEffect(() => {
+    setPage(0)
+  }, [view, debouncedQuery])
 
   useEffect(() => {
     if (!active) return
@@ -74,68 +112,86 @@ export default function WorkbenchRoute() {
     return () => { cancelled = true }
   }, [active])
 
-  async function load() {
+  useEffect(() => {
+    if (!active || !workspaceId) return
+    let cancelled = false
+    ;(async () => {
+      const countBase = () => supabase.from('workbench_jobs').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId)
+      const [activeResult, readyResult, benchResult, waitingResult, qcResult, completeResult] = await Promise.all([
+        countBase().neq('status', 'complete').neq('status', 'cancelled'),
+        countBase().eq('status', 'ready'),
+        countBase().eq('status', 'on_bench'),
+        countBase().eq('status', 'waiting'),
+        countBase().eq('status', 'qc'),
+        countBase().eq('status', 'complete'),
+      ])
+      if (cancelled) return
+      const error = activeResult.error ?? readyResult.error ?? benchResult.error ?? waitingResult.error ?? qcResult.error ?? completeResult.error
+      if (error) {
+        setMessage(`Workbench summary failed to load: ${error.message}`)
+        return
+      }
+      setCounts({
+        active: activeResult.count ?? 0,
+        ready: readyResult.count ?? 0,
+        on_bench: benchResult.count ?? 0,
+        waiting: waitingResult.count ?? 0,
+        qc: qcResult.count ?? 0,
+        complete: completeResult.count ?? 0,
+      })
+    })()
+    return () => { cancelled = true }
+  }, [active, workspaceId])
+
+  async function loadPage() {
     if (!active || !workspaceId) return
     setLoading(true)
-    const [workResult, itemResult] = await Promise.all([
-      supabase.from('work_records')
-        .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,opened_at,completed_at')
-        .eq('workspace_id', workspaceId)
-        .order('priority', { ascending: false })
-        .order('work_number', { ascending: false }),
-      supabase.from('items')
-        .select('id,item_number,title,type')
-        .eq('workspace_id', workspaceId)
-        .is('archived_at', null),
-    ])
+
+    let request = supabase
+      .from('workbench_jobs')
+      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,opened_at,completed_at,item_number,item_title,item_type', { count: 'exact' })
+      .eq('workspace_id', workspaceId)
+
+    if (view === 'active') request = request.neq('status', 'complete').neq('status', 'cancelled')
+    else request = request.eq('status', view)
+
+    const searchExpression = buildSearchExpression(debouncedQuery)
+    if (searchExpression) request = request.or(searchExpression)
+
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const result = await request
+      .order('priority', { ascending: false })
+      .order('work_number', { ascending: false })
+      .range(from, to)
+
     setLoading(false)
-    const error = workResult.error ?? itemResult.error
-    if (error) {
-      setMessage(`Workbench failed to load: ${error.message}`)
+    if (result.error) {
+      setMessage(`Workbench failed to load: ${result.error.message}`)
       return
     }
-    setWork((workResult.data ?? []) as WorkRow[])
-    setItems((itemResult.data ?? []) as ItemRow[])
+
+    const count = result.count ?? 0
+    if (page > 0 && from >= count) {
+      setPage(Math.max(0, Math.ceil(count / pageSize) - 1))
+      return
+    }
+
+    setWork((result.data ?? []) as WorkRow[])
+    setMatchCount(count)
     setMessage('')
   }
 
-  useEffect(() => { if (active && workspaceId) void load() }, [active, workspaceId])
-
-  const counts = useMemo(() => ({
-    active: work.filter((record) => !['complete', 'cancelled'].includes(record.status)).length,
-    ready: work.filter((record) => record.status === 'ready').length,
-    on_bench: work.filter((record) => record.status === 'on_bench').length,
-    waiting: work.filter((record) => record.status === 'waiting').length,
-    qc: work.filter((record) => record.status === 'qc').length,
-    complete: work.filter((record) => record.status === 'complete').length,
-  }), [work])
-
-  const visibleWork = useMemo(() => {
-    const text = query.trim().toLowerCase()
-    return work.filter((record) => {
-      if (record.status === 'cancelled') return false
-      if (view === 'active' && ['complete', 'cancelled'].includes(record.status)) return false
-      if (view !== 'active' && record.status !== view) return false
-      if (!text) return true
-      const item = itemById.get(record.item_id)
-      return [
-        String(record.work_number),
-        item ? String(item.item_number) : '',
-        item?.title ?? '',
-        record.title,
-        record.type,
-        record.status,
-        record.next_action,
-        record.blocker,
-        record.diagnosis,
-      ].some((value) => value.toLowerCase().includes(text))
-    })
-  }, [work, itemById, view, query])
+  useEffect(() => { if (active && workspaceId) void loadPage() }, [active, workspaceId, view, page, debouncedQuery])
 
   function closeJob() {
     setSelectedWorkId('')
-    void load()
+    void loadPage()
   }
+
+  const totalPages = Math.max(1, Math.ceil(matchCount / pageSize))
+  const firstShown = matchCount === 0 ? 0 : page * pageSize + 1
+  const lastShown = Math.min(matchCount, (page + 1) * pageSize)
 
   if (!active) return null
 
@@ -171,27 +227,32 @@ export default function WorkbenchRoute() {
       {message && <p className="workbench-v2-message">{message}</p>}
       {loading ? <div className="loading-card">Loading Workbench…</div> : (
         <section className="workbench-v2-list" aria-label={`${titleCase(view)} Work`}>
-          <div className="workbench-v2-list-heading"><div><p className="eyebrow">{view === 'active' ? 'ACTIVE WORK' : titleCase(view)}</p><h2>{visibleWork.length} job{visibleWork.length === 1 ? '' : 's'}</h2></div>{query && <button type="button" className="secondary small" onClick={() => setQuery('')}>Clear search</button>}</div>
-          {visibleWork.length === 0 ? (
+          <div className="workbench-v2-list-heading"><div><p className="eyebrow">{view === 'active' ? 'ACTIVE WORK' : titleCase(view)}</p><h2>{matchCount} job{matchCount === 1 ? '' : 's'}</h2></div>{query && <button type="button" className="secondary small" onClick={() => setQuery('')}>Clear search</button>}</div>
+          {work.length === 0 ? (
             <div className="workbench-v2-empty"><strong>Nothing here.</strong><span>{query ? 'Try a different search.' : 'This view has no Work records right now.'}</span></div>
           ) : (
             <div className="workbench-v2-cards">
-              {visibleWork.map((record) => {
-                const item = itemById.get(record.item_id)
-                return (
-                  <button type="button" className={`workbench-v2-card status-${record.status}`} key={record.id} onClick={() => setSelectedWorkId(record.id)}>
-                    <div className="workbench-v2-card-top">
-                      <div><span>Work #{record.work_number}</span>{item && <span>Item #{item.item_number}</span>}</div>
-                      <span className={`status-pill status-${record.status}`}>{titleCase(record.status)}</span>
-                    </div>
-                    <h3>{item?.title || record.title}</h3>
-                    <p className="workbench-v2-work-type">{titleCase(record.type)} · {record.title}</p>
-                    <div className="workbench-v2-next"><span>Next</span><strong>{record.next_action || (record.status === 'waiting' ? 'Resolve blocker' : 'Open Job Card')}</strong></div>
-                    {record.status === 'waiting' && <div className="workbench-v2-blocker"><span>{record.waiting_reason ? titleCase(record.waiting_reason) : 'Waiting'}</span><strong>{record.blocker || 'No blocker detail recorded'}</strong></div>}
-                    <div className="workbench-v2-card-foot"><span>P{record.priority}</span><span>{new Date(record.opened_at).toLocaleDateString('en-AU')}</span><strong>Open Job Card →</strong></div>
-                  </button>
-                )
-              })}
+              {work.map((record) => (
+                <button type="button" className={`workbench-v2-card status-${record.status}`} key={record.id} onClick={() => setSelectedWorkId(record.id)}>
+                  <div className="workbench-v2-card-top">
+                    <div><span>Work #{record.work_number}</span><span>Item #{record.item_number}</span></div>
+                    <span className={`status-pill status-${record.status}`}>{titleCase(record.status)}</span>
+                  </div>
+                  <h3>{record.item_title || record.title}</h3>
+                  <p className="workbench-v2-work-type">{titleCase(record.type)} · {record.title}</p>
+                  <div className="workbench-v2-next"><span>Next</span><strong>{record.next_action || (record.status === 'waiting' ? 'Resolve blocker' : 'Open Job Card')}</strong></div>
+                  {record.status === 'waiting' && <div className="workbench-v2-blocker"><span>{record.waiting_reason ? titleCase(record.waiting_reason) : 'Waiting'}</span><strong>{record.blocker || 'No blocker detail recorded'}</strong></div>}
+                  <div className="workbench-v2-card-foot"><span>P{record.priority}</span><span>{new Date(record.opened_at).toLocaleDateString('en-AU')}</span><strong>Open Job Card →</strong></div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {matchCount > pageSize && (
+            <div className="workbench-v2-list-heading" aria-label="Workbench pagination">
+              <button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</button>
+              <span>{firstShown}–{lastShown} of {matchCount} · Page {page + 1} of {totalPages}</span>
+              <button type="button" className="secondary small" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button>
             </div>
           )}
         </section>
@@ -201,7 +262,7 @@ export default function WorkbenchRoute() {
         <div className="workbench-v2-job-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeJob() }}>
           <aside className="workbench-v2-job-panel" role="dialog" aria-modal="true" aria-label={`Work #${selectedWork.work_number} Job Card`}>
             <div className="workbench-v2-job-toolbar">
-              <div><span>Work #{selectedWork.work_number}</span><strong>{itemById.get(selectedWork.item_id)?.title || selectedWork.title}</strong></div>
+              <div><span>Work #{selectedWork.work_number}</span><strong>{selectedWork.item_title || selectedWork.title}</strong></div>
               <div><button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(selectedWork.item_id)}` }}>Open Item</button><button type="button" className="secondary small" onClick={closeJob}>Close</button></div>
             </div>
             <div className="workbench-v2-job-scroll"><WorkJobCard workspaceId={workspaceId} itemId={selectedWork.item_id} focusWorkId={selectedWork.id} /></div>
