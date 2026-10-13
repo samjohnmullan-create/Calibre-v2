@@ -7,10 +7,11 @@ import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 import HomeRoute from './HomeRoute'
 import WorkbenchRoute from './WorkbenchRoute'
 import BusinessRoute from './BusinessRoute'
+import SettingsRoute from './SettingsRoute'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
 
-type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'calibre' | 'other'
+type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'calibre' | 'settings' | 'other'
 
 const primaryNav = [
   { key: 'home', label: 'Home', hash: '#/home', icon: '⌂' },
@@ -22,13 +23,14 @@ const primaryNav = [
 
 const secondaryNav = [
   { key: 'calibre', label: 'Library', hash: '#/calibre', icon: '◇' },
+  { key: 'settings', label: 'Settings', hash: '#/settings', icon: '⚙' },
 ] as const
 
 function readSection(): ShellSection {
   const raw = window.location.hash.replace(/^#\/?/, '')
   const first = raw.split('/').filter(Boolean)[0] ?? 'items'
   if (first === 'work') return 'items'
-  if (['home', 'intake', 'items', 'workbench', 'business', 'calibre'].includes(first)) return first as ShellSection
+  if (['home', 'intake', 'items', 'workbench', 'business', 'calibre', 'settings'].includes(first)) return first as ShellSection
   return 'other'
 }
 
@@ -117,7 +119,6 @@ export default function CalibreShell() {
               <span aria-hidden="true">{entry.icon}</span><strong>{entry.label}</strong>
             </button>
           ))}
-          <button type="button" disabled title="Settings workspace is coming next"><span aria-hidden="true">⚙</span><strong>Settings</strong></button>
         </div>
       </aside>
 
@@ -146,6 +147,7 @@ export default function CalibreShell() {
           <ItemWorkspaceRoute />
           <WorkbenchRoute />
           <BusinessRoute />
+          <SettingsRoute />
           <CreateItemFlow />
         </div>
       </div>
@@ -157,6 +159,7 @@ export default function CalibreShell() {
             <button type="button" className={section === 'intake' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>↧</span><div><strong>Intake</strong><small>Invoices, purchases and incoming records</small></div></button>
             <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business')}><span>◎</span><div><strong>Business</strong><small>Stock value, listings, sales and costs</small></div></button>
             <button type="button" className={section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/calibre')}><span>◇</span><div><strong>Library</strong><small>Movement research and compatibility</small></div></button>
+            <button type="button" className={section === 'settings' ? 'active' : ''} onClick={() => navigate('#/settings')}><span>⚙</span><div><strong>Settings</strong><small>Data recovery and system controls</small></div></button>
           </div>
         </div>
       )}
@@ -166,7 +169,7 @@ export default function CalibreShell() {
         <button type="button" className={section === 'items' ? 'active' : ''} onClick={() => navigate('#/items')}><span>◫</span><strong>Items</strong></button>
         <button type="button" className="mobile-new" onClick={openNew}><span>＋</span><strong>New</strong></button>
         <button type="button" className={section === 'workbench' ? 'active' : ''} onClick={() => navigate('#/workbench')}><span>⌁</span><strong>Work</strong></button>
-        <button type="button" className={section === 'intake' || section === 'business' || section === 'calibre' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
+        <button type="button" className={section === 'intake' || section === 'business' || section === 'calibre' || section === 'settings' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
       </nav>
     </div>
   )
