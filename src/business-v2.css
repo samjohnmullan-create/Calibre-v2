@@ -1,3 +1,7 @@
+.calibre-os[data-shell-section="business"] .calibre-legacy-host {
+  display: none;
+}
+
 .business-v2-page {
   width: min(1320px, calc(100% - 36px));
   margin: 0 auto;
