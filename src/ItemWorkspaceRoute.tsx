@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import ItemMedia from './ItemMedia'
 import PassportPanel from './PassportPanel'
 import WorkJobCard from './WorkJobCard'
+import ItemSalePanel from './ItemSalePanel'
 
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; acquired_at: string | null; created_at: string }
 type Identity = { maker: string; model: string; reference: string; serial: string; era: string; country: string; materials: string; dimensions_text: string; dial_markings: string; case_markings: string; movement_markings: string; notes: string }
@@ -166,13 +167,7 @@ export default function ItemWorkspaceRoute() {
         </div>
       )}
 
-      {tab === 'sale' && (
-        <div className="item-v2-stack">
-          <div className="item-v2-metrics"><div><span>Recorded cost</span><strong>{money(totalCost, currency)}</strong></div><div><span>Target</span><strong>{money(target, currency)}</strong></div><div><span>Minimum</span><strong>{money(valuation?.minimum_value, currency)}</strong></div><div><span>Potential gross</span><strong>{money(potential, currency)}</strong></div></div>
-          <section className="section-card"><p className="eyebrow">VALUATION</p><h2>Current sales position</h2><dl className="item-v2-detail-grid"><div><dt>Market low</dt><dd>{money(valuation?.low_value, currency)}</dd></div><div><dt>Expected</dt><dd>{money(valuation?.expected_value, currency)}</dd></div><div><dt>Market high</dt><dd>{money(valuation?.high_value, currency)}</dd></div><div><dt>Confidence</dt><dd>{titleCase(valuation?.confidence || 'unknown')}</dd></div></dl>{valuation?.basis && <p>{valuation.basis}</p>}</section>
-          <section className="section-card"><p className="eyebrow">COSTS</p><h2>{costs.length ? `${costs.length} recorded cost entr${costs.length === 1 ? 'y' : 'ies'}` : 'No costs recorded yet'}</h2>{costs.length > 0 && <div className="item-v2-cost-list">{costs.map((cost, index) => <div key={`${cost.incurred_at}-${index}`}><strong>{titleCase(cost.category)}</strong><span>{cost.notes || '—'}</span><b>{money(cost.amount, cost.currency)}</b></div>)}</div>}</section>
-        </div>
-      )}
+      {tab === 'sale' && <ItemSalePanel workspaceId={workspaceId} itemId={item.id} itemTitle={item.title} itemStatus={item.status} onChanged={load} />}
 
       {tab === 'history' && (
         <div className="item-v2-stack">
