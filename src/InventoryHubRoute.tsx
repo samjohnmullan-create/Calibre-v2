@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
 
@@ -18,6 +18,7 @@ type InventoryView = 'items' | 'parts' | 'workshop'
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
 const itemStatuses = ['acquired', 'researching', 'preparing', 'ready_for_sale', 'listed', 'sold', 'archived']
+const pageSize = 50
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -28,6 +29,25 @@ function isInventoryRoot() {
   return hash === '#/items' || hash === '#items' || hash === ''
 }
 
+function cleanSearch(value: string) {
+  return value.replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function buildSearchExpression(value: string) {
+  const text = cleanSearch(value)
+  if (!text) return ''
+  const pattern = `%${text}%`
+  const clauses = [
+    `title.ilike.${pattern}`,
+    `notes.ilike.${pattern}`,
+    `type.ilike.${pattern}`,
+    `purpose.ilike.${pattern}`,
+    `status.ilike.${pattern}`,
+  ]
+  if (/^\d+$/.test(text)) clauses.push(`item_number.eq.${Number(text)}`)
+  return clauses.join(',')
+}
+
 export default function InventoryHubRoute() {
   const [active, setActive] = useState(isInventoryRoot)
   const [workspaceId, setWorkspaceId] = useState('')
@@ -36,9 +56,15 @@ export default function InventoryHubRoute() {
   const [message, setMessage] = useState('')
   const [view, setView] = useState<InventoryView>('items')
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [purposeFilter, setPurposeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(0)
+  const [matchCount, setMatchCount] = useState(0)
+  const [totalItems, setTotalItems] = useState(0)
+  const [readyCount, setReadyCount] = useState(0)
+  const [donorCount, setDonorCount] = useState(0)
 
   useEffect(() => {
     const sync = () => setActive(isInventoryRoot())
@@ -70,6 +96,15 @@ export default function InventoryHubRoute() {
   }, [active])
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  useEffect(() => {
+    setPage(0)
+  }, [debouncedQuery, typeFilter, purposeFilter, statusFilter])
+
+  useEffect(() => {
     if (!active) return
     let cancelled = false
     ;(async () => {
@@ -84,50 +119,86 @@ export default function InventoryHubRoute() {
     return () => { cancelled = true }
   }, [active])
 
-  async function loadItems() {
-    if (!active || !workspaceId) return
-    setLoading(true)
-    const result = await supabase
-      .from('items')
-      .select('id,item_number,type,purpose,status,title,notes,created_at')
-      .eq('workspace_id', workspaceId)
-      .is('archived_at', null)
-      .order('item_number', { ascending: false })
-    setLoading(false)
-    if (result.error) {
-      setMessage(`Inventory failed to load: ${result.error.message}`)
-      return
-    }
-    setItems((result.data ?? []) as ItemRow[])
-    if (!message.startsWith('Choose the Item')) setMessage('')
-  }
-
   useEffect(() => {
     if (!active || !workspaceId) return
-    void loadItems()
+    let cancelled = false
+    ;(async () => {
+      const base = () => supabase
+        .from('items')
+        .select('id', { count: 'exact', head: true })
+        .eq('workspace_id', workspaceId)
+        .is('archived_at', null)
+
+      const [allResult, readyResult, donorResult] = await Promise.all([
+        base(),
+        base().eq('status', 'ready_for_sale'),
+        base().eq('purpose', 'donor'),
+      ])
+      if (cancelled) return
+      const error = allResult.error ?? readyResult.error ?? donorResult.error
+      if (error) {
+        setMessage(`Inventory summary failed to load: ${error.message}`)
+        return
+      }
+      setTotalItems(allResult.count ?? 0)
+      setReadyCount(readyResult.count ?? 0)
+      setDonorCount(donorResult.count ?? 0)
+    })()
+    return () => { cancelled = true }
   }, [active, workspaceId])
 
-  const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase()
-    return items.filter((item) => {
-      if (typeFilter && item.type !== typeFilter) return false
-      if (purposeFilter && item.purpose !== purposeFilter) return false
-      if (statusFilter && item.status !== statusFilter) return false
-      if (!text) return true
-      return [item.title, item.type, item.purpose, item.status, item.notes, String(item.item_number)]
-        .some((value) => value?.toLowerCase().includes(text))
-    })
-  }, [items, query, typeFilter, purposeFilter, statusFilter])
+  useEffect(() => {
+    if (!active || !workspaceId || view !== 'items') return
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      let request = supabase
+        .from('items')
+        .select('id,item_number,type,purpose,status,title,notes,created_at', { count: 'exact' })
+        .eq('workspace_id', workspaceId)
+        .is('archived_at', null)
+
+      if (typeFilter) request = request.eq('type', typeFilter)
+      if (purposeFilter) request = request.eq('purpose', purposeFilter)
+      if (statusFilter) request = request.eq('status', statusFilter)
+
+      const searchExpression = buildSearchExpression(debouncedQuery)
+      if (searchExpression) request = request.or(searchExpression)
+
+      const from = page * pageSize
+      const to = from + pageSize - 1
+      const result = await request.order('item_number', { ascending: false }).range(from, to)
+      if (cancelled) return
+      setLoading(false)
+      if (result.error) {
+        setMessage(`Inventory failed to load: ${result.error.message}`)
+        return
+      }
+
+      const count = result.count ?? 0
+      if (page > 0 && from >= count) {
+        setPage(Math.max(0, Math.ceil(count / pageSize) - 1))
+        return
+      }
+
+      setItems((result.data ?? []) as ItemRow[])
+      setMatchCount(count)
+      setMessage((current) => current.startsWith('Choose the Item') ? current : '')
+    })()
+    return () => { cancelled = true }
+  }, [active, workspaceId, view, page, debouncedQuery, typeFilter, purposeFilter, statusFilter])
 
   const activeFilterCount = [typeFilter, purposeFilter, statusFilter].filter(Boolean).length
-  const readyCount = items.filter((item) => item.status === 'ready_for_sale').length
-  const donorCount = items.filter((item) => item.purpose === 'donor').length
+  const totalPages = Math.max(1, Math.ceil(matchCount / pageSize))
+  const firstShown = matchCount === 0 ? 0 : page * pageSize + 1
+  const lastShown = Math.min(matchCount, (page + 1) * pageSize)
 
   function clearFilters() {
     setTypeFilter('')
     setPurposeFilter('')
     setStatusFilter('')
     setQuery('')
+    setPage(0)
   }
 
   if (!active) return null
@@ -145,7 +216,7 @@ export default function InventoryHubRoute() {
 
       <nav className="inventory-v2-primary" aria-label="Inventory views">
         <button type="button" className={view === 'items' ? 'active' : ''} onClick={() => setView('items')}>
-          <span>Items</span><strong>{items.length}</strong>
+          <span>Items</span><strong>{totalItems}</strong>
         </button>
         <button type="button" className={view === 'parts' ? 'active' : ''} onClick={() => setView('parts')}>
           <span>Parts</span>
@@ -158,7 +229,7 @@ export default function InventoryHubRoute() {
       {view === 'items' && (
         <>
           <section className="inventory-v2-summary" aria-label="Inventory summary">
-            <div><span>Total Items</span><strong>{items.length}</strong></div>
+            <div><span>Total Items</span><strong>{totalItems}</strong></div>
             <button type="button" onClick={() => setStatusFilter('ready_for_sale')}><span>Ready for sale</span><strong>{readyCount}</strong></button>
             <button type="button" onClick={() => setPurposeFilter('donor')}><span>Donors</span><strong>{donorCount}</strong></button>
           </section>
@@ -172,7 +243,7 @@ export default function InventoryHubRoute() {
                 placeholder="Search Item #, title, type, status or notes…"
                 aria-label="Search inventory"
               />
-              <span>{filtered.length} shown</span>
+              <span>{matchCount ? `${firstShown}–${lastShown} of ${matchCount}` : '0 shown'}</span>
             </div>
 
             <div className="inventory-v2-filters" aria-label="Inventory filters">
@@ -201,15 +272,15 @@ export default function InventoryHubRoute() {
           <section className="inventory-list-panel inventory-v2-list-panel">
             {message && <p className="inventory-message">{message}</p>}
             {loading && <p className="inventory-empty">Loading inventory…</p>}
-            {!loading && filtered.length === 0 && (
+            {!loading && items.length === 0 && (
               <div className="inventory-empty">
                 <strong>No Items match this view.</strong>
-                <span>{items.length ? 'Clear a filter or try another search.' : 'Add your first Item or import a purchase through Intake.'}</span>
+                <span>{totalItems ? 'Clear a filter or try another search.' : 'Add your first Item or import a purchase through Intake.'}</span>
               </div>
             )}
 
             <div className="inventory-list">
-              {filtered.map((item) => (
+              {items.map((item) => (
                 <button key={item.id} type="button" className="inventory-row" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
                   <span className="inventory-row-number">#{item.item_number}</span>
                   <span className="inventory-row-main">
@@ -220,6 +291,14 @@ export default function InventoryHubRoute() {
                 </button>
               ))}
             </div>
+
+            {matchCount > pageSize && (
+              <div className="inventory-v2-search-row" aria-label="Inventory pagination">
+                <button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</button>
+                <span>Page {page + 1} of {totalPages}</span>
+                <button type="button" className="secondary small" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button>
+              </div>
+            )}
           </section>
         </>
       )}
