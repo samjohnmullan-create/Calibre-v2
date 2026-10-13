@@ -1,0 +1,31 @@
+.business-v2-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.business-v2-pager > span {
+  color: var(--text-muted);
+  font-size: .8rem;
+  text-align: center;
+}
+
+@media (max-width: 680px) {
+  .business-v2-pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .business-v2-pager > span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .business-v2-pager button {
+    width: 100%;
+  }
+}
