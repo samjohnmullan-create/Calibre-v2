@@ -6,6 +6,7 @@ import IntakeRoute from './IntakeRoute'
 import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 import HomeRoute from './HomeRoute'
 import WorkbenchRoute from './WorkbenchRoute'
+import BusinessRoute from './BusinessRoute'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
 
@@ -134,6 +135,7 @@ export default function CalibreShell() {
           <InventoryHubRoute />
           <ItemWorkspaceRoute />
           <WorkbenchRoute />
+          <BusinessRoute />
           <CreateItemFlow />
         </div>
       </div>
