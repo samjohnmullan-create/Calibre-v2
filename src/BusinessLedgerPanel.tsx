@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 type LedgerEntry = {
@@ -19,6 +19,16 @@ type LedgerEntry = {
   external_key: string
   created_at: string
   updated_at: string
+}
+
+type LedgerSummary = {
+  operating_expenses_aud: number
+  capital_expenses_aud: number
+  other_expenses_aud: number
+  income_aud: number
+  net_cash_impact_aud: number
+  missing_aud_count: number
+  entry_count: number
 }
 
 type Draft = {
@@ -56,6 +66,17 @@ const expenseCategories = [
 
 const incomeCategories = ['refund_rebate', 'shipping_recovery', 'service_income', 'other_income']
 const currencies = ['AUD', 'USD', 'GBP', 'EUR', 'NZD', 'CHF', 'JPY']
+const PAGE_SIZE = 40
+
+const emptySummary: LedgerSummary = {
+  operating_expenses_aud: 0,
+  capital_expenses_aud: 0,
+  other_expenses_aud: 0,
+  income_aud: 0,
+  net_cash_impact_aud: 0,
+  missing_aud_count: 0,
+  entry_count: 0,
+}
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -91,8 +112,33 @@ function audValue(entry: LedgerEntry) {
   return entry.amount_aud == null ? null : Number(entry.amount_aud)
 }
 
+function asNumber(value: unknown) {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function normalizeSummary(value: Record<string, unknown> | null | undefined): LedgerSummary {
+  if (!value) return emptySummary
+  return {
+    operating_expenses_aud: asNumber(value.operating_expenses_aud),
+    capital_expenses_aud: asNumber(value.capital_expenses_aud),
+    other_expenses_aud: asNumber(value.other_expenses_aud),
+    income_aud: asNumber(value.income_aud),
+    net_cash_impact_aud: asNumber(value.net_cash_impact_aud),
+    missing_aud_count: asNumber(value.missing_aud_count),
+    entry_count: asNumber(value.entry_count),
+  }
+}
+
+function cleanSearchTerm(value: string) {
+  return value.trim().replace(/[,%()]/g, ' ').replace(/\s+/g, ' ').slice(0, 80)
+}
+
 export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: string }) {
   const [entries, setEntries] = useState<LedgerEntry[]>([])
+  const [summary, setSummary] = useState<LedgerSummary>(emptySummary)
+  const [resultCount, setResultCount] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -102,64 +148,53 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
   const [draft, setDraft] = useState<Draft>(blankDraft)
   const [showEditor, setShowEditor] = useState(false)
 
-  async function load() {
+  async function load(targetPage = page) {
     if (!workspaceId) return
     setLoading(true)
-    const result = await supabase
+    const from = (targetPage - 1) * PAGE_SIZE
+    const term = cleanSearchTerm(query)
+
+    let entriesQuery = supabase
       .from('business_ledger_entries')
-      .select('id,workspace_id,entry_type,treatment,category,description,amount,currency,amount_aud,occurred_at,vendor,reference,notes,purchase_id,external_key,created_at,updated_at')
+      .select('id,workspace_id,entry_type,treatment,category,description,amount,currency,amount_aud,occurred_at,vendor,reference,notes,purchase_id,external_key,created_at,updated_at', { count: 'exact' })
       .eq('workspace_id', workspaceId)
-      .order('occurred_at', { ascending: false })
-      .order('created_at', { ascending: false })
+
+    if (typeFilter !== 'all') entriesQuery = entriesQuery.eq('entry_type', typeFilter)
+    if (term) {
+      const pattern = `%${term}%`
+      entriesQuery = entriesQuery.or(`description.ilike.${pattern},category.ilike.${pattern},vendor.ilike.${pattern},reference.ilike.${pattern},notes.ilike.${pattern},currency.ilike.${pattern}`)
+    }
+
+    const [entriesResult, summaryResult] = await Promise.all([
+      entriesQuery
+        .order('occurred_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1),
+      supabase.rpc('business_ledger_summary', { p_workspace_id: workspaceId }),
+    ])
     setLoading(false)
-    if (result.error) {
-      setMessage(`Ledger could not be loaded: ${result.error.message}`)
+
+    const error = entriesResult.error ?? summaryResult.error
+    if (error) {
+      setMessage(`Ledger could not be loaded: ${error.message}`)
       return
     }
-    setEntries((result.data ?? []) as LedgerEntry[])
+
+    setEntries((entriesResult.data ?? []) as LedgerEntry[])
+    setResultCount(entriesResult.count ?? 0)
+    setSummary(normalizeSummary((summaryResult.data?.[0] ?? null) as Record<string, unknown> | null))
     setMessage('')
   }
 
-  useEffect(() => { if (workspaceId) void load() }, [workspaceId])
+  useEffect(() => {
+    setPage(1)
+  }, [query, typeFilter])
 
-  const totals = useMemo(() => {
-    let operatingExpenses = 0
-    let capitalExpenses = 0
-    let otherExpenses = 0
-    let income = 0
-    let missingAud = 0
-    for (const entry of entries) {
-      const value = audValue(entry)
-      if (value == null) {
-        missingAud += 1
-        continue
-      }
-      if (entry.entry_type === 'income') income += value
-      else if (entry.treatment === 'capital') capitalExpenses += value
-      else if (entry.treatment === 'operating') operatingExpenses += value
-      else otherExpenses += value
-    }
-    return {
-      operatingExpenses,
-      capitalExpenses,
-      otherExpenses,
-      income,
-      netCashImpact: income - operatingExpenses - capitalExpenses - otherExpenses,
-      missingAud,
-    }
-  }, [entries])
-
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    return entries.filter((entry) => {
-      if (typeFilter !== 'all' && entry.entry_type !== typeFilter) return false
-      if (!needle) return true
-      return [entry.description, entry.category, entry.vendor, entry.reference, entry.notes, entry.currency]
-        .join(' ')
-        .toLowerCase()
-        .includes(needle)
-    })
-  }, [entries, query, typeFilter])
+  useEffect(() => {
+    if (!workspaceId) return
+    const timer = window.setTimeout(() => void load(), query.trim() ? 180 : 0)
+    return () => window.clearTimeout(timer)
+  }, [workspaceId, page, query, typeFilter])
 
   function startNew() {
     setEditingId(null)
@@ -231,6 +266,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
       notes: draft.notes.trim(),
       updated_at: new Date().toISOString(),
     }
+    const wasEditing = Boolean(editingId)
     const result = editingId
       ? await supabase.from('business_ledger_entries').update(payload).eq('workspace_id', workspaceId).eq('id', editingId)
       : await supabase.from('business_ledger_entries').insert(payload)
@@ -242,8 +278,9 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
     setShowEditor(false)
     setEditingId(null)
     setDraft(blankDraft())
-    setMessage(editingId ? 'Ledger entry updated.' : 'Ledger entry added.')
-    await load()
+    setMessage(wasEditing ? 'Ledger entry updated.' : 'Ledger entry added.')
+    if (page !== 1) setPage(1)
+    else await load(1)
   }
 
   async function remove(entry: LedgerEntry) {
@@ -263,18 +300,21 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
       setDraft(blankDraft())
     }
     setMessage('Ledger entry deleted.')
-    await load()
+    const maxPageAfterDelete = Math.max(1, Math.ceil(Math.max(0, resultCount - 1) / PAGE_SIZE))
+    if (page > maxPageAfterDelete) setPage(maxPageAfterDelete)
+    else await load(page)
   }
 
   const categories = draft.entry_type === 'expense' ? expenseCategories : incomeCategories
+  const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE))
 
   return (
     <div className="ledger-v2-stack">
       <section className="ledger-v2-metrics" aria-label="Business ledger summary">
-        <div><span>Operating spend</span><strong>{money(totals.operatingExpenses)}</strong><small>Running the business</small></div>
-        <div><span>Capital spend</span><strong>{money(totals.capitalExpenses)}</strong><small>Tools & equipment</small></div>
-        <div><span>Other income</span><strong>{money(totals.income)}</strong><small>Excludes Item sale revenue</small></div>
-        <div><span>Net cash impact</span><strong className={totals.netCashImpact < 0 ? 'negative' : ''}>{money(totals.netCashImpact)}</strong><small>{totals.missingAud ? `${totals.missingAud} foreign entr${totals.missingAud === 1 ? 'y' : 'ies'} not converted` : 'All entries included'}</small></div>
+        <div><span>Operating spend</span><strong>{money(summary.operating_expenses_aud)}</strong><small>Running the business</small></div>
+        <div><span>Capital spend</span><strong>{money(summary.capital_expenses_aud)}</strong><small>Tools & equipment</small></div>
+        <div><span>Other income</span><strong>{money(summary.income_aud)}</strong><small>Excludes Item sale revenue</small></div>
+        <div><span>Net cash impact</span><strong className={summary.net_cash_impact_aud < 0 ? 'negative' : ''}>{money(summary.net_cash_impact_aud)}</strong><small>{summary.missing_aud_count ? `${summary.missing_aud_count} foreign entr${summary.missing_aud_count === 1 ? 'y' : 'ies'} not converted` : `${summary.entry_count} ledger entr${summary.entry_count === 1 ? 'y' : 'ies'} included`}</small></div>
       </section>
 
       <section className="section-card ledger-v2-card">
@@ -297,7 +337,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
         {loading && <div className="loading-card">Loading ledger…</div>}
         {!loading && (
           <div className="ledger-v2-list">
-            {filtered.map((entry) => {
+            {entries.map((entry) => {
               const converted = audValue(entry)
               return (
                 <article className="ledger-v2-row" key={entry.id}>
@@ -310,7 +350,15 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
                 </article>
               )
             })}
-            {filtered.length === 0 && <div className="business-v2-empty"><strong>{entries.length ? 'No entries match this filter.' : 'No business ledger entries yet.'}</strong><span>Add tools, subscriptions, consumables, packaging and other business overhead here.</span></div>}
+            {entries.length === 0 && <div className="business-v2-empty"><strong>{summary.entry_count ? 'No entries match this filter.' : 'No business ledger entries yet.'}</strong><span>Add tools, subscriptions, consumables, packaging and other business overhead here.</span></div>}
+          </div>
+        )}
+
+        {!loading && resultCount > PAGE_SIZE && (
+          <div className="business-v2-pager">
+            <button type="button" className="secondary small" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>← Previous</button>
+            <span>Page {page} of {totalPages} · {resultCount} matching records</span>
+            <button type="button" className="secondary small" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>Next →</button>
           </div>
         )}
       </section>
