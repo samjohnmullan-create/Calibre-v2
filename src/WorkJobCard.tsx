@@ -1,0 +1,338 @@
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from './lib/supabase'
+import './work-job-card.css'
+
+type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
+type WorkType = 'inspection' | 'service' | 'repair' | 'restoration' | 'cleaning' | 'assessment' | 'photography' | 'listing_prep' | 'qc' | 'other'
+type StepStatus = 'not_started' | 'in_progress' | 'done' | 'na' | 'blocked'
+
+type WorkRecord = {
+  id: string
+  item_id: string
+  work_number: number
+  type: WorkType
+  title: string
+  status: WorkStatus
+  waiting_reason: string | null
+  priority: number
+  next_action: string
+  blocker: string
+  diagnosis: string
+  repair_performed: string
+  notes: string
+  template_id: string | null
+  opened_at: string
+  started_at: string | null
+  completed_at: string | null
+}
+
+type ChecklistStep = {
+  id: string
+  work_id: string
+  step_key: string
+  section_key: string
+  label: string
+  description: string
+  sequence: number
+  required: boolean
+  status: StepStatus
+  notes: string
+  blocked_reason: string
+  started_at: string | null
+  completed_at: string | null
+}
+
+const workStatuses: { value: WorkStatus; label: string }[] = [
+  { value: 'queued', label: 'Queue' },
+  { value: 'ready', label: 'Ready' },
+  { value: 'on_bench', label: 'On bench' },
+  { value: 'waiting', label: 'Waiting' },
+  { value: 'qc', label: 'QC' },
+  { value: 'complete', label: 'Complete' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
+const stepStatuses: { value: StepStatus; label: string }[] = [
+  { value: 'not_started', label: 'Not started' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'done', label: 'Done' },
+  { value: 'na', label: 'N/A' },
+  { value: 'blocked', label: 'Blocked' },
+]
+
+const startTypes: { value: WorkType; label: string }[] = [
+  { value: 'service', label: 'Mechanical service' },
+  { value: 'repair', label: 'Repair' },
+  { value: 'inspection', label: 'Inspection' },
+  { value: 'restoration', label: 'Restoration' },
+  { value: 'cleaning', label: 'Cleaning' },
+  { value: 'assessment', label: 'Assessment' },
+  { value: 'other', label: 'Other' },
+]
+
+function titleCase(value: string) {
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { workspaceId: string; itemId: string; focusWorkId?: string | null }) {
+  const [work, setWork] = useState<WorkRecord[]>([])
+  const [selectedWorkId, setSelectedWorkId] = useState(focusWorkId ?? '')
+  const [steps, setSteps] = useState<ChecklistStep[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [startType, setStartType] = useState<WorkType>('service')
+  const [diagnosis, setDiagnosis] = useState('')
+  const [nextAction, setNextAction] = useState('')
+  const [notes, setNotes] = useState('')
+
+  const selected = work.find((record) => record.id === selectedWorkId) ?? work[0] ?? null
+
+  async function loadWork(preferredId?: string) {
+    if (!workspaceId || !itemId) return
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('work_records')
+      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,repair_performed,notes,template_id,opened_at,started_at,completed_at')
+      .eq('workspace_id', workspaceId)
+      .eq('item_id', itemId)
+      .order('work_number', { ascending: false })
+    setLoading(false)
+    if (error) {
+      setMessage(`Work could not be loaded: ${error.message}`)
+      return
+    }
+    const rows = (data ?? []) as WorkRecord[]
+    setWork(rows)
+    const target = preferredId && rows.some((row) => row.id === preferredId)
+      ? preferredId
+      : focusWorkId && rows.some((row) => row.id === focusWorkId)
+        ? focusWorkId
+        : rows[0]?.id ?? ''
+    setSelectedWorkId(target)
+  }
+
+  async function loadSteps(workId: string) {
+    if (!workId) {
+      setSteps([])
+      return
+    }
+    const { data, error } = await supabase
+      .from('work_checklist_steps')
+      .select('id,work_id,step_key,section_key,label,description,sequence,required,status,notes,blocked_reason,started_at,completed_at')
+      .eq('workspace_id', workspaceId)
+      .eq('work_id', workId)
+      .order('sequence', { ascending: true })
+    if (error) {
+      setMessage(`Checklist could not be loaded: ${error.message}`)
+      return
+    }
+    setSteps((data ?? []) as ChecklistStep[])
+  }
+
+  useEffect(() => {
+    void loadWork(focusWorkId ?? undefined)
+  }, [workspaceId, itemId, focusWorkId])
+
+  useEffect(() => {
+    if (!selected) {
+      setSteps([])
+      setDiagnosis('')
+      setNextAction('')
+      setNotes('')
+      return
+    }
+    setDiagnosis(selected.diagnosis || '')
+    setNextAction(selected.next_action || '')
+    setNotes(selected.notes || '')
+    void loadSteps(selected.id)
+  }, [selected?.id])
+
+  const progress = useMemo(() => {
+    const completed = steps.filter((step) => step.status === 'done' || step.status === 'na').length
+    const requiredOpen = steps.filter((step) => step.required && step.status !== 'done' && step.status !== 'na').length
+    return { completed, total: steps.length, requiredOpen, percent: steps.length ? Math.round((completed / steps.length) * 100) : 0 }
+  }, [steps])
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, ChecklistStep[]>()
+    for (const step of steps) {
+      const list = map.get(step.section_key) ?? []
+      list.push(step)
+      map.set(step.section_key, list)
+    }
+    return [...map.entries()]
+  }, [steps])
+
+  async function startWork() {
+    if (saving) return
+    setSaving(true)
+    setMessage('Starting Work…')
+    const { data, error } = await supabase.rpc('start_work', {
+      p_workspace_id: workspaceId,
+      p_item_id: itemId,
+      p_type: startType,
+      p_title: null,
+      p_template_id: null,
+    })
+    setSaving(false)
+    if (error) {
+      setMessage(`Work could not be started: ${error.message}`)
+      return
+    }
+    const created = (Array.isArray(data) ? data[0] : data) as WorkRecord | null
+    setMessage(created?.template_id ? 'Work started with its checklist.' : 'Work started. No checklist template exists for this Work type yet.')
+    await loadWork(created?.id)
+  }
+
+  async function addChecklist() {
+    if (!selected || saving) return
+    setSaving(true)
+    setMessage('Adding checklist…')
+    const { data, error } = await supabase.rpc('initialize_work_checklist', {
+      p_workspace_id: workspaceId,
+      p_work_id: selected.id,
+      p_template_id: null,
+    })
+    setSaving(false)
+    if (error) {
+      setMessage(`Checklist could not be added: ${error.message}`)
+      return
+    }
+    setMessage(`${Number(data ?? 0)} checklist steps added.`)
+    await loadWork(selected.id)
+    await loadSteps(selected.id)
+  }
+
+  async function updateWorkStatus(status: WorkStatus) {
+    if (!selected || saving) return
+    setSaving(true)
+    const now = new Date().toISOString()
+    const patch: Record<string, unknown> = { status, updated_at: now }
+    if (status === 'on_bench' && !selected.started_at) patch.started_at = now
+    if (status === 'complete') patch.completed_at = now
+    if (status !== 'complete') patch.completed_at = null
+    const { error } = await supabase.from('work_records').update(patch).eq('workspace_id', workspaceId).eq('id', selected.id)
+    setSaving(false)
+    if (error) {
+      setMessage(`Work status could not be changed: ${error.message}`)
+      return
+    }
+    setMessage(status === 'complete' ? 'Work completed.' : `Work moved to ${titleCase(status)}.`)
+    await loadWork(selected.id)
+  }
+
+  async function saveWorkNotes() {
+    if (!selected || saving) return
+    setSaving(true)
+    const { error } = await supabase.from('work_records').update({
+      diagnosis: diagnosis.trim(),
+      next_action: nextAction.trim(),
+      notes: notes.trim(),
+      updated_at: new Date().toISOString(),
+    }).eq('workspace_id', workspaceId).eq('id', selected.id)
+    setSaving(false)
+    if (error) {
+      setMessage(`Job notes could not be saved: ${error.message}`)
+      return
+    }
+    setMessage('Job notes saved.')
+    await loadWork(selected.id)
+  }
+
+  async function updateStep(step: ChecklistStep, status: StepStatus) {
+    if (saving) return
+    setSaving(true)
+    const now = new Date().toISOString()
+    const patch: Record<string, unknown> = { status, updated_at: now }
+    if ((status === 'in_progress' || status === 'done' || status === 'blocked') && !step.started_at) patch.started_at = now
+    if (status === 'done' || status === 'na') patch.completed_at = now
+    else patch.completed_at = null
+    if (status !== 'blocked') patch.blocked_reason = ''
+    const { error } = await supabase.from('work_checklist_steps').update(patch).eq('workspace_id', workspaceId).eq('id', step.id)
+    setSaving(false)
+    if (error) {
+      setMessage(`Checklist step could not be updated: ${error.message}`)
+      return
+    }
+    await loadSteps(step.work_id)
+  }
+
+  async function saveStepText(step: ChecklistStep, field: 'notes' | 'blocked_reason', value: string) {
+    const { error } = await supabase.from('work_checklist_steps').update({ [field]: value.trim(), updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('id', step.id)
+    if (error) setMessage(`Checklist note could not be saved: ${error.message}`)
+    else await loadSteps(step.work_id)
+  }
+
+  if (loading) return <div className="loading-card">Loading job card…</div>
+
+  if (!selected) {
+    return (
+      <section className="section-card work-job-empty">
+        <div><p className="eyebrow">WORK</p><h3>No Work record yet</h3><p className="muted">Start a Work record when this Item actually enters the workshop. It does not happen automatically just because the Item exists.</p></div>
+        <div className="work-job-start-row">
+          <label>Work type<select value={startType} onChange={(event) => setStartType(event.target.value as WorkType)}>{startTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <button type="button" onClick={startWork} disabled={saving}>{saving ? 'Starting…' : 'Start Work'}</button>
+        </div>
+        {message && <p className="work-job-message">{message}</p>}
+      </section>
+    )
+  }
+
+  return (
+    <div className="work-job-shell">
+      <section className="section-card work-job-summary">
+        <div className="work-job-heading">
+          <div><p className="eyebrow">JOB CARD · WORK #{selected.work_number}</p><h3>{selected.title}</h3><p className="muted">{titleCase(selected.type)} · opened {new Date(selected.opened_at).toLocaleDateString('en-AU')}</p></div>
+          <label className="work-job-status">Status<select value={selected.status} disabled={saving} onChange={(event) => void updateWorkStatus(event.target.value as WorkStatus)}>{workStatuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        </div>
+
+        {work.length > 1 && <label className="work-job-switcher">Work record<select value={selected.id} onChange={(event) => setSelectedWorkId(event.target.value)}>{work.map((record) => <option key={record.id} value={record.id}>#{record.work_number} · {record.title} · {titleCase(record.status)}</option>)}</select></label>}
+
+        <div className="work-job-fields">
+          <label>Diagnosis<textarea rows={3} value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} placeholder="Faults, symptoms and inspection findings…" /></label>
+          <label>Next action<input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="What should happen next?" /></label>
+          <label className="span-2">Job notes<textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Workshop notes that belong to this Work record…" /></label>
+        </div>
+        <div className="work-job-save-row"><button type="button" onClick={saveWorkNotes} disabled={saving}>{saving ? 'Saving…' : 'Save job notes'}</button></div>
+        {message && <p className="work-job-message">{message}</p>}
+      </section>
+
+      <section className="section-card work-job-checklist-card">
+        <div className="work-job-checklist-heading">
+          <div><p className="eyebrow">CHECKLIST</p><h3>{steps.length ? `${progress.completed} of ${progress.total} steps cleared` : 'No checklist attached'}</h3></div>
+          {steps.length > 0 && <div className="work-job-progress-meta"><strong>{progress.percent}%</strong><span>{progress.requiredOpen} required remaining</span></div>}
+        </div>
+
+        {steps.length > 0 && <div className="work-job-progress"><span style={{ width: `${progress.percent}%` }} /></div>}
+
+        {steps.length === 0 ? (
+          <div className="work-job-no-checklist"><p className="muted">This is a legacy or non-templated Work record. Attach the active template for its Work type to create a permanent checklist snapshot.</p><button type="button" onClick={addChecklist} disabled={saving}>{saving ? 'Adding…' : 'Add checklist'}</button></div>
+        ) : (
+          <div className="work-job-sections">
+            {grouped.map(([section, sectionSteps]) => (
+              <section className="work-job-section" key={section}>
+                <div className="work-job-section-title"><strong>{titleCase(section)}</strong><span>{sectionSteps.filter((step) => step.status === 'done' || step.status === 'na').length}/{sectionSteps.length}</span></div>
+                <div className="work-job-step-list">
+                  {sectionSteps.map((step) => (
+                    <article className={`work-job-step step-${step.status}`} key={step.id}>
+                      <div className="work-job-step-main">
+                        <div className="work-job-step-copy"><strong>{step.label}{step.required ? <span className="required-dot" title="Required">•</span> : null}</strong>{step.description && <p>{step.description}</p>}</div>
+                        <select aria-label={`${step.label} status`} value={step.status} disabled={saving} onChange={(event) => void updateStep(step, event.target.value as StepStatus)}>{stepStatuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+                      </div>
+                      <details className="work-job-step-notes">
+                        <summary>Notes{step.notes ? ' · saved' : ''}{step.status === 'blocked' && step.blocked_reason ? ' · blocker saved' : ''}</summary>
+                        <label>Step notes<textarea defaultValue={step.notes} rows={2} onBlur={(event) => void saveStepText(step, 'notes', event.target.value)} placeholder="Measurements, observations, parts, lubrication or anything unusual…" /></label>
+                        {step.status === 'blocked' && <label>Blocked by<textarea defaultValue={step.blocked_reason} rows={2} onBlur={(event) => void saveStepText(step, 'blocked_reason', event.target.value)} placeholder="What is preventing this step from being completed?" /></label>}
+                      </details>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
