@@ -2,8 +2,9 @@ import { ChangeEvent, useMemo, useState } from 'react'
 import { importKnowledgeEngine } from './lib/knowledge-import'
 import MovementFinder from './MovementFinder'
 import MovementSearch from './MovementSearch'
-import PartsInventory from './PartsInventory'
 import CompatibilityIntelligence from './CompatibilityIntelligence'
+
+type LibraryMode = 'search' | 'identify' | 'compatibility'
 
 type ImportProgress = {
   dataset: string
@@ -26,6 +27,7 @@ function titleCase(value: string) {
 }
 
 export default function KnowledgePage() {
+  const [mode, setMode] = useState<LibraryMode>('search')
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -71,75 +73,98 @@ export default function KnowledgePage() {
   }
 
   return (
-    <main className="knowledge-page">
-      <section className="knowledge-heading">
+    <main className="knowledge-page library-v2-page">
+      <section className="library-v2-heading">
         <div>
-          <p className="eyebrow">KNOWLEDGE ENGINE</p>
-          <h1>Calibre Library</h1>
-          <p className="muted">Movement, parts, compatibility and source knowledge with evidence kept attached.</p>
+          <p className="eyebrow">LIBRARY</p>
+          <h1>Research</h1>
+          <p className="muted">Search known movements, identify an unknown calibre, or inspect compatibility evidence from one place.</p>
         </div>
       </section>
 
-      <PartsInventory />
-      <CompatibilityIntelligence />
-      <MovementFinder />
-      <MovementSearch />
-
-      <section className="knowledge-import-card">
-        <div className="knowledge-import-copy">
-          <p className="eyebrow">IMPORT / UPDATE</p>
-          <h2>Knowledge Engine JSON</h2>
-          <p className="muted">Importing the same engine again updates matching records instead of creating another disconnected library.</p>
+      <section className="library-v2-intro">
+        <div className="library-v2-intro-card">
+          <p className="eyebrow">TECHNICAL KNOWLEDGE</p>
+          <h2>Start with the question, not the tool.</h2>
+          <p className="muted">If you know the movement, search it. If you only have clues from the bench, identify it. Compatibility remains evidence-led rather than guessed.</p>
         </div>
+        <div className="library-v2-evidence">
+          <p className="eyebrow">CONFIDENCE</p>
+          <h3>Evidence stays visible.</h3>
+          <div className="library-v2-evidence-grid">
+            <div><strong>Documented</strong><span>Manufacturer, catalogue or directly sourced.</span></div>
+            <div><strong>Candidate</strong><span>A lead requiring confirmation.</span></div>
+            <div><strong>Calibre Verified</strong><span>Confirmed from your own bench work.</span></div>
+          </div>
+        </div>
+      </section>
 
-        <label className="knowledge-file-picker">
-          <span>{file ? file.name : 'Choose JSON file'}</span>
-          <input type="file" accept="application/json,.json" onChange={chooseFile} disabled={busy} />
-        </label>
+      <nav className="library-v2-modebar" aria-label="Research modes">
+        <button type="button" className={mode === 'search' ? 'active' : ''} onClick={() => setMode('search')}>
+          <strong>Search movements</strong><span>I know a maker, calibre, family or alias.</span>
+        </button>
+        <button type="button" className={mode === 'identify' ? 'active' : ''} onClick={() => setMode('identify')}>
+          <strong>Identify movement</strong><span>I have markings, measurements or bench clues.</span>
+        </button>
+        <button type="button" className={mode === 'compatibility' ? 'active' : ''} onClick={() => setMode('compatibility')}>
+          <strong>Compatibility</strong><span>Inspect documented and bench-confirmed relationships.</span>
+        </button>
+      </nav>
 
-        <button onClick={runImport} disabled={!file || busy}>{busy ? 'Importing…' : 'Import Knowledge Engine'}</button>
+      <section className="library-v2-panel">
+        {mode === 'search' && <MovementSearch />}
+        {mode === 'identify' && <MovementFinder />}
+        {mode === 'compatibility' && <CompatibilityIntelligence />}
+      </section>
 
-        {(busy || progress) && (
-          <div className="knowledge-progress" aria-live="polite">
-            <div className="knowledge-progress-row">
-              <strong>{progress ? titleCase(progress.dataset) : 'Preparing'}</strong>
-              <span>{progress ? `${progress.overallProcessed.toLocaleString()} / ${progress.overallTotal.toLocaleString()}` : '—'}</span>
+      <details className="library-v2-admin">
+        <summary>Library administration</summary>
+        <section className="knowledge-import-card">
+          <div className="knowledge-import-copy">
+            <p className="eyebrow">IMPORT / UPDATE</p>
+            <h2>Knowledge Engine JSON</h2>
+            <p className="muted">Administrative import is kept out of the everyday research flow. Re-importing the same engine updates matching records.</p>
+          </div>
+
+          <label className="knowledge-file-picker">
+            <span>{file ? file.name : 'Choose JSON file'}</span>
+            <input type="file" accept="application/json,.json" onChange={chooseFile} disabled={busy} />
+          </label>
+
+          <button onClick={runImport} disabled={!file || busy}>{busy ? 'Importing…' : 'Import Knowledge Engine'}</button>
+
+          {(busy || progress) && (
+            <div className="knowledge-progress" aria-live="polite">
+              <div className="knowledge-progress-row">
+                <strong>{progress ? titleCase(progress.dataset) : 'Preparing'}</strong>
+                <span>{progress ? `${progress.overallProcessed.toLocaleString()} / ${progress.overallTotal.toLocaleString()}` : '—'}</span>
+              </div>
+              <div className="knowledge-progress-track"><div className="knowledge-progress-fill" style={{ width: `${percent}%` }} /></div>
+              {progress && <p>{progress.processed.toLocaleString()} of {progress.total.toLocaleString()} in this dataset · {percent}% overall</p>}
             </div>
-            <div className="knowledge-progress-track"><div className="knowledge-progress-fill" style={{ width: `${percent}%` }} /></div>
-            {progress && <p>{progress.processed.toLocaleString()} of {progress.total.toLocaleString()} in this dataset · {percent}% overall</p>}
-          </div>
-        )}
+          )}
 
-        <p className={`knowledge-message ${message.startsWith('Import failed') ? 'error' : ''}`}>{message}</p>
-      </section>
-
-      {result && (
-        <section className="knowledge-summary-card">
-          <div>
-            <p className="eyebrow">IMPORT COMPLETE</p>
-            <h2>{result.engineName}</h2>
-            <p className="muted">Version {result.engineVersion} · {result.overallTotal.toLocaleString()} records processed</p>
-          </div>
-          <div className="knowledge-summary-grid">
-            {result.summary && typeof result.summary === 'object' && !Array.isArray(result.summary)
-              ? Object.entries(result.summary as Record<string, unknown>).map(([key, value]) => (
-                  <div className="knowledge-stat" key={key}><span>{titleCase(key)}</span><strong>{String(value)}</strong></div>
-                ))
-              : <div className="knowledge-stat"><span>Result</span><strong>{String(result.summary ?? 'Complete')}</strong></div>}
-          </div>
-          <p className="knowledge-batch">Batch: {result.batchKey}</p>
+          <p className={`knowledge-message ${message.startsWith('Import failed') ? 'error' : ''}`}>{message}</p>
         </section>
-      )}
 
-      <section className="knowledge-safety-card">
-        <p className="eyebrow">EVIDENCE RULES</p>
-        <h2>Calibre does not treat every match as fact.</h2>
-        <div className="knowledge-rule-grid">
-          <div><strong>Documented</strong><p>Manufacturer, catalogue or directly sourced evidence.</p></div>
-          <div><strong>Candidate</strong><p>Family, dimensional or generated leads that still need verification.</p></div>
-          <div><strong>Calibre Verified</strong><p>Bench-confirmed fit, identity or measurement from your own work.</p></div>
-        </div>
-      </section>
+        {result && (
+          <section className="knowledge-summary-card">
+            <div>
+              <p className="eyebrow">IMPORT COMPLETE</p>
+              <h2>{result.engineName}</h2>
+              <p className="muted">Version {result.engineVersion} · {result.overallTotal.toLocaleString()} records processed</p>
+            </div>
+            <div className="knowledge-summary-grid">
+              {result.summary && typeof result.summary === 'object' && !Array.isArray(result.summary)
+                ? Object.entries(result.summary as Record<string, unknown>).map(([key, value]) => (
+                    <div className="knowledge-stat" key={key}><span>{titleCase(key)}</span><strong>{String(value)}</strong></div>
+                  ))
+                : <div className="knowledge-stat"><span>Result</span><strong>{String(result.summary ?? 'Complete')}</strong></div>}
+            </div>
+            <p className="knowledge-batch">Batch: {result.batchKey}</p>
+          </section>
+        )}
+      </details>
     </main>
   )
 }
