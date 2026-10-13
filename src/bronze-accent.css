@@ -1,128 +1,152 @@
 /*
- * Satin bronze material accents.
+ * Warm copper-bronze material accents.
  *
- * Keep bronze restrained: dark surfaces stay charcoal/steel while bronze reads
- * as machined hardware and edge detail rather than a textured skin.
+ * Reference direction: smooth satin copper/bronze with a soft metallic sheen,
+ * darker edges and no visible stripe/grain pattern.
  */
 
 :root {
-  --calibre-bronze-dark: #5a4637;
-  --calibre-bronze: #7d6248;
-  --calibre-bronze-mid: #9a7956;
-  --calibre-bronze-light: #b79267;
-  --calibre-bronze-pale: #c6aa83;
-  --calibre-bronze-ink: #201a15;
-  --calibre-bronze-line: rgba(183, 146, 103, 0.42);
-  --calibre-bronze-glow: rgba(154, 121, 86, 0.12);
+  --calibre-bronze-dark: #55271e;
+  --calibre-bronze-deep: #6f3325;
+  --calibre-bronze: #8f472f;
+  --calibre-bronze-mid: #ad6543;
+  --calibre-bronze-light: #c9875e;
+  --calibre-bronze-pale: #ddb08c;
+  --calibre-bronze-text: #f5ece6;
+  --calibre-bronze-line: rgba(201, 135, 94, 0.52);
+  --calibre-bronze-glow: rgba(173, 101, 67, 0.16);
 }
 
-/* Primary controls: satin bronze, no visible stripe/grain pattern. */
+/* Primary controls: smooth copper-bronze satin with one broad reflected highlight. */
 button:not(.secondary):not(.icon-button):not(.brand-button):not(.profile-chip):not(.work-card-title),
 .knowledge-file-picker > span {
-  color: var(--calibre-bronze-ink);
-  border-color: rgba(183, 146, 103, 0.54);
+  color: var(--calibre-bronze-text);
+  border-color: rgba(221, 176, 140, 0.38);
   background:
     linear-gradient(
-      105deg,
-      #6b523d 0%,
-      #806348 18%,
-      #9b7b57 42%,
-      #a98760 52%,
-      #8a6b4d 72%,
-      #654d3a 100%
+      104deg,
+      #4d241c 0%,
+      #6e3325 14%,
+      #91472f 34%,
+      #b56543 48%,
+      #c57a52 55%,
+      #a25237 68%,
+      #713326 84%,
+      #4b221a 100%
     );
   box-shadow:
-    inset 0 1px 0 rgba(238, 213, 179, 0.16),
-    inset 0 -1px 0 rgba(44, 31, 22, 0.24),
-    0 4px 12px rgba(7, 10, 12, 0.14);
+    inset 0 1px 0 rgba(255, 225, 205, 0.18),
+    inset 0 -1px 0 rgba(48, 20, 15, 0.35),
+    0 4px 12px rgba(7, 10, 12, 0.16);
+  text-shadow: 0 1px 1px rgba(47, 19, 14, 0.35);
 }
 
 button:not(.secondary):not(.icon-button):not(.brand-button):not(.profile-chip):not(.work-card-title):hover:not(:disabled) {
   background:
     linear-gradient(
-      105deg,
-      #715741 0%,
-      #886a4c 18%,
-      #a6855f 42%,
-      #b08e67 52%,
-      #927153 72%,
-      #6b523e 100%
+      104deg,
+      #58281e 0%,
+      #7b3928 14%,
+      #a15035 34%,
+      #c2704a 48%,
+      #d08a5d 55%,
+      #b15b3d 68%,
+      #7d3929 84%,
+      #55261d 100%
     );
-  border-color: rgba(198, 170, 131, 0.60);
+  border-color: rgba(221, 176, 140, 0.52);
 }
 
-/* Navigation stays dark; bronze is the selected hardware accent, not the whole button. */
+/* Active navigation uses the same copper-satin plate as the reference image. */
 .topnav button.active {
-  color: #eadac2;
-  border-color: rgba(183, 146, 103, 0.24);
-  background: linear-gradient(180deg, rgba(90, 70, 55, 0.34), rgba(46, 57, 68, 0.56));
+  color: #f8efea;
+  border-color: rgba(221, 176, 140, 0.32);
+  background:
+    linear-gradient(
+      104deg,
+      #4f241b 0%,
+      #753526 18%,
+      #9a4b32 38%,
+      #bd6d49 52%,
+      #a55639 68%,
+      #743426 84%,
+      #4d231b 100%
+    );
   box-shadow:
-    inset 0 0 0 1px rgba(183, 146, 103, 0.08),
-    inset 0 -2px 0 rgba(183, 146, 103, 0.70),
-    0 4px 14px rgba(5, 10, 13, 0.13);
+    inset 0 1px 0 rgba(255, 225, 205, 0.16),
+    inset 0 -1px 0 rgba(47, 19, 14, 0.32),
+    0 4px 14px rgba(5, 10, 13, 0.16);
+  text-shadow: 0 1px 1px rgba(47, 19, 14, 0.38);
 }
 
 .topnav button.active::after {
-  background: linear-gradient(90deg, transparent, var(--calibre-bronze-light), transparent);
+  background: linear-gradient(90deg, transparent, rgba(221, 176, 140, 0.76), transparent);
 }
 
 .item-tabs button.active {
-  color: #e6d4ba;
-  border-bottom-color: var(--calibre-bronze-mid);
+  color: #e9c5aa;
+  border-bottom-color: var(--calibre-bronze-light);
 }
 
 .item-row.selected {
-  background: linear-gradient(90deg, rgba(125, 98, 72, 0.13), rgba(46, 57, 68, 0.68));
-  border-color: rgba(154, 121, 86, 0.26);
+  background: linear-gradient(90deg, rgba(143, 71, 47, 0.18), rgba(46, 57, 68, 0.68));
+  border-color: rgba(173, 101, 67, 0.30);
   box-shadow: inset 3px 0 0 var(--calibre-bronze-mid);
 }
 
-/* Small instrument details: mostly dark with bronze outline/text. */
+/* Small instrument details remain dark so the copper does not overwhelm the UI. */
 .count-chip,
 .confidence,
 .priority-chip {
-  color: #c8ad88;
-  border-color: rgba(154, 121, 86, 0.34);
-  background: rgba(90, 70, 55, 0.10);
+  color: #d8a985;
+  border-color: rgba(173, 101, 67, 0.38);
+  background: rgba(85, 39, 30, 0.12);
 }
 
 .stage-strip span.current {
-  color: #e6d3b9;
-  border-color: rgba(154, 121, 86, 0.48);
-  background: rgba(90, 70, 55, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(183, 146, 103, 0.06);
+  color: #efcdb2;
+  border-color: rgba(173, 101, 67, 0.52);
+  background: rgba(85, 39, 30, 0.20);
+  box-shadow: inset 0 0 0 1px rgba(201, 135, 94, 0.06);
 }
 
-/* Logo carries the clearest bronze signature. */
+/* Logo carries a restrained copper signature. */
 .moon {
   border-color: var(--calibre-bronze-pale);
-  filter: drop-shadow(0 0 5px rgba(154, 121, 86, 0.12));
+  filter: drop-shadow(0 0 5px rgba(173, 101, 67, 0.14));
 }
 
 .star {
-  color: #c4a477;
-  text-shadow: 0 0 8px rgba(154, 121, 86, 0.16);
+  color: #d49a70;
+  text-shadow: 0 0 8px rgba(173, 101, 67, 0.18);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--calibre-bronze-mid);
-  box-shadow: 0 0 0 3px rgba(154, 121, 86, 0.12);
+  box-shadow: 0 0 0 3px rgba(173, 101, 67, 0.13);
 }
 
 .passport-linked-movement,
 .passport-movement-proposal,
 .knowledge-safety-card {
-  border-color: rgba(154, 121, 86, 0.20);
+  border-color: rgba(173, 101, 67, 0.22);
 }
 
 @media (max-width: 720px) {
   .topnav button.active {
-    color: #eadac2;
-    background: linear-gradient(180deg, rgba(90, 70, 55, 0.28), rgba(35, 45, 52, 0.72));
-    box-shadow:
-      inset 0 -2px 0 rgba(183, 146, 103, 0.72),
-      0 3px 10px rgba(5, 10, 13, 0.12);
+    color: #f8efea;
+    background:
+      linear-gradient(
+        104deg,
+        #4d231a 0%,
+        #713326 18%,
+        #984a31 38%,
+        #bb6a47 52%,
+        #a35438 68%,
+        #713326 84%,
+        #4a2119 100%
+      );
   }
 }
