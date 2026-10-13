@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import App from './App'
-import WorkbenchPartsDesk from './WorkbenchPartsDesk'
 import CreateItemFlow from './CreateItemFlow'
 import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
 import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 import HomeRoute from './HomeRoute'
+import WorkbenchRoute from './WorkbenchRoute'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
 
@@ -133,7 +133,7 @@ export default function CalibreShell() {
           <IntakeRoute />
           <InventoryHubRoute />
           <ItemWorkspaceRoute />
-          <WorkbenchPartsDesk />
+          <WorkbenchRoute />
           <CreateItemFlow />
         </div>
       </div>
