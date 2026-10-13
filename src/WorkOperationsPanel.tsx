@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import WorkPartsMatcher from './WorkPartsMatcher'
+import WorkQcPanel from './WorkQcPanel'
 import './work-operations-panel.css'
 
 type WorkEvent = { id: string; event_type: string; summary: string; details: Record<string, unknown>; actor_type: string; created_at: string }
@@ -242,6 +244,9 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
           <div><h4>Used from stock</h4>{usedParts.length === 0 ? <p className="muted">No allocated parts have been consumed on this job.</p> : <div className="work-ops-list">{usedParts.map((allocation) => { const part = partsById.get(allocation.part_id); return <div className="work-ops-row" key={allocation.id}><div><strong>{part ? [part.manufacturer, part.reference].filter(Boolean).join(' ') || part.part_type : 'Stock part'}</strong><span>{part?.description || allocation.note || 'Part used'}</span></div><div className="work-ops-value">×{Number(allocation.quantity)}<small>{allocation.used_at ? when(allocation.used_at) : 'Used'}</small></div></div> })}</div>}</div>
         </div>
       </section>
+
+      <WorkPartsMatcher workspaceId={workspaceId} itemId={itemId} workId={workId} />
+      <WorkQcPanel workspaceId={workspaceId} itemId={itemId} workId={workId} />
 
       <section className="section-card work-ops-card">
         <div className="work-ops-heading"><div><p className="eyebrow">HISTORY</p><h3>Work timeline</h3></div><span>{events.length}</span></div>
