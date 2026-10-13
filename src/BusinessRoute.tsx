@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import BusinessLedgerPanel from './BusinessLedgerPanel'
 
-type BusinessView = 'overview' | 'stock' | 'listings' | 'sales' | 'costs'
+type BusinessView = 'overview' | 'stock' | 'listings' | 'sales' | 'ledger' | 'costs'
 
 type ItemRow = {
   id: string
@@ -220,7 +221,7 @@ export default function BusinessRoute() {
         <div>
           <p className="eyebrow">BUSINESS</p>
           <h1>Business</h1>
-          <p className="muted">Stock value, direct Item economics, listings, sales and realised profit — without mixing workshop records into the finance view.</p>
+          <p className="muted">Stock value, direct Item economics, listings, sales, realised profit and business overhead — kept separate so the numbers stay trustworthy.</p>
         </div>
         <button type="button" className="secondary" onClick={() => { window.location.hash = '#/intake' }}>Open Intake</button>
       </header>
@@ -231,7 +232,8 @@ export default function BusinessRoute() {
           ['stock', 'Stock'],
           ['listings', 'Listings'],
           ['sales', 'Sales'],
-          ['costs', 'Costs'],
+          ['ledger', 'Ledger'],
+          ['costs', 'Item Costs'],
         ] as const).map(([key, label]) => <button key={key} type="button" className={view === key ? 'active' : ''} onClick={() => setView(key)}>{label}</button>)}
       </nav>
 
@@ -277,7 +279,8 @@ export default function BusinessRoute() {
                 <div><dt>Sold revenue</dt><dd>{money(soldRevenue)}</dd></div>
                 <div><dt>Open offers</dt><dd>{activeOffers}</dd></div>
               </dl>
-              <p className="business-v2-note">Item economics and whole-business cash flow are intentionally separate. A true ledger can sit beside this without double-counting stock or parts.</p>
+              <p className="business-v2-note">Item economics stay on the Item. Tools, subscriptions, consumables and general overhead belong in the Business Ledger, so the same dollar is never counted twice.</p>
+              <button type="button" className="text-button" onClick={() => setView('ledger')}>Open Business Ledger →</button>
             </section>
           </div>
         </div>
@@ -339,6 +342,8 @@ export default function BusinessRoute() {
           {soldRows.length === 0 && <div className="business-v2-empty"><strong>No completed sales yet.</strong><span>Realised profit will stay separate from projected stock profit.</span></div>}
         </section>
       )}
+
+      {!loading && view === 'ledger' && <BusinessLedgerPanel workspaceId={workspaceId} />}
 
       {!loading && view === 'costs' && (
         <section className="section-card business-v2-table-card">
