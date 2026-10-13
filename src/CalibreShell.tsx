@@ -4,6 +4,7 @@ import WorkbenchPartsDesk from './WorkbenchPartsDesk'
 import CreateItemFlow from './CreateItemFlow'
 import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
+import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 
 type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'calibre' | 'other'
 
@@ -115,6 +116,7 @@ export default function CalibreShell() {
           <div className="calibre-legacy-host"><App /></div>
           <IntakeRoute />
           <InventoryHubRoute />
+          <ItemWorkspaceRoute />
           <WorkbenchPartsDesk />
           <CreateItemFlow />
         </div>
