@@ -25,6 +25,7 @@ type Donor = { id: string; item_number: number; title: string; status: string }
 type Application = { part_id: string; movement_maker: string; calibre: string; evidence_class: string; verification_status: string; confidence: number | null }
 type FitVerification = { part_id: string; result: 'confirmed' | 'rejected' | 'conditional' }
 
+const PAGE_SIZE = 30
 const provenanceOptions = [
   ['unknown', 'Unknown'],
   ['purchased', 'Purchased'],
@@ -42,6 +43,10 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function cleanSearchTerm(value: string) {
+  return value.trim().replace(/[,%()]/g, ' ').replace(/\s+/g, ' ').slice(0, 80)
+}
+
 export default function PartsInventory() {
   const [workspaceId, setWorkspaceId] = useState('')
   const [parts, setParts] = useState<Part[]>([])
@@ -53,6 +58,13 @@ export default function PartsInventory() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [query, setQuery] = useState('')
+  const [conditionFilter, setConditionFilter] = useState('all')
+  const [sourceFilter, setSourceFilter] = useState('all')
+  const [page, setPage] = useState(0)
+  const [totalParts, setTotalParts] = useState(0)
+  const [totalApplications, setTotalApplications] = useState(0)
+  const [totalConfirmedFits, setTotalConfirmedFits] = useState(0)
 
   const [partType, setPartType] = useState('')
   const [manufacturer, setManufacturer] = useState('')
@@ -70,6 +82,7 @@ export default function PartsInventory() {
 
   const donorById = useMemo(() => new Map(donors.map((donor) => [donor.id, donor])), [donors])
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations])
+  const pageCount = Math.max(1, Math.ceil(totalParts / PAGE_SIZE))
 
   useEffect(() => {
     let active = true
@@ -95,32 +108,80 @@ export default function PartsInventory() {
     return () => window.removeEventListener('calibre:add-part', openPartForm)
   }, [])
 
-  async function load() {
+  useEffect(() => { setPage(0) }, [query, conditionFilter, sourceFilter])
+
+  async function loadReferenceData() {
+    if (!workspaceId) return
+    const [locationResult, donorResult, applicationCountResult, confirmedFitCountResult] = await Promise.all([
+      supabase.from('storage_locations').select('id,parent_id,name,code,location_type,sort_order').eq('workspace_id', workspaceId).order('sort_order', { ascending: true }).order('name', { ascending: true }),
+      supabase.from('items').select('id,item_number,title,status').eq('workspace_id', workspaceId).eq('purpose', 'donor').is('archived_at', null).order('item_number', { ascending: false }).limit(200),
+      supabase.from('part_applications').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId),
+      supabase.from('part_fit_verifications').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).eq('result', 'confirmed'),
+    ])
+    const error = locationResult.error ?? donorResult.error ?? applicationCountResult.error ?? confirmedFitCountResult.error
+    if (error) {
+      setMessage(`Parts reference data failed to load: ${error.message}`)
+      return
+    }
+    setLocations((locationResult.data ?? []) as StorageLocation[])
+    setDonors((donorResult.data ?? []) as Donor[])
+    setTotalApplications(applicationCountResult.count ?? 0)
+    setTotalConfirmedFits(confirmedFitCountResult.count ?? 0)
+  }
+
+  async function loadParts() {
     if (!workspaceId) return
     setLoading(true)
-    const [partsResult, locationResult, donorResult, applicationResult, fitResult] = await Promise.all([
-      supabase.from('parts').select('id,part_type,manufacturer,reference,description,condition,quantity,unit_cost,currency,storage_location_id,donor_item_id,notes,provenance_type,provenance_note,replacement_cost,knowledge_part_ref_id').eq('workspace_id', workspaceId).order('created_at', { ascending: false }),
-      supabase.from('storage_locations').select('id,parent_id,name,code,location_type,sort_order').eq('workspace_id', workspaceId).order('sort_order', { ascending: true }).order('name', { ascending: true }),
-      supabase.from('items').select('id,item_number,title,status').eq('workspace_id', workspaceId).eq('purpose', 'donor').is('archived_at', null).order('item_number', { ascending: false }),
-      supabase.from('part_applications').select('part_id,movement_maker,calibre,evidence_class,verification_status,confidence').eq('workspace_id', workspaceId),
-      supabase.from('part_fit_verifications').select('part_id,result').eq('workspace_id', workspaceId),
-    ])
-    setLoading(false)
+    const term = cleanSearchTerm(query)
+    let partsQuery = supabase.from('parts')
+      .select('id,part_type,manufacturer,reference,description,condition,quantity,unit_cost,currency,storage_location_id,donor_item_id,notes,provenance_type,provenance_note,replacement_cost,knowledge_part_ref_id', { count: 'exact' })
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
-    const error = partsResult.error ?? locationResult.error ?? donorResult.error ?? applicationResult.error ?? fitResult.error
-    if (error) {
-      setMessage(`Parts inventory failed to load: ${error.message}`)
+    if (term) partsQuery = partsQuery.or(`part_type.ilike.%${term}%,manufacturer.ilike.%${term}%,reference.ilike.%${term}%,description.ilike.%${term}%,notes.ilike.%${term}%`)
+    if (conditionFilter !== 'all') partsQuery = partsQuery.eq('condition', conditionFilter)
+    if (sourceFilter === 'donor') partsQuery = partsQuery.not('donor_item_id', 'is', null)
+    if (sourceFilter === 'purchased') partsQuery = partsQuery.eq('provenance_type', 'purchased')
+    if (sourceFilter === 'unassigned') partsQuery = partsQuery.is('storage_location_id', null)
+
+    const partsResult = await partsQuery
+    if (partsResult.error) {
+      setLoading(false)
+      setMessage(`Parts inventory failed to load: ${partsResult.error.message}`)
       return
     }
 
-    setParts((partsResult.data ?? []) as Part[])
-    setLocations((locationResult.data ?? []) as StorageLocation[])
-    setDonors((donorResult.data ?? []) as Donor[])
-    setApplications((applicationResult.data ?? []) as Application[])
-    setFits((fitResult.data ?? []) as FitVerification[])
+    const nextParts = (partsResult.data ?? []) as Part[]
+    const ids = nextParts.map((part) => part.id)
+    let pageApplications: Application[] = []
+    let pageFits: FitVerification[] = []
+
+    if (ids.length) {
+      const [applicationResult, fitResult] = await Promise.all([
+        supabase.from('part_applications').select('part_id,movement_maker,calibre,evidence_class,verification_status,confidence').eq('workspace_id', workspaceId).in('part_id', ids),
+        supabase.from('part_fit_verifications').select('part_id,result').eq('workspace_id', workspaceId).in('part_id', ids),
+      ])
+      const error = applicationResult.error ?? fitResult.error
+      if (error) {
+        setLoading(false)
+        setMessage(`Part evidence failed to load: ${error.message}`)
+        return
+      }
+      pageApplications = (applicationResult.data ?? []) as Application[]
+      pageFits = (fitResult.data ?? []) as FitVerification[]
+    }
+
+    setParts(nextParts)
+    setApplications(pageApplications)
+    setFits(pageFits)
+    setTotalParts(partsResult.count ?? 0)
+    setLoading(false)
+    setMessage('')
   }
 
-  useEffect(() => { if (workspaceId) void load() }, [workspaceId])
+  useEffect(() => { if (workspaceId) void loadReferenceData() }, [workspaceId])
+  useEffect(() => { if (workspaceId) void loadParts() }, [workspaceId, page, query, conditionFilter, sourceFilter])
 
   function resetForm() {
     setPartType('')
@@ -171,8 +232,9 @@ export default function PartsInventory() {
 
     resetForm()
     setShowForm(false)
+    setPage(0)
     setMessage('Part saved.')
-    await load()
+    await Promise.all([loadReferenceData(), loadParts()])
   }
 
   return (
@@ -187,10 +249,20 @@ export default function PartsInventory() {
       </div>
 
       <div className="parts-stats">
-        <div><span>Parts records</span><strong>{parts.length}</strong></div>
+        <div><span>Parts records</span><strong>{totalParts}</strong></div>
         <div><span>Donor Items</span><strong>{donors.length}</strong></div>
-        <div><span>Applications</span><strong>{applications.length}</strong></div>
-        <div><span>Bench confirmations</span><strong>{fits.filter((fit) => fit.result === 'confirmed').length}</strong></div>
+        <div><span>Applications</span><strong>{totalApplications}</strong></div>
+        <div><span>Bench confirmations</span><strong>{totalConfirmedFits}</strong></div>
+      </div>
+
+      <div className="parts-controls">
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search type, maker, reference, description…" aria-label="Search parts inventory" />
+        <select value={conditionFilter} onChange={(event) => setConditionFilter(event.target.value)} aria-label="Filter parts by condition">
+          <option value="all">All conditions</option><option value="new">New</option><option value="new_old_stock">New old stock</option><option value="used">Used</option><option value="salvaged">Salvaged</option><option value="for_parts">For parts</option><option value="unknown">Unknown</option>
+        </select>
+        <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} aria-label="Filter parts by source">
+          <option value="all">All sources</option><option value="donor">From donor</option><option value="purchased">Purchased</option><option value="unassigned">Location unassigned</option>
+        </select>
       </div>
 
       {showForm && (
@@ -216,12 +288,12 @@ export default function PartsInventory() {
 
       <div className="donor-strip">
         <div><strong>Donor Items</strong><span>Donor remains an Item purpose — not a second inventory system.</span></div>
-        {donors.length === 0 ? <p>No donor Items recorded yet.</p> : <div className="donor-list">{donors.map((donor) => <span key={donor.id}>#{donor.item_number} · {donor.title}</span>)}</div>}
+        {donors.length === 0 ? <p>No donor Items recorded yet.</p> : <div className="donor-list">{donors.slice(0, 24).map((donor) => <span key={donor.id}>#{donor.item_number} · {donor.title}</span>)}</div>}
       </div>
 
       <div className="parts-list">
         {loading && <p className="muted">Loading parts…</p>}
-        {!loading && parts.length === 0 && <div className="parts-empty"><strong>No parts recorded yet.</strong><span>Add loose stock or parts removed from a donor.</span></div>}
+        {!loading && parts.length === 0 && <div className="parts-empty"><strong>No matching parts.</strong><span>{query || conditionFilter !== 'all' || sourceFilter !== 'all' ? 'Try clearing a filter.' : 'Add loose stock or parts removed from a donor.'}</span></div>}
         {parts.map((part) => {
           const donor = part.donor_item_id ? donorById.get(part.donor_item_id) : null
           const location = part.storage_location_id ? locationById.get(part.storage_location_id) : null
@@ -250,6 +322,14 @@ export default function PartsInventory() {
           )
         })}
       </div>
+
+      {totalParts > PAGE_SIZE && (
+        <div className="parts-pagination" aria-label="Parts pages">
+          <button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>← Previous</button>
+          <span>Page {page + 1} of {pageCount} · {totalParts} matching</span>
+          <button type="button" className="secondary small" disabled={page + 1 >= pageCount || loading} onClick={() => setPage((value) => value + 1)}>Next →</button>
+        </div>
+      )}
     </section>
   )
 }
