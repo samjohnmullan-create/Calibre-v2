@@ -3,6 +3,7 @@ import { importKnowledgeEngine } from './lib/knowledge-import'
 import MovementFinder from './MovementFinder'
 import MovementSearch from './MovementSearch'
 import PartsInventory from './PartsInventory'
+import CompatibilityIntelligence from './CompatibilityIntelligence'
 
 type ImportProgress = {
   dataset: string
@@ -80,6 +81,7 @@ export default function KnowledgePage() {
       </section>
 
       <PartsInventory />
+      <CompatibilityIntelligence />
       <MovementFinder />
       <MovementSearch />
 
