@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import WorkbenchPartsDesk from './WorkbenchPartsDesk'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
@@ -13,6 +14,7 @@ import './research.css'
 import './knowledge.css'
 import './parts.css'
 import './compatibility.css'
+import './workbench-parts-desk.css'
 import './theme-classic.css'
 import './brand-polish.css'
 import './shell-layout.css'
@@ -25,5 +27,6 @@ import './dex-scroll'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <WorkbenchPartsDesk />
   </StrictMode>,
 )
