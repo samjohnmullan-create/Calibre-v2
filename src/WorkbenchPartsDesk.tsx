@@ -4,9 +4,11 @@ import { supabase } from './lib/supabase'
 type WorkRow = { id: string; item_id: string; work_number: number; title: string; status: string; waiting_reason: string | null; next_action: string; blocker: string }
 type ItemRow = { id: string; item_number: number; title: string }
 type NeedRow = { id: string; work_record_id: string; item_id: string; part_type: string; description: string; status: string }
+type AllocationRow = { id: string; work_part_need_id: string; part_id: string; quantity: number; status: string }
 type Candidate = {
   candidate_kind: 'owned_part' | 'donor_item'
   candidate_id: string
+  part_id: string | null
   donor_item_id: string | null
   label: string
   detail: string | null
@@ -42,16 +44,19 @@ export default function WorkbenchPartsDesk() {
   const [work, setWork] = useState<WorkRow[]>([])
   const [items, setItems] = useState<ItemRow[]>([])
   const [needs, setNeeds] = useState<NeedRow[]>([])
+  const [allocations, setAllocations] = useState<AllocationRow[]>([])
   const [selectedWorkId, setSelectedWorkId] = useState('')
   const [partType, setPartType] = useState('')
   const [description, setDescription] = useState('')
   const [results, setResults] = useState<Candidate[]>([])
   const [busy, setBusy] = useState(false)
+  const [actionBusy, setActionBusy] = useState('')
   const [message, setMessage] = useState('Choose a Work record to record a part need and check owned stock.')
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
   const selectedWork = work.find((record) => record.id === selectedWorkId) ?? null
-  const selectedNeed = needs.find((need) => need.work_record_id === selectedWorkId && need.status === 'open') ?? null
+  const selectedNeed = needs.find((need) => need.work_record_id === selectedWorkId && ['open', 'reserved'].includes(need.status)) ?? null
+  const activeAllocation = selectedNeed ? allocations.find((allocation) => allocation.work_part_need_id === selectedNeed.id && allocation.status === 'reserved') ?? null : null
 
   useEffect(() => {
     const sync = () => setVisible(window.location.hash.startsWith('#/workbench'))
@@ -76,12 +81,13 @@ export default function WorkbenchPartsDesk() {
 
   async function load() {
     if (!workspaceId) return
-    const [workResult, itemResult, needsResult] = await Promise.all([
+    const [workResult, itemResult, needsResult, allocationResult] = await Promise.all([
       supabase.from('work_records').select('id,item_id,work_number,title,status,waiting_reason,next_action,blocker').eq('workspace_id', workspaceId).not('status', 'in', '(complete,cancelled)').order('priority', { ascending: false }).order('work_number', { ascending: true }),
       supabase.from('items').select('id,item_number,title').eq('workspace_id', workspaceId).is('archived_at', null),
       supabase.from('work_part_needs').select('id,work_record_id,item_id,part_type,description,status').eq('workspace_id', workspaceId).in('status', ['open', 'reserved']),
+      supabase.from('part_allocations').select('id,work_part_need_id,part_id,quantity,status').eq('workspace_id', workspaceId).eq('status', 'reserved'),
     ])
-    const error = workResult.error ?? itemResult.error ?? needsResult.error
+    const error = workResult.error ?? itemResult.error ?? needsResult.error ?? allocationResult.error
     if (error) {
       setMessage(`Parts Desk failed to load: ${error.message}`)
       return
@@ -89,6 +95,7 @@ export default function WorkbenchPartsDesk() {
     setWork((workResult.data ?? []) as WorkRow[])
     setItems((itemResult.data ?? []) as ItemRow[])
     setNeeds((needsResult.data ?? []) as NeedRow[])
+    setAllocations((allocationResult.data ?? []) as AllocationRow[])
   }
 
   useEffect(() => { if (visible && workspaceId) void load() }, [visible, workspaceId])
@@ -100,7 +107,7 @@ export default function WorkbenchPartsDesk() {
       setResults([])
       return
     }
-    const need = needs.find((row) => row.work_record_id === selectedWorkId && row.status === 'open')
+    const need = needs.find((row) => row.work_record_id === selectedWorkId && ['open', 'reserved'].includes(row.status))
     setPartType(need?.part_type ?? '')
     setDescription(need?.description ?? '')
     setResults([])
@@ -109,6 +116,10 @@ export default function WorkbenchPartsDesk() {
   async function recordNeedAndCheck(event: FormEvent) {
     event.preventDefault()
     if (!workspaceId || !selectedWork || !partType.trim()) return
+    if (selectedNeed?.status === 'reserved') {
+      setMessage('Release the current reservation before changing this part need.')
+      return
+    }
     setBusy(true)
     setResults([])
     setMessage('Recording part need…')
@@ -172,6 +183,41 @@ export default function WorkbenchPartsDesk() {
     await load()
   }
 
+  async function reserve(candidate: Candidate) {
+    if (!workspaceId || !selectedNeed || !candidate.part_id || activeAllocation) return
+    setActionBusy(candidate.candidate_id)
+    const { error } = await supabase.rpc('reserve_part_for_need', {
+      p_workspace_id: workspaceId,
+      p_need_id: selectedNeed.id,
+      p_part_id: candidate.part_id,
+      p_quantity: 1,
+      p_note: `Reserved from Parts Desk for Work #${selectedWork?.work_number ?? ''}`,
+    })
+    setActionBusy('')
+    if (error) {
+      setMessage(`Could not reserve part: ${error.message}`)
+      return
+    }
+    await load()
+    setMessage(`Reserved ${candidate.label} for Work #${selectedWork?.work_number ?? ''}. Stock quantity has not changed.`)
+  }
+
+  async function releaseReservation() {
+    if (!workspaceId || !activeAllocation) return
+    setActionBusy(activeAllocation.id)
+    const { error } = await supabase.rpc('release_part_reservation', {
+      p_workspace_id: workspaceId,
+      p_allocation_id: activeAllocation.id,
+    })
+    setActionBusy('')
+    if (error) {
+      setMessage(`Could not release reservation: ${error.message}`)
+      return
+    }
+    await load()
+    setMessage('Reservation released. Stock quantity was not changed.')
+  }
+
   if (!visible) return null
 
   return (
@@ -191,30 +237,47 @@ export default function WorkbenchPartsDesk() {
           </select>
         </label>
         <label>Part needed
-          <input value={partType} onChange={(event) => setPartType(event.target.value)} placeholder="e.g. balance staff" required />
+          <input value={partType} onChange={(event) => setPartType(event.target.value)} placeholder="e.g. balance staff" required disabled={selectedNeed?.status === 'reserved'} />
         </label>
         <label className="parts-desk-wide">Detail
-          <input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional size, reference, symptom or other detail" />
+          <input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional size, reference, symptom or other detail" disabled={selectedNeed?.status === 'reserved'} />
         </label>
-        <button type="submit" disabled={!selectedWorkId || !partType.trim() || busy}>{busy ? 'Checking…' : 'Mark needs parts & check stock'}</button>
+        <button type="submit" disabled={!selectedWorkId || !partType.trim() || busy || selectedNeed?.status === 'reserved'}>{busy ? 'Checking…' : selectedNeed?.status === 'reserved' ? 'Part reserved' : 'Mark needs parts & check stock'}</button>
       </form>
 
       <p className="parts-desk-message">{message}</p>
 
+      {activeAllocation && (
+        <div className="parts-desk-result tier-confirmed">
+          <div className="parts-desk-result-head">
+            <div><span>Reserved stock</span><h3>1 part reserved for this Work</h3><p>Reservation protects this unit from being allocated elsewhere. Inventory quantity is unchanged until you explicitly use it.</p></div>
+          </div>
+          <button type="button" className="secondary small" onClick={releaseReservation} disabled={actionBusy === activeAllocation.id}>{actionBusy === activeAllocation.id ? 'Releasing…' : 'Release reservation'}</button>
+        </div>
+      )}
+
       {results.length > 0 && <div className="parts-desk-results">
-        {results.map((candidate) => (
-          <article className={`parts-desk-result tier-${candidate.evidence_tier}`} key={`${candidate.candidate_kind}-${candidate.candidate_id}`}>
-            <div className="parts-desk-result-head">
-              <div><span>{candidate.candidate_kind === 'donor_item' ? 'Donor Item' : titleCase(candidate.part_type)}</span><h3>{candidate.label}</h3>{candidate.detail && <p>{candidate.detail}</p>}</div>
-              <div><span>{tierLabel(candidate.evidence_tier)}</span><strong>{candidate.score}</strong></div>
-            </div>
-            <p className="parts-desk-evidence">{candidate.evidence_label}</p>
-            {candidate.reasons?.length > 0 && <ul>{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
-            {candidate.modification_required && <p className="parts-desk-warning">Modification may be required — verify exact dimensions before fitting.</p>}
-            {candidate.candidate_kind === 'donor_item' && <p className="parts-desk-economics">{candidate.economic_note || `Recorded donor value: ${money(candidate.donor_value, candidate.donor_currency || 'AUD')}`}</p>}
-            {candidate.donor_item_id && <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(candidate.donor_item_id!)}` }}>Open donor Item</button>}
-          </article>
-        ))}
+        {results.map((candidate) => {
+          const isReservedCandidate = candidate.part_id && activeAllocation?.part_id === candidate.part_id
+          return (
+            <article className={`parts-desk-result tier-${candidate.evidence_tier}`} key={`${candidate.candidate_kind}-${candidate.candidate_id}`}>
+              <div className="parts-desk-result-head">
+                <div><span>{candidate.candidate_kind === 'donor_item' ? 'Donor Item' : titleCase(candidate.part_type)}</span><h3>{candidate.label}</h3>{candidate.detail && <p>{candidate.detail}</p>}</div>
+                <div><span>{tierLabel(candidate.evidence_tier)}</span><strong>{candidate.score}</strong></div>
+              </div>
+              <p className="parts-desk-evidence">{candidate.evidence_label}</p>
+              {candidate.reasons?.length > 0 && <ul>{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
+              {candidate.modification_required && <p className="parts-desk-warning">Modification may be required — verify exact dimensions before fitting.</p>}
+              {candidate.candidate_kind === 'donor_item' && <p className="parts-desk-economics">{candidate.economic_note || `Recorded donor value: ${money(candidate.donor_value, candidate.donor_currency || 'AUD')}`}</p>}
+              {candidate.candidate_kind === 'owned_part' && candidate.part_id && (
+                <button type="button" className="secondary small" onClick={() => reserve(candidate)} disabled={!selectedNeed || Boolean(activeAllocation) || actionBusy === candidate.candidate_id}>
+                  {isReservedCandidate ? 'Reserved for this Work' : activeAllocation ? 'Another part is reserved' : actionBusy === candidate.candidate_id ? 'Reserving…' : 'Reserve for Work'}
+                </button>
+              )}
+              {candidate.donor_item_id && <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(candidate.donor_item_id!)}` }}>Open donor Item</button>}
+            </article>
+          )
+        })}
       </div>}
     </aside>
   )
