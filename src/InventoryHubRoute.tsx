@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
 import InvoiceIntakeServer from './InvoiceIntakeServer'
@@ -29,6 +29,9 @@ const tabs: { key: InventoryTab; label: string }[] = [
   { key: 'files', label: 'Files' },
 ]
 
+const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
+const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
+
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -46,6 +49,12 @@ export default function InventoryHubRoute() {
   const [message, setMessage] = useState('')
   const [tab, setTab] = useState<InventoryTab>('all')
   const [query, setQuery] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newType, setNewType] = useState('watch')
+  const [newPurpose, setNewPurpose] = useState('resale')
+  const [newNotes, setNewNotes] = useState('')
 
   useEffect(() => {
     const sync = () => setActive(isInventoryRoot())
@@ -87,28 +96,64 @@ export default function InventoryHubRoute() {
     return () => { cancelled = true }
   }, [active])
 
+  async function loadItems() {
+    if (!active || !workspaceId) return
+    setLoading(true)
+    const result = await supabase
+      .from('items')
+      .select('id,item_number,type,purpose,status,title,notes,created_at')
+      .eq('workspace_id', workspaceId)
+      .is('archived_at', null)
+      .order('item_number', { ascending: false })
+    setLoading(false)
+    if (result.error) {
+      setMessage(`Inventory failed to load: ${result.error.message}`)
+      return
+    }
+    setItems((result.data ?? []) as ItemRow[])
+    setMessage('')
+  }
+
   useEffect(() => {
     if (!active || !workspaceId) return
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      const result = await supabase
-        .from('items')
-        .select('id,item_number,type,purpose,status,title,notes,created_at')
-        .eq('workspace_id', workspaceId)
-        .is('archived_at', null)
-        .order('item_number', { ascending: false })
-      if (cancelled) return
-      setLoading(false)
-      if (result.error) {
-        setMessage(`Inventory failed to load: ${result.error.message}`)
-        return
-      }
-      setItems((result.data ?? []) as ItemRow[])
-      setMessage('')
-    })()
-    return () => { cancelled = true }
+    void loadItems()
   }, [active, workspaceId])
+
+  async function createItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!workspaceId || creating) return
+    const title = newTitle.trim()
+    if (!title) {
+      setMessage('Item title is required.')
+      return
+    }
+
+    setCreating(true)
+    setMessage('Creating item…')
+    const { data, error } = await supabase.rpc('create_item', {
+      p_workspace_id: workspaceId,
+      p_title: title,
+      p_type: itemTypes.includes(newType) ? newType : 'other',
+      p_purpose: itemPurposes.includes(newPurpose) ? newPurpose : 'resale',
+      p_notes: newNotes.trim(),
+    })
+    setCreating(false)
+
+    if (error) {
+      setMessage(`Item could not be created: ${error.message}`)
+      return
+    }
+
+    const created = (Array.isArray(data) ? data[0] : data) as Partial<ItemRow> | null
+    setCreateOpen(false)
+    setNewTitle('')
+    setNewType('watch')
+    setNewPurpose('resale')
+    setNewNotes('')
+    setMessage('Item created.')
+    await loadItems()
+    if (created?.id) window.location.hash = `#/items/${encodeURIComponent(created.id)}`
+  }
 
   const counts = useMemo(() => {
     const knownTypes = new Set(['watch', 'jewellery', 'clock', 'accessory'])
@@ -148,8 +193,50 @@ export default function InventoryHubRoute() {
           <h1>Items</h1>
           <p className="muted">Browse the collection first. Open an Item only when you need its Passport, Work, media or commerce record.</p>
         </div>
-        <button type="button" aria-label="Create item">＋ Add Item</button>
+        <button type="button" aria-label="Create item" onClick={() => setCreateOpen(true)}>＋ Add Item</button>
       </header>
+
+      {createOpen && (
+        <div className="inventory-create-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !creating) setCreateOpen(false)
+        }}>
+          <form className="inventory-create-card" onSubmit={createItem}>
+            <div className="inventory-create-heading">
+              <div>
+                <p className="eyebrow">NEW INVENTORY</p>
+                <h2>Add Item</h2>
+              </div>
+              <button type="button" className="secondary small" onClick={() => setCreateOpen(false)} disabled={creating}>Close</button>
+            </div>
+
+            <label className="inventory-create-field">Title
+              <input autoFocus value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="e.g. Seiko Kinetic" />
+            </label>
+
+            <div className="inventory-create-grid">
+              <label className="inventory-create-field">Type
+                <select value={newType} onChange={(event) => setNewType(event.target.value)}>
+                  {itemTypes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+                </select>
+              </label>
+              <label className="inventory-create-field">Purpose
+                <select value={newPurpose} onChange={(event) => setNewPurpose(event.target.value)}>
+                  {itemPurposes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <label className="inventory-create-field">Notes
+              <textarea rows={3} value={newNotes} onChange={(event) => setNewNotes(event.target.value)} placeholder="Condition, source, quick intake note…" />
+            </label>
+
+            <div className="inventory-create-actions">
+              <button type="button" className="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</button>
+              <button type="submit" disabled={creating || !newTitle.trim()}>{creating ? 'Creating…' : 'Create Item'}</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="inventory-intake-row">
         <InvoiceIntakeServer workspaceId={workspaceId} />
