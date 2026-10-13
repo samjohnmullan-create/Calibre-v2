@@ -6,6 +6,8 @@ import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
 import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 import HomeRoute from './HomeRoute'
+import GlobalSearch from './GlobalSearch'
+import UniversalNewMenu from './UniversalNewMenu'
 
 type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'calibre' | 'other'
 
@@ -40,6 +42,7 @@ export default function CalibreShell() {
   const initial = useMemo(readSection, [])
   const [section, setSection] = useState<ShellSection>(initial)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [newOpen, setNewOpen] = useState(false)
 
   useEffect(() => {
     const sync = () => setSection(readSection())
@@ -48,18 +51,37 @@ export default function CalibreShell() {
     return () => window.removeEventListener('hashchange', sync)
   }, [])
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setNewOpen(false)
+        setSearchOpen(true)
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault()
+        setSearchOpen(false)
+        setNewOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   function navigate(hash: string) {
+    setSearchOpen(false)
+    setNewOpen(false)
     window.location.hash = hash
   }
 
-  function startNewItem() {
-    const target = document.querySelector<HTMLButtonElement>('button[aria-label="Create item"]')
-    if (target) {
-      target.click()
-      return
-    }
-    window.location.hash = '#/items'
-    window.setTimeout(() => document.querySelector<HTMLButtonElement>('button[aria-label="Create item"]')?.click(), 60)
+  function openSearch() {
+    setNewOpen(false)
+    setSearchOpen(true)
+  }
+
+  function openNew() {
+    setSearchOpen(false)
+    setNewOpen(true)
   }
 
   return (
@@ -95,23 +117,15 @@ export default function CalibreShell() {
             <strong>{titleFor(section)}</strong>
           </div>
           <div className="calibre-utility-actions">
-            <button className="calibre-search-button" type="button" onClick={() => setSearchOpen((value) => !value)} aria-expanded={searchOpen}>
-              <span aria-hidden="true">⌕</span><span>Search Calibre</span>
+            <button className="calibre-search-button" type="button" onClick={openSearch} aria-expanded={searchOpen} title="Search Calibre · Ctrl/⌘ K">
+              <span aria-hidden="true">⌕</span><span>Search Calibre</span><kbd>⌘K</kbd>
             </button>
-            <button className="calibre-new-button" type="button" onClick={startNewItem}>＋ New Item</button>
+            <button className="calibre-new-button" type="button" onClick={openNew} aria-expanded={newOpen} title="New · Ctrl/⌘ N">＋ New</button>
           </div>
         </header>
 
-        {searchOpen && (
-          <div className="calibre-search-preview" role="dialog" aria-label="Global search preview">
-            <div>
-              <p className="eyebrow">GLOBAL SEARCH</p>
-              <h2>One search for all of Calibre</h2>
-              <p className="muted">Item numbers, makers, movements, Work records, parts, invoices and knowledge will live here. The shell is in place; indexed search is the next implementation step.</p>
-            </div>
-            <button className="secondary small" type="button" onClick={() => setSearchOpen(false)}>Close</button>
-          </div>
-        )}
+        <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+        <UniversalNewMenu open={newOpen} onClose={() => setNewOpen(false)} />
 
         <div className="calibre-content-host">
           <div className="calibre-legacy-host"><App /></div>
@@ -127,7 +141,7 @@ export default function CalibreShell() {
       <nav className="calibre-mobile-nav" aria-label="Mobile navigation">
         <button type="button" className={section === 'home' ? 'active' : ''} onClick={() => navigate('#/home')}><span>⌂</span><strong>Home</strong></button>
         <button type="button" className={section === 'items' ? 'active' : ''} onClick={() => navigate('#/items')}><span>◫</span><strong>Items</strong></button>
-        <button type="button" className="mobile-new" onClick={startNewItem}><span>＋</span><strong>New</strong></button>
+        <button type="button" className="mobile-new" onClick={openNew}><span>＋</span><strong>New</strong></button>
         <button type="button" className={section === 'workbench' ? 'active' : ''} onClick={() => navigate('#/workbench')}><span>⌁</span><strong>Work</strong></button>
         <button type="button" className={section === 'intake' || section === 'business' || section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>•••</span><strong>More</strong></button>
       </nav>
