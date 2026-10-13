@@ -43,6 +43,12 @@ type DraftLine = {
   created_item_id: string | null
 }
 
+type ImportedItem = {
+  id: string
+  item_number: number
+  title: string
+}
+
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
 
@@ -69,6 +75,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [lines, setLines] = useState<DraftLine[]>([])
+  const [importedItems, setImportedItems] = useState<ImportedItem[]>([])
   const [uploading, setUploading] = useState(false)
   const [reading, setReading] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -125,6 +132,25 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     setDirty(false)
   }
 
+  async function loadImportedItems(ids: string[]) {
+    const uniqueIds = [...new Set(ids.filter(Boolean))]
+    if (!uniqueIds.length) {
+      setImportedItems([])
+      return
+    }
+    const { data, error } = await supabase
+      .from('items')
+      .select('id,item_number,title')
+      .eq('workspace_id', workspaceId)
+      .in('id', uniqueIds)
+      .order('item_number', { ascending: true })
+    if (error) {
+      setMessage(`Items were imported, but the handoff list could not load: ${error.message}`)
+      return
+    }
+    setImportedItems((data ?? []) as ImportedItem[])
+  }
+
   useEffect(() => {
     if (open && workspaceId) void loadInvoices()
   }, [open, workspaceId])
@@ -143,6 +169,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       return
     }
 
+    setImportedItems([])
     setUploading(true)
     setMessage('Uploading invoice…')
     const id = crypto.randomUUID()
@@ -182,6 +209,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
   async function readInvoice() {
     if (!selected || reading) return
+    setImportedItems([])
     setReading(true)
     setMessage('Reading invoice…')
 
@@ -271,6 +299,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       if (!saved) return
     }
 
+    setImportedItems([])
     setImporting(true)
     setMessage(`Importing ${includedCount} reviewed line${includedCount === 1 ? '' : 's'}…`)
     const { data, error } = await supabase.rpc('import_acquisition_invoice', {
@@ -286,7 +315,9 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
     const row = Array.isArray(data) ? data[0] : data
     const count = Number(row?.created_count ?? 0)
+    const ids = Array.isArray(row?.created_item_ids) ? row.created_item_ids.filter(Boolean).map(String) : []
     setMessage(`${count} Item${count === 1 ? '' : 's'} created. The source invoice is linked to each Item under Photos & Media → Invoice, while the original remains in Files.`)
+    await loadImportedItems(ids)
     await loadInvoices(selected.id)
     await loadLines(selected.id)
   }
@@ -311,6 +342,16 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
         <input ref={fileRef} type="file" accept="application/pdf,image/*" disabled={uploading} onChange={uploadInvoice} />
       </label>
       {message && <p className="invoice-message">{message}</p>}
+      {importedItems.length > 0 && (
+        <div className="invoice-review-actions">
+          <strong>Imported Items</strong>
+          {importedItems.map((item) => (
+            <button key={item.id} type="button" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
+              Open #{item.item_number} · {item.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="invoice-intake-grid">
         <aside className="invoice-list-panel">
