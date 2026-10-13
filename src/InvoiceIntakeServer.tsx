@@ -5,8 +5,18 @@ type Invoice = {
   id: string
   vendor_name: string
   invoice_number: string
+  invoice_date: string | null
   currency: string
+  subtotal: number | null
+  fees: number | null
+  postage: number | null
   total: number | null
+  exchange_rate_to_aud: number | null
+  exchange_rate_date: string | null
+  subtotal_aud: number | null
+  fees_aud: number | null
+  postage_aud: number | null
+  total_aud: number | null
   original_filename: string
   mime_type: string
   storage_path: string
@@ -25,6 +35,8 @@ type DraftLine = {
   quantity: number
   unit_price: number | null
   line_total: number | null
+  unit_price_aud: number | null
+  line_total_aud: number | null
   confidence: number | null
   include_on_import: boolean
   review_note: string
@@ -45,6 +57,11 @@ function money(value: number | null, currency = 'AUD') {
 
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function roundMoney(value: number | null) {
+  if (value == null || Number.isNaN(Number(value))) return null
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100
 }
 
 export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: string }) {
@@ -70,7 +87,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     setLoading(true)
     const { data, error } = await supabase
       .from('acquisition_invoices')
-      .select('id,vendor_name,invoice_number,currency,total,original_filename,mime_type,storage_path,extraction_status,created_at')
+      .select('id,vendor_name,invoice_number,invoice_date,currency,subtotal,fees,postage,total,exchange_rate_to_aud,exchange_rate_date,subtotal_aud,fees_aud,postage_aud,total_aud,original_filename,mime_type,storage_path,extraction_status,created_at')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
     setLoading(false)
@@ -92,7 +109,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     }
     const { data, error } = await supabase
       .from('acquisition_invoice_lines')
-      .select('id,line_number,lot_number,raw_text,proposed_title,proposed_type,proposed_purpose,quantity,unit_price,line_total,confidence,include_on_import,review_note,created_item_id')
+      .select('id,line_number,lot_number,raw_text,proposed_title,proposed_type,proposed_purpose,quantity,unit_price,line_total,unit_price_aud,line_total_aud,confidence,include_on_import,review_note,created_item_id')
       .eq('workspace_id', workspaceId)
       .eq('invoice_id', invoiceId)
       .order('line_number', { ascending: true, nullsFirst: false })
@@ -186,7 +203,12 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     }
 
     const count = Number(data?.line_count ?? 0)
-    setMessage(`Invoice read successfully. ${count} draft line${count === 1 ? '' : 's'} ready for review. No Items have been created.`)
+    const fx = Number(data?.aud_rate)
+    const fxText = Number.isFinite(fx) && data?.currency && data.currency !== 'AUD'
+      ? ` Converted to AUD at ${fx.toFixed(5)}${data?.aud_rate_date ? ` (${data.aud_rate_date})` : ''}.`
+      : ''
+    const warning = data?.aud_warning ? ` ${data.aud_warning}` : ''
+    setMessage(`Invoice read successfully. ${count} draft line${count === 1 ? '' : 's'} ready for review.${fxText}${warning} No Items have been created.`)
     await loadInvoices(selected.id)
     await loadLines(selected.id)
   }
@@ -204,6 +226,9 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       return false
     }
 
+    const rate = selected.exchange_rate_to_aud
+    const toAud = (value: number | null) => value == null || rate == null ? null : roundMoney(Number(value) * Number(rate))
+
     setSaving(true)
     const results = await Promise.all(editable.map((line) => supabase
       .from('acquisition_invoice_lines')
@@ -214,6 +239,8 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
         quantity: Math.max(1, Number(line.quantity) || 1),
         unit_price: line.unit_price == null || Number.isNaN(Number(line.unit_price)) ? null : Number(line.unit_price),
         line_total: line.line_total == null || Number.isNaN(Number(line.line_total)) ? null : Number(line.line_total),
+        unit_price_aud: toAud(line.unit_price),
+        line_total_aud: toAud(line.line_total),
         include_on_import: line.include_on_import,
         review_note: line.review_note,
         updated_at: new Date().toISOString(),
@@ -230,6 +257,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
     setDirty(false)
     if (showSuccess) setMessage('Draft review saved. Nothing has been imported yet.')
+    await loadLines(selected.id)
     return true
   }
 
@@ -270,7 +298,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
         <div>
           <p className="eyebrow">BULK INTAKE</p>
           <h2>Invoice intake</h2>
-          <p className="muted">Upload → read → review → import. Extraction only creates drafts; stock is created only after your review.</p>
+          <p className="muted">Upload → read → review → import. Foreign invoices keep their original values and receive an AUD conversion using the historical invoice-date rate.</p>
         </div>
         <button type="button" className="secondary small" onClick={() => setOpen(false)}>Close</button>
       </div>
@@ -300,12 +328,22 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
               <div><span>File</span><strong>{selected.original_filename}</strong></div>
               <div><span>Vendor</span><strong>{selected.vendor_name || 'Unresolved'}</strong></div>
               <div><span>Invoice</span><strong>{selected.invoice_number || 'Unresolved'}</strong></div>
-              <div><span>Total</span><strong>{money(selected.total, selected.currency)}</strong></div>
+              <div><span>Date</span><strong>{selected.invoice_date || 'Unresolved'}</strong></div>
+              <div><span>Original total</span><strong>{money(selected.total, selected.currency)}</strong></div>
+              <div><span>AUD total</span><strong>{money(selected.total_aud, 'AUD')}</strong></div>
+              {selected.currency !== 'AUD' && <div><span>FX rate</span><strong>{selected.exchange_rate_to_aud == null ? 'Unavailable' : `1 ${selected.currency} = ${Number(selected.exchange_rate_to_aud).toFixed(5)} AUD`}</strong></div>}
+              {selected.currency !== 'AUD' && <div><span>Rate date</span><strong>{selected.exchange_rate_date || 'Unavailable'}</strong></div>}
             </div>
+
+            {(selected.subtotal != null || selected.fees != null || selected.postage != null) && <div className="invoice-fx-breakdown">
+              <span>Subtotal: {money(selected.subtotal, selected.currency)}{selected.currency !== 'AUD' && selected.subtotal_aud != null ? ` → ${money(selected.subtotal_aud, 'AUD')}` : ''}</span>
+              <span>Fees: {money(selected.fees, selected.currency)}{selected.currency !== 'AUD' && selected.fees_aud != null ? ` → ${money(selected.fees_aud, 'AUD')}` : ''}</span>
+              <span>Postage: {money(selected.postage, selected.currency)}{selected.currency !== 'AUD' && selected.postage_aud != null ? ` → ${money(selected.postage_aud, 'AUD')}` : ''}</span>
+            </div>}
 
             <div className="invoice-extraction-actions">
               <button type="button" onClick={readInvoice} disabled={reading || importing}>{reading ? 'Reading invoice…' : lines.length ? 'Read again' : 'Read invoice'}</button>
-              <span>The private stored file is read server-side. Reading again replaces the draft extraction, not your Items.</span>
+              <span>The private stored file is read server-side. Reading again replaces unimported draft extraction, not your Items.</span>
             </div>
 
             <div className="invoice-draft-lines">
@@ -345,10 +383,12 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
                       <label className="invoice-field">Qty
                         <input type="number" min="1" step="1" value={Number(line.quantity)} disabled={locked} onChange={(event) => patchLine(line.id, { quantity: Math.max(1, Number(event.target.value) || 1) })} />
                       </label>
-                      <label className="invoice-field">Line total
+                      <label className="invoice-field">Line total ({selected.currency})
                         <input type="number" step="0.01" value={line.line_total ?? ''} disabled={locked} onChange={(event) => patchLine(line.id, { line_total: event.target.value === '' ? null : Number(event.target.value) })} />
                       </label>
                     </div>
+
+                    {selected.currency !== 'AUD' && <p className="invoice-aud-line-value">AUD value: <strong>{money(line.line_total_aud, 'AUD')}</strong></p>}
 
                     <details className="invoice-source-detail">
                       <summary>Source text</summary>
