@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import AuditHistoryPanel from './AuditHistoryPanel'
 
 type ExportTable = {
   name: string
@@ -241,6 +242,8 @@ export default function SettingsRoute() {
           <h2>One backup is not enough.</h2>
           <p className="muted">The release target is layered recovery: versioned database migrations, managed database backups where available, Calibre portable exports, and a separate archive of private Storage files. We will test the whole chain before the main URL cutover.</p>
         </article>
+
+        {workspaceId && <AuditHistoryPanel workspaceId={workspaceId} />}
       </section>
     </main>
   )
