@@ -4,6 +4,9 @@ import { supabase } from './lib/supabase'
 type ItemRow = { id: string; item_number: number; title: string; status: string; purpose: string; created_at: string }
 type WorkRow = { id: string; item_id: string; work_number: number; title: string; status: string; waiting_reason: string | null; next_action: string; blocker: string; priority: number; opened_at: string }
 type InvoiceRow = { id: string; vendor_name: string; invoice_number: string; original_filename: string; extraction_status: string; created_at: string }
+type HomeCounts = { totalItems: number; activeWork: number; onBench: number; waiting: number; ready: number; intake: number; readyForSale: number }
+
+const emptyCounts: HomeCounts = { totalItems: 0, activeWork: 0, onBench: 0, waiting: 0, ready: 0, intake: 0, readyForSale: 0 }
 
 function isHomeRoute() {
   return window.location.hash.replace(/\/$/, '') === '#/home'
@@ -16,9 +19,14 @@ function titleCase(value: string) {
 export default function HomeRoute() {
   const [active, setActive] = useState(isHomeRoute)
   const [workspaceId, setWorkspaceId] = useState('')
-  const [items, setItems] = useState<ItemRow[]>([])
-  const [work, setWork] = useState<WorkRow[]>([])
-  const [invoices, setInvoices] = useState<InvoiceRow[]>([])
+  const [counts, setCounts] = useState<HomeCounts>(emptyCounts)
+  const [waitingWork, setWaitingWork] = useState<WorkRow[]>([])
+  const [qcWork, setQcWork] = useState<WorkRow[]>([])
+  const [unreadInvoices, setUnreadInvoices] = useState<InvoiceRow[]>([])
+  const [readyForSale, setReadyForSale] = useState<ItemRow[]>([])
+  const [recentItems, setRecentItems] = useState<ItemRow[]>([])
+  const [recentWork, setRecentWork] = useState<WorkRow[]>([])
+  const [itemById, setItemById] = useState<Map<string, ItemRow>>(new Map())
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -52,51 +60,92 @@ export default function HomeRoute() {
   async function load() {
     if (!workspaceId) return
     setLoading(true)
-    const [itemResult, workResult, invoiceResult] = await Promise.all([
-      supabase.from('items')
-        .select('id,item_number,title,status,purpose,created_at')
-        .eq('workspace_id', workspaceId)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false })
-        .limit(200),
-      supabase.from('work_records')
-        .select('id,item_id,work_number,title,status,waiting_reason,next_action,blocker,priority,opened_at')
-        .eq('workspace_id', workspaceId)
-        .order('priority', { ascending: false })
-        .order('opened_at', { ascending: false })
-        .limit(200),
-      supabase.from('acquisition_invoices')
-        .select('id,vendor_name,invoice_number,original_filename,extraction_status,created_at')
-        .eq('workspace_id', workspaceId)
-        .order('created_at', { ascending: false })
-        .limit(50),
+
+    const itemCountBase = () => supabase.from('items').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('archived_at', null)
+    const workCountBase = () => supabase.from('work_records').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId)
+
+    const [
+      totalItemsResult,
+      activeWorkResult,
+      onBenchCountResult,
+      waitingCountResult,
+      readyCountResult,
+      intakeCountResult,
+      readySaleCountResult,
+      waitingResult,
+      qcResult,
+      invoiceResult,
+      readySaleResult,
+      recentItemsResult,
+      recentWorkResult,
+    ] = await Promise.all([
+      itemCountBase(),
+      workCountBase().neq('status', 'complete').neq('status', 'cancelled'),
+      workCountBase().eq('status', 'on_bench'),
+      workCountBase().eq('status', 'waiting'),
+      workCountBase().eq('status', 'ready'),
+      supabase.from('acquisition_invoices').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).eq('extraction_status', 'uploaded'),
+      itemCountBase().eq('status', 'ready_for_sale'),
+      supabase.from('work_records').select('id,item_id,work_number,title,status,waiting_reason,next_action,blocker,priority,opened_at').eq('workspace_id', workspaceId).eq('status', 'waiting').order('priority', { ascending: false }).order('opened_at', { ascending: false }).limit(4),
+      supabase.from('work_records').select('id,item_id,work_number,title,status,waiting_reason,next_action,blocker,priority,opened_at').eq('workspace_id', workspaceId).eq('status', 'qc').order('priority', { ascending: false }).order('opened_at', { ascending: false }).limit(6),
+      supabase.from('acquisition_invoices').select('id,vendor_name,invoice_number,original_filename,extraction_status,created_at').eq('workspace_id', workspaceId).eq('extraction_status', 'uploaded').order('created_at', { ascending: false }).limit(6),
+      supabase.from('items').select('id,item_number,title,status,purpose,created_at').eq('workspace_id', workspaceId).is('archived_at', null).eq('status', 'ready_for_sale').order('created_at', { ascending: false }).limit(6),
+      supabase.from('items').select('id,item_number,title,status,purpose,created_at').eq('workspace_id', workspaceId).is('archived_at', null).order('created_at', { ascending: false }).limit(5),
+      supabase.from('work_records').select('id,item_id,work_number,title,status,waiting_reason,next_action,blocker,priority,opened_at').eq('workspace_id', workspaceId).order('opened_at', { ascending: false }).limit(5),
     ])
-    setLoading(false)
-    const error = itemResult.error ?? workResult.error ?? invoiceResult.error
+
+    const error = totalItemsResult.error ?? activeWorkResult.error ?? onBenchCountResult.error ?? waitingCountResult.error ?? readyCountResult.error ?? intakeCountResult.error ?? readySaleCountResult.error ?? waitingResult.error ?? qcResult.error ?? invoiceResult.error ?? readySaleResult.error ?? recentItemsResult.error ?? recentWorkResult.error
     if (error) {
+      setLoading(false)
       setMessage(`Home failed to load: ${error.message}`)
       return
     }
-    setItems((itemResult.data ?? []) as ItemRow[])
-    setWork((workResult.data ?? []) as WorkRow[])
-    setInvoices((invoiceResult.data ?? []) as InvoiceRow[])
+
+    const nextWaiting = (waitingResult.data ?? []) as WorkRow[]
+    const nextQc = (qcResult.data ?? []) as WorkRow[]
+    const nextRecentWork = (recentWorkResult.data ?? []) as WorkRow[]
+    const baseItems = (recentItemsResult.data ?? []) as ItemRow[]
+    const saleItems = (readySaleResult.data ?? []) as ItemRow[]
+    const referencedItemIds = [...new Set([...nextWaiting, ...nextQc, ...nextRecentWork].map((record) => record.item_id))]
+
+    const itemMap = new Map<string, ItemRow>()
+    ;[...baseItems, ...saleItems].forEach((item) => itemMap.set(item.id, item))
+    const missingIds = referencedItemIds.filter((id) => !itemMap.has(id))
+    if (missingIds.length) {
+      const itemLookup = await supabase.from('items').select('id,item_number,title,status,purpose,created_at').eq('workspace_id', workspaceId).in('id', missingIds)
+      if (itemLookup.error) {
+        setLoading(false)
+        setMessage(`Home item lookup failed: ${itemLookup.error.message}`)
+        return
+      }
+      ;((itemLookup.data ?? []) as ItemRow[]).forEach((item) => itemMap.set(item.id, item))
+    }
+
+    setCounts({
+      totalItems: totalItemsResult.count ?? 0,
+      activeWork: activeWorkResult.count ?? 0,
+      onBench: onBenchCountResult.count ?? 0,
+      waiting: waitingCountResult.count ?? 0,
+      ready: readyCountResult.count ?? 0,
+      intake: intakeCountResult.count ?? 0,
+      readyForSale: readySaleCountResult.count ?? 0,
+    })
+    setWaitingWork(nextWaiting)
+    setQcWork(nextQc)
+    setUnreadInvoices((invoiceResult.data ?? []) as InvoiceRow[])
+    setReadyForSale(saleItems)
+    setRecentItems(baseItems)
+    setRecentWork(nextRecentWork)
+    setItemById(itemMap)
+    setLoading(false)
     setMessage('')
   }
 
   useEffect(() => { if (active && workspaceId) void load() }, [active, workspaceId])
 
-  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
-  const activeWork = useMemo(() => work.filter((record) => !['complete', 'cancelled'].includes(record.status)), [work])
-  const onBench = activeWork.filter((record) => record.status === 'on_bench')
-  const waiting = activeWork.filter((record) => record.status === 'waiting')
-  const qc = activeWork.filter((record) => record.status === 'qc')
-  const ready = activeWork.filter((record) => record.status === 'ready')
-  const unreadInvoices = invoices.filter((invoice) => invoice.extraction_status === 'uploaded')
-  const readyForSale = items.filter((item) => item.status === 'ready_for_sale')
-
   const attention = useMemo(() => {
     const rows: { key: string; label: string; title: string; detail: string; action: string; hash: string }[] = []
-    for (const record of waiting.slice(0, 4)) {
+    for (const record of waitingWork) {
       const item = itemById.get(record.item_id)
       rows.push({
         key: `work-${record.id}`,
@@ -107,7 +156,7 @@ export default function HomeRoute() {
         hash: `#/work/${encodeURIComponent(record.id)}`,
       })
     }
-    for (const record of qc.slice(0, Math.max(0, 6 - rows.length))) {
+    for (const record of qcWork.slice(0, Math.max(0, 6 - rows.length))) {
       const item = itemById.get(record.item_id)
       rows.push({
         key: `qc-${record.id}`,
@@ -139,10 +188,7 @@ export default function HomeRoute() {
       })
     }
     return rows.slice(0, 6)
-  }, [waiting, qc, unreadInvoices, readyForSale, itemById])
-
-  const recentItems = items.slice(0, 5)
-  const recentWork = [...work].sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()).slice(0, 5)
+  }, [waitingWork, qcWork, unreadInvoices, readyForSale, itemById])
 
   if (!active) return null
 
@@ -160,11 +206,11 @@ export default function HomeRoute() {
       {message && <p className="home-v2-message">{message}</p>}
 
       <section className="home-v2-metrics" aria-label="Calibre overview">
-        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>On bench</span><strong>{onBench.length}</strong><small>actively being worked</small></button>
-        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>Waiting</span><strong>{waiting.length}</strong><small>blocked or awaiting something</small></button>
-        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>Ready</span><strong>{ready.length}</strong><small>ready to pick up</small></button>
-        <button type="button" onClick={() => { window.location.hash = '#/intake' }}><span>Intake</span><strong>{unreadInvoices.length}</strong><small>invoice{unreadInvoices.length === 1 ? '' : 's'} to review</small></button>
-        <button type="button" onClick={() => { window.location.hash = '#/items' }}><span>Ready for sale</span><strong>{readyForSale.length}</strong><small>Item{readyForSale.length === 1 ? '' : 's'} waiting for sale workflow</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>On bench</span><strong>{counts.onBench}</strong><small>actively being worked</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>Waiting</span><strong>{counts.waiting}</strong><small>blocked or awaiting something</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>Ready</span><strong>{counts.ready}</strong><small>ready to pick up</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/intake' }}><span>Intake</span><strong>{counts.intake}</strong><small>invoice{counts.intake === 1 ? '' : 's'} to review</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/items' }}><span>Ready for sale</span><strong>{counts.readyForSale}</strong><small>Item{counts.readyForSale === 1 ? '' : 's'} waiting for sale workflow</small></button>
       </section>
 
       <div className="home-v2-grid">
@@ -198,9 +244,9 @@ export default function HomeRoute() {
       </div>
 
       <section className="home-v2-quick-actions">
-        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>⌁</span><strong>Open Workbench</strong><small>{activeWork.length} active job{activeWork.length === 1 ? '' : 's'}</small></button>
-        <button type="button" onClick={() => { window.location.hash = '#/intake' }}><span>↧</span><strong>Process Intake</strong><small>{unreadInvoices.length} waiting</small></button>
-        <button type="button" onClick={() => { window.location.hash = '#/items' }}><span>◫</span><strong>Browse Inventory</strong><small>{items.length} Item{items.length === 1 ? '' : 's'}</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/workbench' }}><span>⌁</span><strong>Open Workbench</strong><small>{counts.activeWork} active job{counts.activeWork === 1 ? '' : 's'}</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/intake' }}><span>↧</span><strong>Process Intake</strong><small>{counts.intake} waiting</small></button>
+        <button type="button" onClick={() => { window.location.hash = '#/items' }}><span>◫</span><strong>Browse Inventory</strong><small>{counts.totalItems} Item{counts.totalItems === 1 ? '' : 's'}</small></button>
         <button type="button" onClick={() => { window.location.hash = '#/calibre' }}><span>◇</span><strong>Open Library</strong><small>Research & compatibility</small></button>
       </section>
     </main>
