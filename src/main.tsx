@@ -13,7 +13,6 @@ import './research.css'
 import './knowledge.css'
 import './parts.css'
 import './compatibility.css'
-import './workbench-parts-desk.css'
 import './create-item.css'
 import './inventory-hub.css'
 import './invoice-intake.css'
@@ -30,6 +29,7 @@ import './inventory-ux-v2.css'
 import './item-workspace-v2.css'
 import './home-v2.css'
 import './global-actions.css'
+import './workbench-v2.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
