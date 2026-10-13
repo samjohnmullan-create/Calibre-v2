@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import WorkbenchPartsDesk from './WorkbenchPartsDesk'
 import CreateItemFlow from './CreateItemFlow'
+import InventoryHubRoute from './InventoryHubRoute'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
@@ -17,6 +18,7 @@ import './parts.css'
 import './compatibility.css'
 import './workbench-parts-desk.css'
 import './create-item.css'
+import './inventory-hub.css'
 import './theme-classic.css'
 import './brand-polish.css'
 import './shell-layout.css'
@@ -31,5 +33,6 @@ createRoot(document.getElementById('root')!).render(
     <App />
     <WorkbenchPartsDesk />
     <CreateItemFlow />
+    <InventoryHubRoute />
   </StrictMode>,
 )
