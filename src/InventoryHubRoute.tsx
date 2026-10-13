@@ -48,6 +48,23 @@ export default function InventoryHubRoute() {
   }, [])
 
   useEffect(() => {
+    const openView = (event: Event) => {
+      const requested = (event as CustomEvent<string>).detail
+      if (requested === 'items' || requested === 'parts' || requested === 'workshop') setView(requested)
+    }
+    const chooseWorkItem = () => {
+      setView('items')
+      setMessage('Choose the Item you want to work on, then open its Work tab.')
+    }
+    window.addEventListener('calibre:inventory-view', openView)
+    window.addEventListener('calibre:choose-item-for-work', chooseWorkItem)
+    return () => {
+      window.removeEventListener('calibre:inventory-view', openView)
+      window.removeEventListener('calibre:choose-item-for-work', chooseWorkItem)
+    }
+  }, [])
+
+  useEffect(() => {
     document.body.classList.toggle('inventory-hub-route-active', active)
     return () => document.body.classList.remove('inventory-hub-route-active')
   }, [active])
@@ -82,7 +99,7 @@ export default function InventoryHubRoute() {
       return
     }
     setItems((result.data ?? []) as ItemRow[])
-    setMessage('')
+    if (!message.startsWith('Choose the Item')) setMessage('')
   }
 
   useEffect(() => {
