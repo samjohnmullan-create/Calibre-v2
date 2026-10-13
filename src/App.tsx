@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import ItemMedia from './ItemMedia'
 import PassportPanel from './PassportPanel'
 import KnowledgePage from './KnowledgePage'
+import WorkJobCard from './WorkJobCard'
 
 type Workspace = { id: string; name: string; slug: string; owner_id: string }
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; created_at: string }
@@ -514,7 +515,7 @@ export default function App() {
                   <div className="header-actions"><button className="secondary small" onClick={() => setItemTab('item')}>Edit item</button></div>
                 </div>
                 <div className="item-tabs" role="tablist">{(['work', 'item', 'passport', 'commerce'] as ItemTab[]).map((tab) => <button key={tab} className={itemTab === tab ? 'active' : ''} onClick={() => setItemTab(tab)}>{titleCase(tab)}</button>)}</div>
-                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkTab work={detail.work} focusWorkId={routedWorkId} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'passport' && <PassportPanel workspaceId={workspace.id} itemId={selectedItem.id} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
+                {detailLoading ? <div className="loading-card">Loading item…</div> : <div className="tab-content">{itemTab === 'work' && <WorkJobCard workspaceId={workspace.id} itemId={selectedItem.id} focusWorkId={routedWorkId} />}{itemTab === 'item' && <ItemTabView item={selectedItem} identity={detail.identity} workspaceId={workspace.id} saving={savingItemId === selectedItem.id} onSave={updateItemDetails} />}{itemTab === 'passport' && <PassportPanel workspaceId={workspace.id} itemId={selectedItem.id} />}{itemTab === 'commerce' && <CommerceTab valuation={detail.valuation} costs={detail.costs} />}</div>}
               </>
             )}
           </section>
@@ -581,7 +582,7 @@ function Workbench({ work, itemsById, loading, savingWorkId, onStatusChange, onS
           {cancelled.length > 0 && (
             <section className="work-lane cancelled-lane">
               <div className="work-lane-heading"><div><h3>Cancelled</h3><p>Closed without completion</p></div><span className="count-chip">{cancelled.length}</span></div>
-              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={onOpenItem} />)}</div>
+              <div className="work-lane-list">{cancelled.map((record) => <WorkbenchCard key={record.id} record={record} item={itemsById.get(record.item_id)} saving={savingWorkId === record.id} onStatusChange={onStatusChange} onSaveDetails={onSaveDetails} onOpenItem={openWorkItem => onOpenItem(record)} />)}</div>
             </section>
           )}
         </div>
