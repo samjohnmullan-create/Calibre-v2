@@ -14,7 +14,8 @@
   display: none !important;
 }
 
-.calibre-os[data-shell-section="intake"] .calibre-legacy-host {
+.calibre-os[data-shell-section="intake"] .calibre-legacy-host,
+.calibre-os[data-shell-section="business"] .calibre-legacy-host {
   display: none;
 }
 
@@ -291,7 +292,8 @@
   color: var(--calibre-muted, #9aa7ab);
 }
 
-.calibre-mobile-nav {
+.calibre-mobile-nav,
+.calibre-mobile-more-backdrop {
   display: none;
 }
 
@@ -398,6 +400,81 @@
     color: #172026;
     font-size: 24px;
     box-shadow: 0 4px 18px rgba(0,0,0,.28);
+  }
+
+  .calibre-mobile-more-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 490;
+    display: flex;
+    align-items: flex-end;
+    padding: 16px 10px calc(var(--calibre-mobile-nav-height) + env(safe-area-inset-bottom) + 8px);
+    background: rgba(7, 11, 14, .52);
+    backdrop-filter: blur(5px);
+  }
+
+  .calibre-mobile-more {
+    width: 100%;
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid rgba(135,151,156,.24);
+    border-radius: 18px;
+    background: #202b32;
+    box-shadow: 0 22px 70px rgba(0,0,0,.5);
+  }
+
+  .calibre-mobile-more-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 2px 8px;
+  }
+
+  .calibre-mobile-more-heading > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .calibre-mobile-more-heading .eyebrow {
+    margin: 0;
+    font-size: 9px;
+  }
+
+  .calibre-mobile-more > button:not(.secondary) {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 13px 12px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: rgba(255,255,255,.025);
+    color: var(--calibre-text, #edf1ee);
+    text-align: left;
+  }
+
+  .calibre-mobile-more > button:not(.secondary) > span {
+    font-size: 19px;
+    color: #dcc3a3;
+    text-align: center;
+  }
+
+  .calibre-mobile-more > button:not(.secondary) > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .calibre-mobile-more > button:not(.secondary) small {
+    color: var(--calibre-muted, #9aa7ab);
+    font-size: 11px;
+  }
+
+  .calibre-mobile-more > button.active {
+    border-color: rgba(216, 189, 152, .35);
+    background: rgba(216, 189, 152, .08);
   }
 
   .intake-page {
