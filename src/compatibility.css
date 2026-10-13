@@ -1,0 +1,246 @@
+.compatibility-panel {
+  border: 1px solid var(--calibre-line);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(116, 141, 146, 0.04), transparent 42%), rgba(38, 49, 58, 0.9);
+  box-shadow: 0 16px 34px rgba(5, 11, 15, 0.12);
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.compatibility-heading h3,
+.compatibility-result h4 {
+  margin: 0;
+}
+
+.compatibility-heading .muted {
+  margin: 6px 0 0;
+}
+
+.compatibility-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.compatibility-controls label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.compatibility-controls label span {
+  color: var(--calibre-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.compatibility-controls button {
+  min-height: 44px;
+}
+
+.compatibility-target {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 16px;
+  background: rgba(25, 34, 40, 0.6);
+}
+
+.compatibility-target.linked {
+  border-color: rgba(207, 183, 147, 0.26);
+}
+
+.compatibility-target.unresolved {
+  border-style: dashed;
+}
+
+.compatibility-target div,
+.compatibility-facts div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.compatibility-target span,
+.compatibility-facts span,
+.compatibility-score span {
+  color: var(--calibre-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compatibility-target strong,
+.compatibility-facts strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.compatibility-message {
+  margin: 0;
+  color: var(--calibre-muted);
+}
+
+.compatibility-results {
+  display: grid;
+  gap: 12px;
+}
+
+.compatibility-result {
+  border: 1px solid var(--calibre-line);
+  border-left-width: 3px;
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(31, 42, 49, 0.72);
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.compatibility-result.tier-confirmed {
+  border-left-color: #98bda9;
+}
+
+.compatibility-result.tier-documented {
+  border-left-color: #b9aa86;
+}
+
+.compatibility-result.tier-candidate {
+  border-left-color: #7ca3b0;
+}
+
+.compatibility-result.tier-family_lead {
+  border-left-color: #b78e74;
+}
+
+.compatibility-result-head {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.compatibility-result-head > div:first-child {
+  min-width: 0;
+}
+
+.compatibility-result-head p {
+  margin: 5px 0 0;
+  color: var(--calibre-muted);
+  overflow-wrap: anywhere;
+}
+
+.compatibility-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.compatibility-badges > span,
+.evidence-badge {
+  border: 1px solid var(--calibre-line-strong);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.evidence-badge.confirmed {
+  color: #a9cdb9;
+  border-color: rgba(109, 158, 139, 0.45);
+}
+
+.evidence-badge.documented {
+  color: #d2c19b;
+  border-color: rgba(185, 170, 134, 0.42);
+}
+
+.evidence-badge.candidate {
+  color: #a9c5ce;
+  border-color: rgba(124, 163, 176, 0.4);
+}
+
+.evidence-badge.family_lead {
+  color: #d0ad96;
+  border-color: rgba(183, 142, 116, 0.42);
+}
+
+.compatibility-score {
+  min-width: 58px;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.compatibility-score strong {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 24px;
+  color: var(--calibre-text-strong);
+}
+
+.compatibility-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compatibility-reasons {
+  margin: 0;
+  padding-left: 18px;
+  color: #c9d3d0;
+}
+
+.compatibility-reasons li + li {
+  margin-top: 5px;
+}
+
+.compatibility-warning,
+.compatibility-economics {
+  margin: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.compatibility-warning {
+  border: 1px solid rgba(183, 142, 116, 0.3);
+  background: rgba(111, 73, 51, 0.12);
+  color: #d6b59f;
+}
+
+.compatibility-economics {
+  border: 1px solid var(--calibre-line);
+  background: rgba(20, 29, 34, 0.44);
+  color: var(--calibre-muted);
+}
+
+@media (max-width: 760px) {
+  .compatibility-panel {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .compatibility-controls,
+  .compatibility-target,
+  .compatibility-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .compatibility-controls button {
+    width: 100%;
+  }
+
+  .compatibility-result-head {
+    align-items: stretch;
+  }
+
+  .compatibility-score {
+    min-width: 44px;
+  }
+}
