@@ -44,6 +44,10 @@ function categoryLabel(value: MediaCategory) {
   return categories.find((entry) => entry.value === value)?.label ?? value
 }
 
+function isDocument(asset: MediaAsset) {
+  return asset.category === 'invoice' || asset.category === 'document' || asset.mime_type === 'application/pdf'
+}
+
 export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string; itemId: string }) {
   const [media, setMedia] = useState<MediaAsset[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,7 +57,7 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
   const [caption, setCaption] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const cover = useMemo(() => media.find((asset) => asset.is_cover) ?? media[0] ?? null, [media])
+  const cover = useMemo(() => media.find((asset) => asset.is_cover && !isDocument(asset)) ?? media.find((asset) => !isDocument(asset)) ?? null, [media])
 
   useEffect(() => {
     let active = true
@@ -111,7 +115,7 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
     if (!files.length) return
     setUploading(true)
     setMessage('Uploading…')
-    let hasCover = media.some((asset) => asset.is_cover)
+    let hasCover = media.some((asset) => asset.is_cover && !isDocument(asset))
 
     for (const file of files) {
       if (!file.type.startsWith('image/')) {
@@ -158,6 +162,7 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
   }
 
   async function setCover(asset: MediaAsset) {
+    if (isDocument(asset)) return
     setMessage('Setting primary image…')
     const { error: clearError } = await supabase
       .from('media_assets')
@@ -182,7 +187,8 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
   }
 
   async function removeAsset(asset: MediaAsset) {
-    setMessage('Removing photo…')
+    const linkedInvoice = asset.role === 'source_invoice'
+    setMessage(linkedInvoice ? 'Unlinking invoice…' : 'Removing photo…')
     const { error: rowError } = await supabase
       .from('media_assets')
       .delete()
@@ -192,14 +198,18 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
       setMessage(rowError.message)
       return
     }
-    await supabase.storage.from('calibre-media').remove([asset.storage_path])
+
+    if (!linkedInvoice) {
+      await supabase.storage.from('calibre-media').remove([asset.storage_path])
+    }
 
     if (asset.is_cover) {
       const { data: nextAsset } = await supabase
         .from('media_assets')
-        .select('id')
+        .select('id,category,mime_type')
         .eq('workspace_id', workspaceId)
         .eq('item_id', itemId)
+        .not('category', 'in', '(invoice,document)')
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle()
@@ -209,7 +219,11 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
     }
 
     await refreshMedia()
-    setMessage('Photo removed.')
+    setMessage(linkedInvoice ? 'Invoice link removed. The original document is still safe in Files.' : 'Photo removed.')
+  }
+
+  function openAsset(asset: MediaAsset) {
+    if (asset.signed_url) window.open(asset.signed_url, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -235,26 +249,34 @@ export default function ItemMedia({ workspaceId, itemId }: { workspaceId: string
       </div>
 
       {message && <p className="media-message">{message}</p>}
-      {loading && <p className="muted">Loading photos…</p>}
-      {!loading && media.length === 0 && <div className="media-empty"><strong>No photos yet.</strong><span>Add dial, movement, caseback, fault or finished photos from your phone.</span></div>}
+      {loading && <p className="muted">Loading media…</p>}
+      {!loading && media.length === 0 && <div className="media-empty"><strong>No media yet.</strong><span>Add photos, or import an invoice to attach the original source document automatically.</span></div>}
 
       {!loading && media.length > 0 && (
         <div className="media-gallery">
-          {media.map((asset) => (
-            <article className={`media-card ${asset.is_cover ? 'is-cover' : ''}`} key={asset.id}>
-              <div className="media-image-wrap">
-                {asset.signed_url ? <img src={asset.signed_url} alt={asset.caption || asset.original_filename} loading="lazy" /> : <div className="media-image-fallback">Preview unavailable</div>}
-                {asset.is_cover && <span className="media-cover-badge">Primary</span>}
-              </div>
-              <div className="media-card-body">
-                <div><strong>{categoryLabel(asset.category)}</strong><span>{asset.caption || asset.original_filename}</span></div>
-                <div className="media-card-actions">
-                  {!asset.is_cover && <button type="button" className="secondary small" onClick={() => setCover(asset)}>Set primary</button>}
-                  <button type="button" className="secondary small" onClick={() => removeAsset(asset)}>Remove</button>
+          {media.map((asset) => {
+            const document = isDocument(asset)
+            return (
+              <article className={`media-card ${asset.is_cover ? 'is-cover' : ''}`} key={asset.id}>
+                <div className="media-image-wrap">
+                  {document
+                    ? <button type="button" className="media-document-link" onClick={() => openAsset(asset)} disabled={!asset.signed_url}><strong>{asset.category === 'invoice' ? 'INVOICE' : 'DOCUMENT'}</strong><span>{asset.original_filename}</span><small>Open original</small></button>
+                    : asset.signed_url
+                      ? <img src={asset.signed_url} alt={asset.caption || asset.original_filename} loading="lazy" />
+                      : <div className="media-image-fallback">Preview unavailable</div>}
+                  {asset.is_cover && !document && <span className="media-cover-badge">Primary</span>}
                 </div>
-              </div>
-            </article>
-          ))}
+                <div className="media-card-body">
+                  <div><strong>{categoryLabel(asset.category)}</strong><span>{asset.caption || asset.original_filename}</span></div>
+                  <div className="media-card-actions">
+                    {!document && !asset.is_cover && <button type="button" className="secondary small" onClick={() => setCover(asset)}>Set primary</button>}
+                    {document && <button type="button" className="secondary small" onClick={() => openAsset(asset)} disabled={!asset.signed_url}>Open</button>}
+                    <button type="button" className="secondary small" onClick={() => removeAsset(asset)}>{asset.role === 'source_invoice' ? 'Unlink' : 'Remove'}</button>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
 
