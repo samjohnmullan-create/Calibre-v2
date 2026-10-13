@@ -43,7 +43,8 @@ function tierLabel(tier: Candidate['evidence_tier']) {
   return titleCase(tier)
 }
 
-export default function CompatibilityIntelligence({ workspaceId }: { workspaceId: string }) {
+export default function CompatibilityIntelligence() {
+  const [workspaceId, setWorkspaceId] = useState('')
   const [items, setItems] = useState<ItemRow[]>([])
   const [passports, setPassports] = useState<PassportRow[]>([])
   const [movements, setMovements] = useState<MovementRow[]>([])
@@ -59,6 +60,21 @@ export default function CompatibilityIntelligence({ workspaceId }: { workspaceId
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? null
   const selectedPassport = selectedItemId ? passportByItem.get(selectedItemId) ?? null : null
   const selectedMovement = selectedPassport?.knowledge_movement_id ? movementById.get(selectedPassport.knowledge_movement_id) ?? null : null
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data, error } = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
+      if (!active) return
+      if (error || !data) {
+        setLoading(false)
+        setMessage(`Compatibility workspace unavailable: ${error?.message ?? 'No workspace found.'}`)
+        return
+      }
+      setWorkspaceId(data.id)
+    })()
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     if (!workspaceId) return
@@ -102,7 +118,7 @@ export default function CompatibilityIntelligence({ workspaceId }: { workspaceId
   }, [workspaceId])
 
   async function findMatches() {
-    if (!selectedItemId || !selectedItem) return
+    if (!selectedItemId || !selectedItem || !workspaceId) return
     setResults([])
 
     if (!selectedPassport?.knowledge_movement_id || !selectedMovement) {
