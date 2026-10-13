@@ -87,6 +87,17 @@
 .parts-desk-result ul { margin: 9px 0 0 18px; padding: 0; color: #b8c4c3; font-size: 13px; }
 .parts-desk-result button { margin-top: 10px; }
 
+.parts-desk-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.parts-desk-action-row button {
+  margin-top: 0;
+}
+
 @media (max-width: 720px) {
   .workbench-parts-desk {
     width: calc(100% - 20px);
@@ -98,4 +109,6 @@
   .parts-desk-wide,
   .parts-desk-form button { grid-column: auto; }
   .parts-desk-result-head { gap: 9px; }
+  .parts-desk-action-row { display: grid; grid-template-columns: 1fr; }
+  .parts-desk-action-row button { width: 100%; }
 }
