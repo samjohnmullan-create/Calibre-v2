@@ -5,6 +5,7 @@ import CreateItemFlow from './CreateItemFlow'
 import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
 import ItemWorkspaceRoute from './ItemWorkspaceRoute'
+import HomeRoute from './HomeRoute'
 
 type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'calibre' | 'other'
 
@@ -114,6 +115,7 @@ export default function CalibreShell() {
 
         <div className="calibre-content-host">
           <div className="calibre-legacy-host"><App /></div>
+          <HomeRoute />
           <IntakeRoute />
           <InventoryHubRoute />
           <ItemWorkspaceRoute />
