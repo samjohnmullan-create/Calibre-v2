@@ -59,7 +59,8 @@ body.inventory-hub-route-active .items-layout {
   color: var(--calibre-muted);
 }
 
-.inventory-list-panel {
+.inventory-list-panel,
+.invoice-files-panel {
   border: 1px solid var(--calibre-line-strong);
   border-radius: 16px;
   background: rgba(29, 39, 46, .9);
@@ -154,18 +155,85 @@ body.inventory-hub-route-active .items-layout {
   box-sizing: border-box;
 }
 
+.invoice-files-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-end;
+  padding: 18px;
+  border-bottom: 1px solid var(--calibre-line);
+}
+
+.invoice-files-heading h2,
+.invoice-files-heading p {
+  margin-top: 0;
+}
+
+.invoice-files-heading h2 {
+  margin-bottom: 6px;
+}
+
+.invoice-files-heading p:last-child {
+  margin-bottom: 0;
+}
+
+.invoice-files-list {
+  display: grid;
+}
+
+.invoice-file-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--calibre-line);
+}
+
+.invoice-file-row:last-child {
+  border-bottom: 0;
+}
+
+.invoice-file-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--calibre-line-strong);
+  border-radius: 10px;
+  font: 700 11px/1 "IBM Plex Mono", monospace;
+  color: var(--calibre-muted);
+  background: rgba(20, 28, 34, .55);
+}
+
+.invoice-file-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.invoice-file-main strong {
+  overflow-wrap: anywhere;
+}
+
+.invoice-file-main small {
+  color: var(--calibre-muted);
+}
+
 @media (max-width: 720px) {
   .inventory-hub-page {
     width: calc(100% - 20px);
     margin: 16px 10px 30px;
   }
 
-  .inventory-hub-heading {
+  .inventory-hub-heading,
+  .invoice-files-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .inventory-hub-heading > button {
+  .inventory-hub-heading > button,
+  .invoice-files-heading > button {
     width: 100%;
   }
 
@@ -191,6 +259,17 @@ body.inventory-hub-route-active .items-layout {
   }
 
   .inventory-row .status-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .invoice-file-row {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .invoice-file-row > button {
     grid-column: 2;
     justify-self: start;
   }
