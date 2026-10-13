@@ -31,10 +31,7 @@
   min-width: 0;
 }
 
-.invoice-intake-heading > div {
-  min-width: 0;
-}
-
+.invoice-intake-heading > div { min-width: 0; }
 .invoice-intake-heading h2,
 .invoice-intake-heading p { margin: 0; }
 .invoice-intake-heading h2 { margin-bottom: 4px; }
@@ -101,9 +98,7 @@
   color: inherit;
   overflow: hidden;
 }
-.invoice-list-panel > button.active {
-  border-color: var(--calibre-bronze-pale, #d8bd98);
-}
+.invoice-list-panel > button.active { border-color: var(--calibre-bronze-pale, #d8bd98); }
 
 .invoice-list-panel > button span,
 .invoice-list-panel > button small,
@@ -122,9 +117,7 @@
 .invoice-summary span,
 .invoice-draft-lines small,
 .invoice-draft-lines span,
-.invoice-extraction-actions span {
-  color: var(--calibre-muted);
-}
+.invoice-extraction-actions span { color: var(--calibre-muted); }
 
 .invoice-summary {
   display: grid;
@@ -151,66 +144,133 @@
   min-width: 0;
 }
 
-.invoice-json-form {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-  min-width: 0;
-}
-.invoice-json-form label { display: grid; gap: 6px; min-width: 0; }
-.invoice-json-form textarea { width: 100%; max-width: 100%; box-sizing: border-box; resize: vertical; }
-
 .invoice-draft-lines { margin-top: 16px; min-width: 0; }
 .invoice-lines-heading {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
-.invoice-draft-lines article {
+
+.invoice-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 11px 0;
+  padding: 13px 0;
   border-top: 1px solid var(--calibre-line);
   min-width: 0;
 }
-.invoice-draft-lines article > div { min-width: 0; display: grid; gap: 3px; }
-.invoice-draft-lines article > div:last-child { text-align: right; }
-.invoice-draft-lines article p {
-  grid-column: 1 / -1;
-  margin: 0;
+
+.invoice-line.imported {
+  opacity: .72;
+}
+
+.invoice-line-topline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.invoice-line-topline > span:last-child {
+  margin-left: auto;
+}
+
+.invoice-include {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+}
+
+.invoice-line-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(74px, .45fr) minmax(100px, .6fr);
+  gap: 9px;
+  min-width: 0;
+}
+
+.invoice-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--calibre-muted);
+}
+
+.invoice-field input,
+.invoice-field select,
+.invoice-field textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 8px;
+  background: rgba(22, 30, 36, .92);
+  color: inherit;
+  font: inherit;
+}
+
+.invoice-field textarea { resize: vertical; }
+.invoice-field input:disabled,
+.invoice-field select:disabled,
+.invoice-field textarea:disabled { opacity: .72; }
+
+.invoice-title-field input {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.invoice-source-detail {
+  border: 1px solid var(--calibre-line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.invoice-source-detail summary {
+  cursor: pointer;
+  color: var(--calibre-muted);
+  font-size: 12px;
+}
+
+.invoice-source-detail p {
+  margin: 8px 0 0;
   color: var(--calibre-muted);
   font-size: 13px;
+  line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.invoice-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--calibre-line);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .invoice-line-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
   .inventory-hub-actions,
-  .inventory-hub-actions > button {
-    width: 100%;
-  }
-  .invoice-intake-card {
-    padding: 14px;
-  }
-  .invoice-intake-heading {
-    flex-direction: column;
-  }
+  .inventory-hub-actions > button { width: 100%; }
+  .invoice-intake-card { padding: 14px; }
+  .invoice-intake-heading { flex-direction: column; }
   .invoice-intake-heading > button,
-  .invoice-upload-button {
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .invoice-intake-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .invoice-summary {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .invoice-draft-lines article {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .invoice-draft-lines article > div:last-child {
-    text-align: left;
-  }
+  .invoice-upload-button { width: 100%; box-sizing: border-box; }
+  .invoice-intake-grid { grid-template-columns: minmax(0, 1fr); }
+  .invoice-summary { grid-template-columns: minmax(0, 1fr); }
+  .invoice-line-fields { grid-template-columns: minmax(0, 1fr); }
+  .invoice-line-topline > span:last-child { margin-left: 0; }
+  .invoice-review-actions,
+  .invoice-review-actions > button { width: 100%; }
 }
