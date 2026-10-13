@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import WorkOperationsPanel from './WorkOperationsPanel'
 import './work-job-card.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -333,6 +334,8 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
           </div>
         )}
       </section>
+
+      <WorkOperationsPanel workspaceId={workspaceId} itemId={itemId} workId={selected.id} />
     </div>
   )
 }
