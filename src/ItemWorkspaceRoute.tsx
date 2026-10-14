@@ -4,6 +4,7 @@ import ItemMedia from './ItemMedia'
 import PassportPanel from './PassportPanel'
 import WorkJobCard from './WorkJobCard'
 import ItemSalePanel from './ItemSalePanel'
+import ItemStoragePanel from './ItemStoragePanel'
 
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; acquired_at: string | null; created_at: string }
 type Identity = { maker: string; model: string; reference: string; serial: string; era: string; country: string; materials: string; dimensions_text: string; dial_markings: string; case_markings: string; movement_markings: string; notes: string }
@@ -137,6 +138,7 @@ export default function ItemWorkspaceRoute() {
           <div className="item-v2-summary-grid">
             <section className="section-card"><p className="eyebrow">IDENTITY</p><h3>{identity?.maker || 'Maker unresolved'}</h3><dl className="item-v2-facts"><div><dt>Model</dt><dd>{identity?.model || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div></dl><button type="button" className="text-button" onClick={() => setTab('details')}>Open details →</button></section>
             <section className="section-card"><p className="eyebrow">WORK</p><h3>{activeWork ? `Work #${activeWork.work_number}` : 'No active Work'}</h3><p>{activeWork?.title || 'Start a Work record only when this Item enters the workshop.'}</p>{activeWork && <dl className="item-v2-facts"><div><dt>Status</dt><dd>{titleCase(activeWork.status)}</dd></div><div><dt>Next</dt><dd>{activeWork.next_action || '—'}</dd></div></dl>}<button type="button" className="text-button" onClick={() => setTab('work')}>{activeWork ? 'Open Job Card →' : 'Start Work →'}</button></section>
+            <ItemStoragePanel workspaceId={workspaceId} itemId={item.id} onMoved={load} />
             <section className="section-card"><p className="eyebrow">SALE POSITION</p><h3>{money(target, currency)} target</h3><dl className="item-v2-facts"><div><dt>Recorded cost</dt><dd>{money(totalCost, currency)}</dd></div><div><dt>Potential gross</dt><dd>{money(potential, currency)}</dd></div><div><dt>Purpose</dt><dd>{titleCase(item.purpose)}</dd></div></dl><button type="button" className="text-button" onClick={() => setTab('sale')}>Open sale record →</button></section>
             <section className="section-card"><p className="eyebrow">RESEARCH</p><h3>{identity?.movement_markings ? 'Evidence recorded' : 'Research available'}</h3><p>{identity?.movement_markings || identity?.notes || 'Capture markings, movement identity and supporting evidence here.'}</p><button type="button" className="text-button" onClick={() => setTab('research')}>Open research →</button></section>
           </div>
@@ -172,6 +174,7 @@ export default function ItemWorkspaceRoute() {
       {tab === 'history' && (
         <div className="item-v2-stack">
           <section className="section-card"><p className="eyebrow">PERMANENT HISTORY</p><h2>Item timeline</h2><div className="item-v2-timeline"><div><time>{new Date(item.created_at).toLocaleDateString('en-AU')}</time><strong>Item created</strong><span>Item #{item.item_number} entered Calibre.</span></div>{item.acquired_at && <div><time>{new Date(item.acquired_at).toLocaleDateString('en-AU')}</time><strong>Acquired</strong><span>Acquisition date recorded.</span></div>}{work.map((record) => <div key={record.id}><time>{new Date(record.opened_at).toLocaleDateString('en-AU')}</time><strong>Work #{record.work_number} · {record.title}</strong><span>{titleCase(record.status)}{record.completed_at ? ` · completed ${new Date(record.completed_at).toLocaleDateString('en-AU')}` : ''}</span></div>)}</div></section>
+          <ItemStoragePanel workspaceId={workspaceId} itemId={item.id} mode="history" />
         </div>
       )}
 
