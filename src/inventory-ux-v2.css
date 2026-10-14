@@ -3,9 +3,7 @@
   gap: 18px;
 }
 
-.inventory-v2-heading {
-  margin-bottom: 0;
-}
+.inventory-v2-heading { margin-bottom: 0; }
 
 .inventory-v2-primary {
   display: inline-grid;
@@ -48,7 +46,7 @@
 
 .inventory-v2-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -73,15 +71,8 @@
   background: rgba(55, 69, 78, .45);
 }
 
-.inventory-v2-summary span {
-  color: var(--calibre-muted);
-  font-size: 12px;
-}
-
-.inventory-v2-summary strong {
-  font-size: clamp(22px, 3vw, 30px);
-  line-height: 1;
-}
+.inventory-v2-summary span { color: var(--calibre-muted); font-size: 12px; }
+.inventory-v2-summary strong { font-size: clamp(22px, 3vw, 30px); line-height: 1; }
 
 .inventory-v2-controls {
   display: grid;
@@ -92,54 +83,15 @@
   background: rgba(29, 39, 46, .84);
 }
 
-.inventory-v2-search-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.inventory-v2-search-row { display: flex; align-items: center; gap: 12px; }
+.inventory-v2-search-row input { flex: 1 1 auto; min-width: 0; }
+.inventory-v2-search-row span { flex: 0 0 auto; color: var(--calibre-muted); font: 500 11px/1.3 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .05em; }
 
-.inventory-v2-search-row input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.inventory-v2-search-row span {
-  flex: 0 0 auto;
-  color: var(--calibre-muted);
-  font: 500 11px/1.3 "IBM Plex Mono", monospace;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-
-.inventory-v2-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: end;
-}
-
-.inventory-v2-filters label {
-  display: grid;
-  gap: 5px;
-  min-width: 150px;
-  flex: 1 1 160px;
-  color: var(--calibre-muted);
-  font-size: 11px;
-}
-
-.inventory-v2-filters select {
-  width: 100%;
-  min-width: 0;
-}
-
-.inventory-v2-filters .secondary {
-  flex: 0 0 auto;
-  min-height: 40px;
-}
-
-.inventory-v2-list-panel {
-  overflow: hidden;
-}
+.inventory-v2-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.inventory-v2-filters label { display: grid; gap: 5px; min-width: 150px; flex: 1 1 160px; color: var(--calibre-muted); font-size: 11px; }
+.inventory-v2-filters select { width: 100%; min-width: 0; }
+.inventory-v2-filters .secondary { flex: 0 0 auto; min-height: 40px; }
+.inventory-v2-list-panel { overflow: hidden; }
 
 .inventory-v2-workshop {
   display: grid;
@@ -149,112 +101,31 @@
   border-radius: 16px;
   background: rgba(29, 39, 46, .84);
 }
-
 .inventory-v2-workshop-copy h2,
-.inventory-v2-workshop-copy p {
-  margin-top: 0;
-}
-
-.inventory-v2-workshop-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.inventory-v2-workshop-grid article {
-  display: grid;
-  gap: 8px;
-  min-height: 150px;
-  padding: 16px;
-  border: 1px solid var(--calibre-line);
-  border-radius: 14px;
-  background: rgba(20, 28, 34, .58);
-}
-
-.inventory-v2-workshop-grid article span {
-  font: 600 11px/1.4 "IBM Plex Mono", monospace;
-  color: var(--calibre-bronze-pale, #d8bd98);
-}
-
-.inventory-v2-workshop-grid article strong {
-  font-size: 17px;
-}
-
+.inventory-v2-workshop-copy p { margin-top: 0; }
+.inventory-v2-workshop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.inventory-v2-workshop-grid article { display: grid; gap: 8px; min-height: 150px; padding: 16px; border: 1px solid var(--calibre-line); border-radius: 14px; background: rgba(20, 28, 34, .58); }
+.inventory-v2-workshop-grid article span { font: 600 11px/1.4 "IBM Plex Mono", monospace; color: var(--calibre-bronze-pale, #d8bd98); }
+.inventory-v2-workshop-grid article strong { font-size: 17px; }
 .inventory-v2-workshop-grid article p,
-.inventory-v2-workshop-note {
-  margin: 0;
-  color: var(--calibre-muted);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.inventory-v2-workshop-note {
-  padding-top: 4px;
-}
+.inventory-v2-workshop-note { margin: 0; color: var(--calibre-muted); font-size: 13px; line-height: 1.55; }
+.inventory-v2-workshop-note { padding-top: 4px; }
 
 @media (max-width: 720px) {
-  .inventory-v2-page {
-    gap: 14px;
-  }
-
-  .inventory-v2-heading {
-    align-items: flex-start;
-  }
-
-  .inventory-v2-primary {
-    width: 100%;
-  }
-
-  .inventory-v2-summary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 7px;
-  }
-
+  .inventory-v2-page { gap: 14px; }
+  .inventory-v2-heading { align-items: flex-start; }
+  .inventory-v2-primary { width: 100%; }
+  .inventory-v2-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .inventory-v2-summary > div,
-  .inventory-v2-summary > button {
-    min-height: 72px;
-    padding: 10px;
-  }
-
-  .inventory-v2-summary span {
-    font-size: 10px;
-  }
-
-  .inventory-v2-summary strong {
-    font-size: 21px;
-  }
-
-  .inventory-v2-search-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .inventory-v2-search-row span {
-    align-self: flex-end;
-  }
-
-  .inventory-v2-filters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .inventory-v2-filters label {
-    min-width: 0;
-  }
-
-  .inventory-v2-filters label:last-of-type {
-    grid-column: 1 / -1;
-  }
-
-  .inventory-v2-filters .secondary {
-    grid-column: 1 / -1;
-  }
-
-  .inventory-v2-workshop {
-    padding: 16px;
-  }
-
-  .inventory-v2-workshop-grid {
-    grid-template-columns: 1fr;
-  }
+  .inventory-v2-summary > button { min-height: 72px; padding: 10px; }
+  .inventory-v2-summary span { font-size: 10px; }
+  .inventory-v2-summary strong { font-size: 21px; }
+  .inventory-v2-search-row { align-items: stretch; flex-direction: column; }
+  .inventory-v2-search-row span { align-self: flex-end; }
+  .inventory-v2-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-v2-filters label { min-width: 0; }
+  .inventory-v2-filters label:last-of-type { grid-column: 1 / -1; }
+  .inventory-v2-filters .secondary { grid-column: 1 / -1; }
+  .inventory-v2-workshop { padding: 16px; }
+  .inventory-v2-workshop-grid { grid-template-columns: 1fr; }
 }
