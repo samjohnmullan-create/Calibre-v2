@@ -39,6 +39,7 @@ function isWorkbenchRoute() {
 export default function BenchModeHost() {
   const [routeActive, setRouteActive] = useState(isWorkbenchRoute)
   const [workspaceId, setWorkspaceId] = useState('')
+  const [userId, setUserId] = useState('')
   const [candidates, setCandidates] = useState<CandidateWork[]>([])
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null)
   const [selectedWorkId, setSelectedWorkId] = useState('')
@@ -57,22 +58,26 @@ export default function BenchModeHost() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const result = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
+      const [workspaceResult, userResult] = await Promise.all([
+        supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle(),
+        supabase.auth.getUser(),
+      ])
       if (cancelled) return
-      if (result.error || !result.data) return
-      setWorkspaceId(result.data.id)
+      if (!workspaceResult.error && workspaceResult.data) setWorkspaceId(workspaceResult.data.id)
+      if (!userResult.error && userResult.data.user) setUserId(userResult.data.user.id)
     })()
     return () => { cancelled = true }
   }, [])
 
   async function loadHost() {
-    if (!workspaceId) return
+    if (!workspaceId || !userId) return
     setLoading(true)
     const [sessionResult, workResult] = await Promise.all([
       supabase
         .from('work_sessions')
         .select('id,work_id,item_id,started_at')
         .eq('workspace_id', workspaceId)
+        .eq('started_by', userId)
         .is('ended_at', null)
         .order('started_at', { ascending: false })
         .limit(1)
@@ -103,7 +108,7 @@ export default function BenchModeHost() {
     setMessage('')
   }
 
-  useEffect(() => { void loadHost() }, [workspaceId])
+  useEffect(() => { void loadHost() }, [workspaceId, userId])
 
   const selectedWork = useMemo(() => candidates.find((record) => record.id === selectedWorkId) ?? null, [candidates, selectedWorkId])
 
@@ -138,7 +143,7 @@ export default function BenchModeHost() {
   }, [openSteps, currentStep])
 
   const shouldShowLauncher = Boolean(activeSession) || routeActive
-  if (!shouldShowLauncher || !workspaceId) return null
+  if (!shouldShowLauncher || !workspaceId || !userId) return null
 
   function openLauncher() {
     if (activeSession) setSelectedWorkId(activeSession.work_id)
