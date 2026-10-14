@@ -1,6 +1,8 @@
 .storage-manager { display: grid; gap: 1rem; }
 .storage-heading, .storage-location-detail-head, .storage-tree-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .storage-heading h2, .storage-location-detail h3, .storage-quick-move h3, .storage-history h3 { margin: .15rem 0 .25rem; }
+.storage-heading .muted { font-size: 0; }
+.storage-heading .muted::after { content: 'Create any physical hierarchy you actually use — Incoming, Watch Stock, Parts Storage, Donor Watches, Bench, Tools, Dispatch or something else. Location never starts Work automatically.'; font-size: .9rem; line-height: 1.55; }
 .storage-create { display: grid; gap: .8rem; }
 .storage-create-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .7rem; }
 .storage-create label, .storage-move-card label { display: grid; gap: .35rem; font-size: .82rem; color: var(--text-muted, #777); min-width: 0; }
@@ -43,12 +45,10 @@
   .storage-move-card { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .storage-move-card > div:first-child { grid-column: 1 / -1; }
 }
-
 @media (max-width: 820px) {
   .storage-layout { grid-template-columns: 1fr; }
   .storage-tree { position: static; max-height: 20rem; }
 }
-
 @media (max-width: 640px) {
   .storage-heading, .storage-location-detail-head { flex-direction: column; align-items: stretch; }
   .storage-heading > button { width: 100%; }
