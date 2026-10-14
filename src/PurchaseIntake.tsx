@@ -428,6 +428,35 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     await loadPurchaseDetail(lot.purchase_id)
   }
 
+  async function correctReceivedLotAllocation(lot: PurchaseLot, form: HTMLFormElement) {
+    const data = new FormData(form)
+    const rawAmount = String(data.get('allocation_amount_aud') || '').trim()
+    const rawShared = String(data.get('allocation_shared_aud') || '').trim()
+    const reason = String(data.get('allocation_reason') || '').trim()
+    if (!reason) { setMessage('A reason is required for every post-receiving correction.'); return }
+    const amountAud = rawAmount === '' ? null : Number(rawAmount)
+    const sharedAud = rawShared === '' ? null : Number(rawShared)
+    if ((amountAud != null && (!Number.isFinite(amountAud) || amountAud < 0)) || (sharedAud != null && (!Number.isFinite(sharedAud) || sharedAud < 0))) {
+      setMessage('Allocation values must be valid non-negative amounts.'); return
+    }
+    setSaving(true)
+    const { data: result, error } = await supabase.rpc('reallocate_received_purchase_lot', {
+      p_workspace_id: workspaceId,
+      p_purchase_lot_id: lot.id,
+      p_amount_aud: amountAud,
+      p_shared_cost_override_aud: sharedAud,
+      p_reason: reason,
+    })
+    setSaving(false)
+    if (error) { setMessage(`Received allocation could not be corrected: ${error.message}`); return }
+    const correction = result as { affected_links?: number; total_received_cost_aud?: number } | null
+    const affectedText = correction?.affected_links ? ` ${correction.affected_links} received record${correction.affected_links === 1 ? '' : 's'} reconciled.` : ''
+    setEditingAllocationLotId('')
+    setMessage(`Allocation corrected for ${lot.lot_number ? `lot ${lot.lot_number}` : lot.title}.${affectedText} Downstream Item/stock costs were updated atomically and the reason was added to the audit trail.`)
+    await loadPurchaseDetail(lot.purchase_id)
+    await loadPurchases(lot.purchase_id)
+  }
+
   async function classifyLot(lot: PurchaseLot, category: 'item' | 'part' | 'tool' | 'consumable') {
     setSaving(true)
     const { error } = await supabase.rpc('classify_purchase_lot', {
@@ -697,8 +726,9 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                   const closedShort = Number(lot.quantity_closed_short || 0)
                   const remaining = Math.max(0, Number(lot.quantity_expected || 0) - receivedQuantity - closedShort)
                   const openExceptions = lotExceptions.filter((entry) => entry.status === 'open')
-                  const allocationLocked = receivedQuantity > 0 || closedShort > 0 || lotLinks.length > 0 || lotStockLinks.length > 0
-                  const allocationEditing = editingAllocationLotId === lot.id && !allocationLocked
+                  const receivingStarted = receivedQuantity > 0 || lotLinks.length > 0 || lotStockLinks.length > 0
+                  const correctionBlocked = receivingStarted && closedShort > 0
+                  const allocationEditing = editingAllocationLotId === lot.id
                   return (
                     <article key={lot.id} className="panel purchase-lot-card">
                       <div className="purchase-lot-head">
@@ -706,26 +736,29 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                         <div className="purchase-lot-value">
                           <strong>{money(lot.amount_aud ?? lot.amount, lot.amount_aud != null ? 'AUD' : lot.currency)}</strong>
                           {lot.shared_cost_override_aud != null && <small>+ {money(lot.shared_cost_override_aud)} shared</small>}
-                          {allocationLocked
-                            ? <small className="purchase-allocation-lock">Allocation locked — receiving has begun</small>
-                            : <button type="button" className="purchase-allocation-toggle" disabled={saving} onClick={() => setEditingAllocationLotId((current) => current === lot.id ? '' : lot.id)}>{allocationEditing ? 'Close allocation' : 'Edit allocation'}</button>}
+                          {correctionBlocked
+                            ? <small className="purchase-allocation-lock">Correction blocked — this lot has an accepted shortfall. Resolve its financial treatment before reallocating costs.</small>
+                            : <button type="button" className="purchase-allocation-toggle" disabled={saving} onClick={() => setEditingAllocationLotId((current) => current === lot.id ? '' : lot.id)}>{allocationEditing ? 'Close allocation' : receivingStarted ? 'Correct allocation' : 'Edit allocation'}</button>}
                         </div>
                       </div>
                       {lot.description && <p>{lot.description}</p>}
 
                       {allocationEditing && (
-                        <form className="purchase-allocation-editor" onSubmit={(event) => { event.preventDefault(); void updateLotAllocation(lot, event.currentTarget) }}>
+                        <form className="purchase-allocation-editor" onSubmit={(event) => { event.preventDefault(); void (receivingStarted ? correctReceivedLotAllocation(lot, event.currentTarget) : updateLotAllocation(lot, event.currentTarget)) }}>
                           <div className="purchase-allocation-editor-head">
-                            <div><strong>Edit allocation</strong><span>Before receiving only. Saving creates a permanent audit entry.</span></div>
+                            <div>
+                              <strong>{receivingStarted ? 'Correct received allocation' : 'Edit allocation'}</strong>
+                              <span>{receivingStarted ? 'This correction reconciles the Purchase Lot and every linked downstream cost as one transaction.' : 'Before receiving only. Saving creates a permanent audit entry.'}</span>
+                            </div>
                           </div>
                           <div className="purchase-allocation-grid">
                             <label>AUD lot value<input name="allocation_amount_aud" type="number" min="0" step="0.01" defaultValue={lot.amount_aud ?? ''} /></label>
                             <label>Shared cost override AUD<input name="allocation_shared_aud" type="number" min="0" step="0.01" defaultValue={lot.shared_cost_override_aud ?? ''} placeholder="Blank = no override" /></label>
-                            <label className="purchase-allocation-reason">Reason for change<input name="allocation_reason" required placeholder="e.g. corrected hammer allocation after invoice review" /></label>
+                            <label className="purchase-allocation-reason">Reason for {receivingStarted ? 'correction' : 'change'}<input name="allocation_reason" required placeholder={receivingStarted ? 'e.g. corrected lot split after receiving review' : 'e.g. corrected hammer allocation after invoice review'} /></label>
                           </div>
                           <div className="purchase-allocation-actions">
                             <button type="button" onClick={() => setEditingAllocationLotId('')}>Cancel</button>
-                            <button type="submit" className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save allocation'}</button>
+                            <button type="submit" className="primary" disabled={saving}>{saving ? 'Saving…' : receivingStarted ? 'Apply correction' : 'Save allocation'}</button>
                           </div>
                         </form>
                       )}
@@ -740,7 +773,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                                   <strong>{entry.new_data?.reason || 'Allocation changed'}</strong>
                                   <span>Lot AUD {money(entry.old_data?.amount_aud)} → {money(entry.new_data?.amount_aud)} · shared {money(entry.old_data?.shared_cost_override_aud)} → {money(entry.new_data?.shared_cost_override_aud)}</span>
                                 </div>
-                                <small>{formatAuditTime(entry.created_at)} · {entry.actor_type === 'user' ? 'User' : 'System'} · {entry.source === 'allocation_rpc' ? 'Allocation editor' : entry.source}</small>
+                                <small>{formatAuditTime(entry.created_at)} · {entry.actor_type === 'user' ? 'User' : 'System'} · {entry.source === 'allocation_rpc' ? 'Allocation editor' : entry.source === 'reallocation_rpc' ? 'Post-receiving correction' : entry.source}</small>
                               </div>
                             ))}
                           </div>
