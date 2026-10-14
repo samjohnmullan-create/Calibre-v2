@@ -69,12 +69,12 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 
 | Phase | State | Approx. implementation progress | Current reading |
 |---|---:|---:|---|
-| A — Foundation & scale | 🟡 | ~55% | strong foundation; scale, backup, audit and cleanup remain |
+| A — Foundation & scale | 🟡 | ~75% | core pagination/search, critical audit and portable backup layers now exist; restore drill, tests and cleanup remain |
 | B — Acquisition | 🟡 | ~65% | invoice workflow strong; broader purchase/lot workflow incomplete |
 | C — Workshop / repair | 🟡→✅ | ~75% | Job Card, templates, parts, QC and completion spine now exists |
-| D — Parts / donors / storage | 🟡 | ~60% | matching/allocation strong; donor intelligence and storage still incomplete |
-| E — Commerce & ledger | 🟡 | ~55% | Item economics and Business Ledger now live; accounting hardening remains |
-| Release Candidate / Main URL | ⬜ | 0% accepted | intentionally held until A–E core exit gates are satisfied |
+| D — Parts / donors / storage | 🟡 | ~60% | matching/allocation strong; donor intelligence and physical storage still incomplete |
+| E — Commerce & ledger | 🟡 | ~60% | Item economics, Business Ledger and scalable reporting now live; accounting hardening remains |
+| Release Candidate / Main URL | ⬜ | 0% accepted | intentionally held until A–E core exit gates and restore acceptance are satisfied |
 | F — Business Brain | 🟡 early | ~15% | dashboard foundation exists; advanced reporting/recommendations later |
 | G — Listings & sales engine | 🟡 early | ~15% | Sale records exist; full listing lifecycle/generation incomplete |
 | H — Customer / public / Club | 💤 | concept only | later, after internal spine is trustworthy |
@@ -82,7 +82,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 | J — Timegrapher v2 | 💤 | partial legacy capability | deferred until hardware validation |
 | K — Printing / physical workflow | 🧪 | exploratory | after storage/QR and release candidate |
 | L — Device modes / Smart Capture | 🟡 early | ~25% | phone/DeX shell exists; station workflows later |
-| M — Global search / command layer | 🟡 | ~50% | global search and universal New exist; more domains/actions needed |
+| M — Global search / command layer | 🟡 | ~65% | unified indexed search and universal New exist; more domains/actions remain |
 | N — Automation / learning loop | 💤 | later | manual workflows first |
 
 **Important:** percentages describe implementation progress, not Definition-of-Done acceptance.
@@ -105,6 +105,11 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - ✅ Global Search modal.
 - ✅ Universal New menu.
 - ✅ Item and Work deep-link handling.
+- ✅ server-side pagination/bounded loading now covers Inventory Items, Workbench, Business lists, Business Ledger and critical Home summaries.
+- ✅ critical Item/Work/financial mutations now feed a database-level audit trail.
+- ✅ Settings exposes a paginated Audit Trail reader.
+- ✅ portable structured JSON backup with row counts and SHA-256 integrity checksum.
+- 🟡 private Storage TAR archive with per-file SHA-256 checksums is implemented but not yet restore-drill accepted.
 - ✅ New UI routes coexist during migration while legacy surfaces are progressively retired.
 - 🟡 Final removal of remaining legacy UI/state patterns is still required.
 
@@ -113,7 +118,8 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - ✅ Operational Home dashboard.
 - ✅ Work, Intake and sale-readiness summaries.
 - ✅ needs-attention and recent activity surfaces.
-- 🟡 server-side counts/pagination and better chronology remain.
+- ✅ server-side exact counts and bounded attention/recent-record queries.
+- 🟡 richer event chronology can still improve.
 
 ### Intake / acquisition invoices
 
@@ -137,16 +143,18 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 
 - ✅ Inventory split into Items / Parts / Workshop views.
 - ✅ Item type, purpose and status filtering.
+- ✅ server-side Item pagination/count foundation.
 - ✅ Item workspace with Overview / Details / Work / Research / Sale / History.
 - ✅ Item editing and persistence.
 - ✅ Passport integrated into Item detail.
 - ✅ photos/media integrated into Item workspace.
 - ✅ donor represented as Item purpose rather than separate object type.
-- 🟡 Item archive, physical location summary, server pagination and primary thumbnails remain.
+- 🟡 Item archive, physical location summary and primary thumbnails remain.
 
 ### Workbench / Job Card
 
 - ✅ Workbench modes for Active / Ready / On Bench / Waiting / QC / Complete.
+- ✅ server-side Work pagination, counts and bounded search.
 - ✅ Work Job Card is the central operating record.
 - ✅ Work priority, next action, waiting reason, blocker, diagnosis and completion summary fields.
 - ✅ versioned Work Templates and copied Work checklist steps.
@@ -199,6 +207,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - ✅ automatic Total Invested / Target Profit / Expected Profit / Actual Profit / ROI presentation.
 - ✅ listing/sold status can update Item commercial state.
 - ✅ Business Overview / Stock / Listings / Sales / Costs.
+- ✅ Business totals now use server-side summaries and lists are paginated.
 - ✅ Hannams invoice economics reconcile into Business stock/cost figures.
 - 🟡 refunds, discounts, reversals and deeper auditability remain.
 
@@ -211,6 +220,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - ✅ source currency and optional AUD equivalent.
 - ✅ add / edit / delete / search / filter UX.
 - ✅ Operating Spend / Capital Spend / Other Income / Net Cash Impact summaries.
+- ✅ server-side summary totals and paginated Ledger loading.
 - ✅ RLS and authenticated workspace permissions.
 - ✅ indexing and duplicate/import groundwork through `external_key`.
 - 🟡 append-oriented corrections/reversal policy is not fully enforced.
@@ -218,10 +228,23 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 
 ### Global search / actions
 
-- ✅ global search across Items, Work, Parts and Invoices.
+- ✅ unified indexed global search across Items, Work, Parts and Invoices.
+- ✅ maker/model/reference/serial evidence participates in Item search.
+- ✅ bounded category results replace broad multi-table client loading.
 - ✅ global New actions for Item, Invoice, Part and Work handoff.
 - 🟡 Knowledge, tools, consumables, sales, transactions, donors and locations remain to be added.
 - 🟡 command actions beyond navigation are still limited.
+
+### Data protection / recovery
+
+- ✅ structured workspace export in Settings with deterministic pagination, row counts and SHA-256 payload checksum.
+- ✅ media/document Storage paths are preserved in the structured export manifest.
+- 🟡 private `calibre-media` TAR archive is implemented with preserved paths, size checks and per-file SHA-256 manifest; live archive/restore verification remains.
+- ✅ database-triggered audit logging exists for Items, Work, Item costs, valuations, sales and Business Ledger entries.
+- ✅ recovery runbook exists and defines a disposable-environment restore drill.
+- ⬜ actual Supabase managed-backup retention/PITR configuration still needs verification.
+- ⬜ clean migration rebuild and full disposable restore drill still need to pass.
+- ⬜ restored finance totals and private media/document links still need reconciliation.
 
 ### Device / deployment state
 
@@ -264,10 +287,12 @@ Goal: make Calibre safe to operate with hundreds or thousands of Items, Work rec
 
 ### Scale
 
-- [ ] server-side pagination for Items, Work, transactions and Files;
+- [🟡] server-side pagination is in place for Items, Work, Business transactions and Ledger; Files/other long-tail lists still need review;
 - [x] indexed search/filter groundwork in key domains;
+- [x] Home operational counts/attention queries are server-bounded rather than loading broad Item/Work sets;
+- [x] Global Search uses a unified indexed, bounded search layer;
 - [ ] saved views for common operating states;
-- [ ] avoid N+1 queries and unbounded client loading;
+- [🟡] N+1/unbounded loading has been removed from core Home, Inventory, Workbench and Business routes; continue audit of secondary routes;
 - [ ] primary thumbnails in high-volume lists;
 - [x] deterministic Work numbering through generated identity;
 - [ ] deterministic Item numbering rules acceptance;
@@ -275,10 +300,11 @@ Goal: make Calibre safe to operate with hundreds or thousands of Items, Work rec
 
 ### Audit / resilience
 
-- [🟡] user-facing lifecycle history exists in early Item form but is incomplete;
-- [ ] backend audit trail for critical financial and operational mutations;
-- [ ] database/media backup policy;
-- [ ] export path for critical business data;
+- [🟡] user-facing lifecycle history exists and Settings now exposes a paginated database audit trail; Item timeline still needs richer event coverage;
+- [🟡] backend database triggers audit inserts/updates/deletes for Items, Work, Item costs, valuations, sales and Business Ledger entries; remaining critical domains should be assessed;
+- [🟡] backup/recovery policy and runbook exist; managed backup configuration still needs verification;
+- [x] portable structured export path for critical workspace business data;
+- [🟡] private Storage TAR export exists with per-file checksums but has not yet passed restore acceptance;
 - [ ] real restore drill before main-domain cutover;
 - [x] duplicate detection for invoice/import workflow;
 - [ ] error observability for failed writes and background tasks.
@@ -323,7 +349,7 @@ Goal: every purchase enters Calibre once and remains traceable from source docum
 - [ ] Item archive flow;
 - [ ] physical location summary;
 - [ ] primary image in Item list/header;
-- [ ] server-side search and filters;
+- [x] server-side Item pagination, search and filters;
 - [🟡] operational status views exist across Home/Inventory/Workbench but Incoming/Received need dedicated support.
 
 **Exit gate:** every physical Item can answer “where did I buy it, what did it really cost, and where is it now?”
@@ -459,6 +485,7 @@ Goal: make every Item’s financial result explainable and build the ledger need
 - [x] foreign currency + optional AUD equivalent;
 - [x] Ledger UX with add/edit/delete/search/filter;
 - [x] Operating Spend / Capital Spend / Other Income / Net Cash Impact summaries;
+- [x] server-side Ledger summary and pagination foundation;
 - [ ] owner contributions/drawings explicit workflow if required;
 - [ ] automatic integrations from purchase/tool workflows where useful;
 - [ ] formal adjustment/reversal workflow.
@@ -471,6 +498,7 @@ Goal: make every Item’s financial result explainable and build the ledger need
 - [x] realised cash and hypothetical valuation are presented separately;
 - [x] financial totals are computed from records, not hand-entered summary totals;
 - [x] foreign currency source amount/AUD basis supported in core acquisition/ledger paths;
+- [🟡] critical finance record mutations now have database audit events;
 - [ ] corrections use reversal/adjustment records where practical rather than destructive edits.
 
 **Exit gate:** an Item and the overall business can both explain where every material dollar came from or went, and invoice → Item → Business reconciliation succeeds on real data.
@@ -491,8 +519,8 @@ Required before cutover:
 2. [ ] save → refresh → confirm pass on all critical writes;
 3. [ ] phone acceptance pass on the complete core workflow;
 4. [ ] DeX/desktop acceptance pass on the complete core workflow;
-5. [ ] server-side pagination/search foundation is in place for high-volume records;
-6. [ ] backup/export policy exists;
+5. [🟡] server-side pagination/search foundation is in place for core high-volume records; Files and secondary lists still need review;
+6. [🟡] backup/export policy and both structured/Storage export layers exist; managed backup configuration still needs verification;
 7. [ ] a real database/media restore drill succeeds;
 8. [ ] invoice → Item cost → Business reporting reconciliation succeeds;
 9. [ ] remaining obvious legacy UI/state leakage is removed from active routes;
@@ -743,6 +771,7 @@ Current shell already treats phone and desktop/DeX differently; dedicated captur
 - [x] Work;
 - [x] Parts;
 - [x] invoices;
+- [x] unified indexed search projection for the current four domains;
 - [ ] movement/calibre Knowledge;
 - [ ] donors;
 - [ ] locations;
@@ -799,13 +828,15 @@ These apply throughout the roadmap and are not “later features”.
 - cache only as convenience, never as source of truth;
 - test representative large data sets before claiming scale readiness.
 
+Current checkpoint: core Home, Inventory, Workbench, Business/Ledger and Global Search paths are now bounded/server-paginated where appropriate; Files and secondary long-tail routes still require review before scale readiness is accepted.
+
 ## Timeline/history
 
-Build user-facing lifecycle history from meaningful business events. Do not confuse it with low-level audit logging.
+Build user-facing lifecycle history from meaningful business events. Do not confuse it with low-level audit logging. Database-level audit events now protect critical Item, Work and finance mutations, while user-facing timeline work can continue separately.
 
 ## Backups/recovery
 
-Database/media backup, export and a tested restore process are mandatory before main-domain cutover.
+Structured JSON export, private Storage TAR export and a written recovery runbook now exist. Managed backup configuration verification and a successful disposable restore/reconciliation drill remain mandatory before main-domain cutover.
 
 ## Security
 
@@ -846,10 +877,12 @@ This is the active order from this point forward.
 
 - [ ] generate DB types;
 - [ ] finish live-vs-repo migration audit;
-- [ ] pagination/search foundation;
-- [ ] error/audit hardening;
-- [ ] backup/export plan;
-- [ ] real restore drill design.
+- [x] core pagination/search foundation;
+- [🟡] error/audit hardening — critical database audit trail exists; observability and remaining domains still need review;
+- [x] structured backup/export and Storage archive implementation;
+- [x] restore drill design/runbook;
+- [ ] verify managed backup configuration/retention;
+- [ ] execute a disposable clean rebuild + restore drill and reconcile finance/media.
 
 ### 2. Acquisition completion
 
