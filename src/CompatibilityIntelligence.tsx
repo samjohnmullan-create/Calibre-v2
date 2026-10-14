@@ -29,6 +29,8 @@ type Candidate = {
   reasons: string[]
 }
 
+const targetPageSize = 50
+
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -43,12 +45,19 @@ function tierLabel(tier: Candidate['evidence_tier']) {
   return titleCase(tier)
 }
 
+function cleanSearch(value: string) {
+  return value.replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100)
+}
+
 export default function CompatibilityIntelligence() {
   const [workspaceId, setWorkspaceId] = useState('')
   const [items, setItems] = useState<ItemRow[]>([])
   const [passports, setPassports] = useState<PassportRow[]>([])
   const [movements, setMovements] = useState<MovementRow[]>([])
   const [selectedItemId, setSelectedItemId] = useState('')
+  const [itemQuery, setItemQuery] = useState('')
+  const [debouncedItemQuery, setDebouncedItemQuery] = useState('')
+  const [targetCount, setTargetCount] = useState(0)
   const [partType, setPartType] = useState('')
   const [results, setResults] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,28 +86,73 @@ export default function CompatibilityIntelligence() {
   }, [])
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedItemQuery(itemQuery.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [itemQuery])
+
+  useEffect(() => {
     if (!workspaceId) return
     let active = true
     ;(async () => {
       setLoading(true)
-      const [itemResult, passportResult] = await Promise.all([
-        supabase.from('items').select('id,item_number,title,purpose,status').eq('workspace_id', workspaceId).is('archived_at', null).order('item_number', { ascending: false }),
-        supabase.from('passports').select('item_id,movement_maker,calibre,calibre_family,knowledge_movement_id,movement_identification_status').eq('workspace_id', workspaceId),
-      ])
+      const text = cleanSearch(debouncedItemQuery)
+      let itemRequest = supabase
+        .from('items')
+        .select('id,item_number,title,purpose,status', { count: 'exact' })
+        .eq('workspace_id', workspaceId)
+        .is('archived_at', null)
+
+      if (text) {
+        const pattern = `%${text}%`
+        const clauses = [`title.ilike.${pattern}`, `purpose.ilike.${pattern}`, `status.ilike.${pattern}`]
+        if (/^\d+$/.test(text)) clauses.push(`item_number.eq.${Number(text)}`)
+        itemRequest = itemRequest.or(clauses.join(','))
+      }
+
+      const itemResult = await itemRequest.order('item_number', { ascending: false }).limit(targetPageSize)
       if (!active) return
-      const firstError = itemResult.error ?? passportResult.error
-      if (firstError) {
+      if (itemResult.error) {
         setLoading(false)
-        setMessage(`Compatibility data failed to load: ${firstError.message}`)
+        setMessage(`Compatibility targets failed to load: ${itemResult.error.message}`)
         return
       }
 
-      const nextItems = (itemResult.data ?? []) as ItemRow[]
-      const nextPassports = (passportResult.data ?? []) as PassportRow[]
+      let nextItems = (itemResult.data ?? []) as ItemRow[]
+      setTargetCount(itemResult.count ?? 0)
+
+      if (selectedItemId && !nextItems.some((item) => item.id === selectedItemId)) {
+        const selectedResult = await supabase.from('items')
+          .select('id,item_number,title,purpose,status')
+          .eq('workspace_id', workspaceId)
+          .eq('id', selectedItemId)
+          .is('archived_at', null)
+          .maybeSingle()
+        if (!active) return
+        if (!selectedResult.error && selectedResult.data) nextItems = [selectedResult.data as ItemRow, ...nextItems]
+      }
+
+      const itemIds = [...new Set(nextItems.map((item) => item.id))]
+      let nextPassports: PassportRow[] = []
+      if (itemIds.length) {
+        const passportResult = await supabase.from('passports')
+          .select('item_id,movement_maker,calibre,calibre_family,knowledge_movement_id,movement_identification_status')
+          .eq('workspace_id', workspaceId)
+          .in('item_id', itemIds)
+        if (!active) return
+        if (passportResult.error) {
+          setLoading(false)
+          setMessage(`Compatibility Passport data failed to load: ${passportResult.error.message}`)
+          return
+        }
+        nextPassports = (passportResult.data ?? []) as PassportRow[]
+      }
+
       const movementIds = [...new Set(nextPassports.map((passport) => passport.knowledge_movement_id).filter(Boolean))] as string[]
       let nextMovements: MovementRow[] = []
       if (movementIds.length > 0) {
-        const movementResult = await supabase.from('knowledge_movements').select('id,maker,calibre,calibre_family,evidence_grade,verification_status').in('id', movementIds)
+        const movementResult = await supabase.from('knowledge_movements')
+          .select('id,maker,calibre,calibre_family,evidence_grade,verification_status')
+          .in('id', movementIds)
         if (!active) return
         if (movementResult.error) {
           setLoading(false)
@@ -112,10 +166,10 @@ export default function CompatibilityIntelligence() {
       setPassports(nextPassports)
       setMovements(nextMovements)
       setLoading(false)
-      setMessage('Choose an Item to compare against owned parts and donors.')
+      if (!selectedItemId) setMessage(text ? `${itemResult.count ?? 0} matching Item${(itemResult.count ?? 0) === 1 ? '' : 's'}; showing up to ${targetPageSize}.` : 'Choose an Item to compare against owned parts and donors.')
     })()
     return () => { active = false }
-  }, [workspaceId])
+  }, [workspaceId, debouncedItemQuery, selectedItemId])
 
   async function findMatches() {
     if (!selectedItemId || !selectedItem || !workspaceId) return
@@ -170,6 +224,9 @@ export default function CompatibilityIntelligence() {
       </div>
 
       <div className="compatibility-controls">
+        <label>Find target Item <span>{targetCount > targetPageSize ? `${targetCount} matches` : 'search active inventory'}</span>
+          <input type="search" value={itemQuery} onChange={(event) => setItemQuery(event.target.value)} placeholder="Item #, title, purpose or status…" />
+        </label>
         <label>Target Item
           <select value={selectedItemId} onChange={(event) => chooseItem(event.target.value)} disabled={loading}>
             <option value="">Choose Item…</option>
@@ -185,6 +242,8 @@ export default function CompatibilityIntelligence() {
         </label>
         <button type="button" onClick={findMatches} disabled={!selectedItemId || searching || loading}>{searching ? 'Checking…' : 'Find compatible stock'}</button>
       </div>
+
+      {targetCount > targetPageSize && !debouncedItemQuery && <p className="compatibility-message">Showing the newest {targetPageSize} Items. Search above to find older stock without loading the whole inventory.</p>}
 
       {selectedItem && (
         <div className={`compatibility-target ${selectedMovement ? 'linked' : 'unresolved'}`}>
