@@ -20,6 +20,10 @@ create unique index work_sessions_one_active_per_work
   on public.work_sessions(work_id)
   where ended_at is null;
 
+create unique index work_sessions_one_active_per_user
+  on public.work_sessions(workspace_id, started_by)
+  where ended_at is null and started_by is not null;
+
 create index work_sessions_workspace_work_started_idx
   on public.work_sessions(workspace_id, work_id, started_at desc);
 
@@ -123,7 +127,20 @@ begin
   limit 1;
 
   if found then
+    if v_session.started_by is distinct from auth.uid() then
+      raise exception 'This Work already has an active bench session for another user';
+    end if;
     return v_session;
+  end if;
+
+  if exists (
+    select 1
+    from public.work_sessions s
+    where s.workspace_id = p_workspace_id
+      and s.started_by = auth.uid()
+      and s.ended_at is null
+  ) then
+    raise exception 'Finish your active bench session before starting another one';
   end if;
 
   v_previous_status := v_work.status;
@@ -201,6 +218,10 @@ begin
 
   if v_session.ended_at is not null then
     return v_session;
+  end if;
+
+  if v_session.started_by is distinct from auth.uid() then
+    raise exception 'Only the user who started this bench session can finish it';
   end if;
 
   update public.work_sessions
