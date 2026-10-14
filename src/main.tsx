@@ -42,6 +42,7 @@ import './audit-history-v2.css'
 import './calibre-classic-v2.css'
 import './layout-normalizer-v2.css'
 import './mobile-acceptance-v2.css'
+import './route-acceptance-fixes.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
