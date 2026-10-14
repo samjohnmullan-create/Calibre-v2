@@ -41,6 +41,14 @@ function titleFor(section: ShellSection) {
   return section.charAt(0).toUpperCase() + section.slice(1)
 }
 
+function resetViewport() {
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.querySelector<HTMLElement>('.calibre-stage')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  })
+}
+
 export default function CalibreShell() {
   const initial = useMemo(readSection, [])
   const [section, setSection] = useState<ShellSection>(initial)
@@ -52,6 +60,7 @@ export default function CalibreShell() {
     const sync = () => {
       setSection(readSection())
       setMoreOpen(false)
+      resetViewport()
     }
     window.addEventListener('hashchange', sync)
     sync()
@@ -82,6 +91,10 @@ export default function CalibreShell() {
     setSearchOpen(false)
     setNewOpen(false)
     setMoreOpen(false)
+    if (window.location.hash === hash) {
+      resetViewport()
+      return
+    }
     window.location.hash = hash
   }
 
@@ -129,8 +142,10 @@ export default function CalibreShell() {
             <strong>{titleFor(section)}</strong>
           </div>
           <div className="calibre-utility-actions">
-            <button className="calibre-search-button" type="button" onClick={openSearch} aria-expanded={searchOpen} title="Search Calibre · Ctrl/⌘ K">
-              <span aria-hidden="true">⌕</span><span>Search Calibre</span><kbd>⌘K</kbd>
+            <button className="calibre-search-button" type="button" onClick={openSearch} aria-expanded={searchOpen} aria-label="Search Calibre" title="Search Calibre · Ctrl/⌘ K">
+              <span className="calibre-search-icon" aria-hidden="true">⌕</span>
+              <span className="calibre-search-label">Search Calibre</span>
+              <kbd className="calibre-search-shortcut">⌘K</kbd>
             </button>
             <button className="calibre-new-button" type="button" onClick={openNew} aria-expanded={newOpen} title="New · Ctrl/⌘ N">＋ New</button>
           </div>
