@@ -1,0 +1,48 @@
+/*
+ * Route acceptance corrections found on the live Galaxy build.
+ *
+ * Keep this layer small and explicit: these are structural corrections, not a
+ * new visual theme.
+ */
+
+/*
+ * Inventory v2 renders after the legacy App host. The legacy Items contents are
+ * hidden while this route is active, but the signed-in .app-shell still carried
+ * min-height: 100dvh and left an invisible full-screen spacer above Inventory.
+ * Hide only the signed-in legacy shell so login/setup states remain available.
+ */
+body.inventory-hub-route-active .calibre-legacy-host > .app-shell {
+  display: none !important;
+  min-height: 0 !important;
+}
+
+/* Restore the intended Calibre Classic sunburst focal point. */
+body {
+  background:
+    radial-gradient(ellipse 76% 54% at 50% 18%, rgba(35, 111, 137, .44) 0%, rgba(18, 78, 102, .24) 28%, rgba(18, 78, 102, .07) 52%, transparent 74%),
+    radial-gradient(ellipse 56% 60% at 94% 58%, rgba(27, 86, 107, .12) 0%, transparent 70%),
+    linear-gradient(180deg, #202a31 0%, #182229 46%, #11191e 100%);
+}
+
+@media (max-width: 820px) {
+  /*
+   * Mobile browsers are unreliable with fixed multi-layer body backgrounds.
+   * Keep the base wash on body and paint the full-page glow on Calibre itself.
+   * vh positions the focal point relative to the phone viewport rather than the
+   * total document height, so a long Inventory page cannot drag the glow down.
+   */
+  body {
+    background: linear-gradient(180deg, #202a31 0%, #182229 46%, #11191e 100%);
+    background-attachment: scroll;
+    background-repeat: no-repeat;
+  }
+
+  .calibre-os::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse 92vw 34vh at 50% 18vh, rgba(35, 111, 137, .50) 0%, rgba(18, 78, 102, .26) 32%, rgba(18, 78, 102, .08) 58%, transparent 78%),
+      radial-gradient(ellipse 72vw 52vh at 88% 68vh, rgba(27, 86, 107, .10) 0%, transparent 72%);
+  }
+}
