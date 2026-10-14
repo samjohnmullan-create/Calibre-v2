@@ -57,17 +57,43 @@ export default function BenchModeHost() {
 
   useEffect(() => {
     let cancelled = false
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (cancelled || error) return
+      setUserId(data.user?.id ?? '')
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user.id ?? '')
+      if (!session) {
+        setWorkspaceId('')
+        setCandidates([])
+        setActiveSession(null)
+        setSelectedWorkId('')
+        setChooserOpen(false)
+      }
+    })
+    return () => {
+      cancelled = true
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!userId) {
+      setWorkspaceId('')
+      return
+    }
+    let cancelled = false
     ;(async () => {
-      const [workspaceResult, userResult] = await Promise.all([
-        supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle(),
-        supabase.auth.getUser(),
-      ])
+      const result = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
       if (cancelled) return
-      if (!workspaceResult.error && workspaceResult.data) setWorkspaceId(workspaceResult.data.id)
-      if (!userResult.error && userResult.data.user) setUserId(userResult.data.user.id)
+      if (result.error || !result.data) {
+        setWorkspaceId('')
+        return
+      }
+      setWorkspaceId(result.data.id)
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [userId])
 
   async function loadHost() {
     if (!workspaceId || !userId) return
