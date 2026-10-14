@@ -58,7 +58,7 @@ Do not assume plan-specific retention or PITR capability. Verify the actual proj
 
 ### Layer C — Calibre portable structured export
 
-Calibre now exposes:
+Calibre exposes:
 
 **Settings → Data & Recovery → Export structured backup**
 
@@ -79,21 +79,42 @@ It is **not** a substitute for the server-side database backup.
 
 ### Layer D — Private Storage archive
 
-Not implemented yet.
+Calibre now exposes:
 
-Required scope includes the binary objects referenced by Calibre, including:
+**Settings → Data & Recovery → Export Storage archive**
 
-- Item photographs,
-- movement/case/detail photographs,
-- invoice scans,
-- PDFs and supporting documents,
-- other private media stored in Supabase Storage.
+Archive format version: `1.0`
 
-The structured export currently records the metadata/path manifest but does **not** embed the binary Storage files.
+The archive is a standard TAR file. It:
 
-Before release-gate acceptance, design and test a Storage archive process that can reproduce the expected bucket/path structure.
+- reads referenced private Storage paths from workspace `media_assets` and acquisition invoices,
+- includes primary media, thumbnails where present and invoice/document binaries,
+- downloads each object through the signed-in user's Storage permissions,
+- preserves the `calibre-media/<storage_path>` structure inside the archive,
+- verifies recorded byte size when one is available,
+- calculates a SHA-256 checksum for every downloaded binary,
+- embeds `calibre-storage-manifest.json` containing file paths, sizes, provenance and checksums.
 
-### Layer E — Recovery drill
+The current implementation deliberately downloads files sequentially rather than opening many Storage requests at once. This is friendlier to phone/DeX use and avoids a large burst of private-file requests. The final TAR is still assembled in the browser, so very large future archives may eventually justify an S3/rclone or server-side archival path.
+
+**Important:** implementation is not the same as recovery acceptance. The Storage archive must still be exercised against the live workspace and restored into a disposable target before this layer is considered proven.
+
+### Layer E — Database-level audit trail
+
+Critical Item, Work and financial mutations are now recorded automatically in `audit_events` by database triggers for:
+
+- Items,
+- Work records,
+- Item cost entries,
+- valuations,
+- sales,
+- Business Ledger entries.
+
+The trigger function lives in a non-exposed `private` schema and records inserts, updates and deletes with old/new payloads, actor information where available, source and timestamp. Settings exposes a paginated Audit Trail reader for these events.
+
+Audit events are included in the structured portable export and therefore form part of restore reconciliation.
+
+### Layer F — Recovery drill
 
 A restore procedure is not considered complete until it has been run against a disposable non-production environment.
 
@@ -152,7 +173,7 @@ Before the drill:
 1. create a portable structured export,
 2. record its file name and SHA-256 checksum,
 3. obtain/verify the server-side database backup point,
-4. create the Storage archive once that feature exists,
+4. create the private Storage TAR archive and retain its embedded manifest,
 5. record the Git commit used by the application at the same point in time.
 
 ### Step 2 — Create a disposable environment
@@ -188,7 +209,9 @@ The eventual restore importer should be transaction-aware, idempotent where poss
 
 ### Step 5 — Restore Storage files
 
-Restore private files to the same bucket/path layout referenced by the restored `media_assets` and acquisition document records.
+Extract the Storage TAR and restore files to the same `calibre-media` bucket/path layout referenced by the restored `media_assets` and acquisition document records.
+
+Use `calibre-storage-manifest.json` to verify file count, byte size and SHA-256 checksums before and after transfer.
 
 ### Step 6 — Reconcile
 
@@ -196,12 +219,14 @@ Compare:
 
 - table row counts against the export manifest,
 - structured payload checksum where applicable,
+- Storage archive file count and per-file checksums,
 - Item counts,
 - Work counts/statuses,
 - invoice totals,
 - Item invested values,
 - sales totals,
 - Business Ledger totals,
+- audit-event availability,
 - media/document link availability.
 
 ### Step 7 — Functional acceptance
@@ -218,7 +243,9 @@ In the restored environment, verify at minimum:
 - invoice record/document link works,
 - Item Sale economics reconcile,
 - Business figures reconcile,
-- Settings export can run again.
+- Audit Trail loads,
+- Settings structured export can run again,
+- Settings Storage archive can run again.
 
 ### Step 8 — Record the drill
 
@@ -241,12 +268,12 @@ Record:
 The v2 main-domain cutover should not be accepted until:
 
 - [x] structured portable export exists,
-- [ ] Storage binary archive exists,
+- [🟡] Storage binary archive exists in-app but has not yet passed a restore drill,
 - [ ] actual Supabase backup configuration/retention is verified,
 - [ ] clean migration rebuild is verified,
 - [ ] disposable restore drill passes,
 - [ ] restored financial totals reconcile,
-- [ ] restored media/document links are verified,
+- [ ] restored media/document links and file checksums are verified,
 - [ ] rollback procedure for the old app is documented and retained.
 
 This gate intentionally sits before the main URL switch and does not require later Business Brain, Club, printing or automation features to be complete.
@@ -256,9 +283,10 @@ This gate intentionally sits before the main URL switch and does not require lat
 ## 6. Rules
 
 1. **Never overwrite production as part of a recovery test.**
-2. **Never call an export a full backup while Storage binaries are missing.**
+2. **Never call the structured JSON export a full backup on its own.** It does not contain binary Storage objects.
 3. **Never rely on one recovery layer.**
 4. **Never assume a migration exists just because a change exists in the live database.**
 5. **Never silently resolve restore conflicts.** Surface them for review.
 6. **Financial reconciliation is a release requirement, not a nice-to-have.**
-7. Keep the old production app available as a rollback path until the v2 release gate is formally accepted.
+7. **A generated archive is not proven until its files and checksums have been restored and verified.**
+8. Keep the old production app available as a rollback path until the v2 release gate is formally accepted.
