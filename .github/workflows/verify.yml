@@ -27,6 +27,9 @@ jobs:
       - name: Check migration integrity
         run: node scripts/check-migration-integrity.mjs
 
+      - name: Check critical business contracts
+        run: node scripts/check-critical-contracts.mjs
+
       - name: Build
         env:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
