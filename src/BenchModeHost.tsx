@@ -81,7 +81,8 @@ export default function BenchModeHost() {
         .from('workbench_jobs')
         .select('id,item_id,work_number,title,status,priority,next_action,item_number,item_title')
         .eq('workspace_id', workspaceId)
-        .in('status', ['queued', 'ready', 'on_bench', 'qc'])
+        .neq('status', 'complete')
+        .neq('status', 'cancelled')
         .order('priority', { ascending: false })
         .order('work_number', { ascending: false })
         .limit(30),
@@ -140,11 +141,7 @@ export default function BenchModeHost() {
   if (!shouldShowLauncher || !workspaceId) return null
 
   function openLauncher() {
-    if (activeSession) {
-      setSelectedWorkId(activeSession.work_id)
-      setChooserOpen(true)
-      return
-    }
+    if (activeSession) setSelectedWorkId(activeSession.work_id)
     setChooserOpen(true)
   }
 
@@ -168,7 +165,7 @@ export default function BenchModeHost() {
             {!selectedWork ? (
               <div className="bench-mode-chooser">
                 <div><h2>What are you working on?</h2><p className="muted">Starting a session will move that Work record to On bench and begin recording actual bench time.</p></div>
-                {loading ? <div className="loading-card">Loading Work…</div> : candidates.length === 0 ? <div className="loading-card">No queued, ready, on-bench or QC Work is available.</div> : (
+                {loading ? <div className="loading-card">Loading Work…</div> : candidates.length === 0 ? <div className="loading-card">No active Work is available for a bench session.</div> : (
                   <div className="bench-mode-chooser-list">
                     {candidates.map((record) => (
                       <button type="button" key={record.id} onClick={() => setSelectedWorkId(record.id)}>
