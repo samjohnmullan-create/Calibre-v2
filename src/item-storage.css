@@ -1,0 +1,98 @@
+.item-storage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item-storage-card-heading,
+.item-storage-history .item-v2-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.item-storage-card h3 {
+  margin: 0.25rem 0 0;
+  line-height: 1.35;
+}
+
+.item-storage-state,
+.item-storage-current {
+  flex: 0 0 auto;
+  border: 1px solid var(--line, rgba(255,255,255,0.12));
+  border-radius: 999px;
+  padding: 0.32rem 0.58rem;
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.item-storage-state.assigned {
+  opacity: 0.85;
+}
+
+.item-storage-state.unassigned {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.item-storage-move {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.item-storage-move label {
+  display: grid;
+  gap: 0.32rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.item-storage-move select,
+.item-storage-move input {
+  min-width: 0;
+  width: 100%;
+}
+
+.item-storage-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.item-storage-history {
+  display: grid;
+  gap: 1rem;
+}
+
+.item-storage-current {
+  max-width: min(42rem, 58vw);
+  white-space: normal;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.item-storage-timeline strong {
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .item-storage-card-heading,
+  .item-storage-history .item-v2-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .item-storage-current {
+    max-width: none;
+    text-align: left;
+    align-self: flex-start;
+  }
+
+  .item-storage-actions > button {
+    flex: 1 1 auto;
+  }
+}
