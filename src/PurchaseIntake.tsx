@@ -30,6 +30,8 @@ type PurchaseLot = {
   category: string
   quantity_expected: number
   quantity_received: number
+  quantity_closed_short: number
+  receiving_note: string
   amount: number | null
   currency: string
   amount_aud: number | null
@@ -58,6 +60,20 @@ type StockLink = {
   allocated_shared_cost_aud: number | null
 }
 
+type ReceivingException = {
+  id: string
+  purchase_id: string
+  purchase_lot_id: string
+  exception_type: 'missing' | 'damaged' | 'wrong_item' | 'extra' | 'other'
+  quantity: number
+  status: 'open' | 'resolved' | 'waived'
+  note: string
+  resolution_note: string
+  closes_shortfall: boolean
+  created_at: string
+  resolved_at: string | null
+}
+
 type StorageLocation = {
   id: string
   name: string
@@ -66,8 +82,12 @@ type StorageLocation = {
 }
 
 const statusLabels: Record<string, string> = {
-  suggested: 'Suggested', ordered: 'Ordered', shipped: 'In transit', delivered: 'Delivered', received: 'Received',
-  discrepancy: 'Discrepancy', cancelled: 'Cancelled', returned: 'Returned',
+  suggested: 'Suggested', ordered: 'Ordered', shipped: 'In transit', delivered: 'Delivered',
+  partially_received: 'Partially received', received: 'Received', discrepancy: 'Discrepancy', cancelled: 'Cancelled', returned: 'Returned',
+}
+
+const exceptionLabels: Record<string, string> = {
+  missing: 'Missing', damaged: 'Damaged', wrong_item: 'Wrong item', extra: 'Extra item', other: 'Other',
 }
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
@@ -91,6 +111,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   const [lots, setLots] = useState<PurchaseLot[]>([])
   const [links, setLinks] = useState<PurchaseLink[]>([])
   const [stockLinks, setStockLinks] = useState<StockLink[]>([])
+  const [exceptions, setExceptions] = useState<ReceivingException[]>([])
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -99,6 +120,13 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
 
   const selected = purchases.find((purchase) => purchase.id === selectedId) ?? null
   const selectedLinks = useMemo(() => links.filter((link) => lots.some((lot) => lot.id === link.purchase_lot_id)), [links, lots])
+  const receivingSummary = useMemo(() => {
+    const expected = lots.reduce((sum, lot) => sum + Number(lot.quantity_expected || 0), 0)
+    const received = lots.reduce((sum, lot) => sum + Number(lot.quantity_received || 0), 0)
+    const closedShort = lots.reduce((sum, lot) => sum + Number(lot.quantity_closed_short || 0), 0)
+    const openExceptions = exceptions.filter((entry) => entry.status === 'open').length
+    return { expected, received, closedShort, openExceptions, remaining: Math.max(0, expected - received - closedShort) }
+  }, [lots, exceptions])
 
   async function loadPurchases(selectId?: string) {
     setLoading(true)
@@ -129,10 +157,10 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   }
 
   async function loadPurchaseDetail(purchaseId: string) {
-    if (!purchaseId) { setLots([]); setLinks([]); setStockLinks([]); return }
-    const [lotResult, linkResult, stockResult] = await Promise.all([
+    if (!purchaseId) { setLots([]); setLinks([]); setStockLinks([]); setExceptions([]); return }
+    const [lotResult, linkResult, stockResult, exceptionResult] = await Promise.all([
       supabase.from('purchase_lots')
-        .select('id,purchase_id,lot_number,title,description,category,quantity_expected,quantity_received,amount,currency,amount_aud,shared_cost_override_aud,notes')
+        .select('id,purchase_id,lot_number,title,description,category,quantity_expected,quantity_received,quantity_closed_short,receiving_note,amount,currency,amount_aud,shared_cost_override_aud,notes')
         .eq('workspace_id', workspaceId).eq('purchase_id', purchaseId).order('created_at', { ascending: true }),
       supabase.from('purchase_item_links')
         .select('id,purchase_lot_id,item_id,allocated_purchase_cost_aud,allocated_shared_cost_aud,items(item_number,title)')
@@ -140,13 +168,18 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
       supabase.from('purchase_stock_links')
         .select('id,purchase_lot_id,resource_type,part_id,tool_id,consumable_id,quantity_received,allocated_purchase_cost_aud,allocated_shared_cost_aud')
         .eq('workspace_id', workspaceId).eq('purchase_id', purchaseId).order('created_at', { ascending: true }),
+      supabase.from('purchase_receiving_exceptions')
+        .select('id,purchase_id,purchase_lot_id,exception_type,quantity,status,note,resolution_note,closes_shortfall,created_at,resolved_at')
+        .eq('workspace_id', workspaceId).eq('purchase_id', purchaseId).order('created_at', { ascending: false }),
     ])
     if (lotResult.error) { setMessage(`Purchase lots failed to load: ${lotResult.error.message}`); return }
     if (linkResult.error) { setMessage(`Purchase links failed to load: ${linkResult.error.message}`); return }
     if (stockResult.error) { setMessage(`Workshop stock links failed to load: ${stockResult.error.message}`); return }
+    if (exceptionResult.error) { setMessage(`Receiving exceptions failed to load: ${exceptionResult.error.message}`); return }
     setLots((lotResult.data ?? []) as PurchaseLot[])
     setLinks((linkResult.data ?? []) as unknown as PurchaseLink[])
     setStockLinks((stockResult.data ?? []) as StockLink[])
+    setExceptions((exceptionResult.data ?? []) as ReceivingException[])
   }
 
   useEffect(() => {
@@ -219,14 +252,11 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     await loadPurchaseDetail(selected.id)
   }
 
-  async function updateStatus(status: string, discrepancyNote = '') {
+  async function updateStatus(status: string) {
     if (!selected) return
-    const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
-    if (status === 'received' || status === 'discrepancy') patch.received_at = new Date().toISOString()
-    if (status === 'discrepancy') patch.discrepancy_note = discrepancyNote.trim()
-    const { error } = await supabase.from('purchases').update(patch).eq('workspace_id', workspaceId).eq('id', selected.id)
+    const { error } = await supabase.from('purchases').update({ status, updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('id', selected.id)
     if (error) { setMessage(`Purchase status could not be updated: ${error.message}`); return }
-    setMessage(status === 'discrepancy' ? 'Purchase marked with a receiving discrepancy.' : `Purchase moved to ${statusLabels[status] || status}.`)
+    setMessage(`Purchase moved to ${statusLabels[status] || status}. Receiving statuses update automatically once stock starts arriving.`)
     await loadPurchases(selected.id)
   }
 
@@ -281,6 +311,48 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     await loadPurchases(lot.purchase_id)
   }
 
+  async function recordException(lot: PurchaseLot, form: HTMLFormElement) {
+    const data = new FormData(form)
+    const note = String(data.get('exception_note') || '').trim()
+    const quantity = Math.max(1, Number(data.get('exception_quantity')) || 1)
+    if (!note) { setMessage('Add a short note describing the receiving problem.'); return }
+    setSaving(true)
+    const { error } = await supabase.rpc('record_purchase_receiving_exception', {
+      p_workspace_id: workspaceId,
+      p_purchase_lot_id: lot.id,
+      p_exception_type: String(data.get('exception_type') || 'missing'),
+      p_quantity: quantity,
+      p_note: note,
+    })
+    setSaving(false)
+    if (error) { setMessage(`Receiving exception could not be recorded: ${error.message}`); return }
+    form.reset()
+    setMessage('Receiving exception recorded. The Purchase is now held in Discrepancy until the issue is resolved or waived.')
+    await loadPurchaseDetail(lot.purchase_id)
+    await loadPurchases(lot.purchase_id)
+  }
+
+  async function resolveException(entry: ReceivingException, closeShortfall: boolean, waive = false) {
+    const promptText = closeShortfall
+      ? 'Resolution note — for example refund received, seller cancelled missing item, or short shipment accepted:'
+      : waive ? 'Why are you waiving this exception?' : 'How was this receiving issue resolved?'
+    const resolution = window.prompt(promptText, entry.resolution_note || '')
+    if (resolution == null || !resolution.trim()) return
+    setSaving(true)
+    const { error } = await supabase.rpc('resolve_purchase_receiving_exception', {
+      p_workspace_id: workspaceId,
+      p_exception_id: entry.id,
+      p_resolution_note: resolution.trim(),
+      p_close_shortfall: closeShortfall,
+      p_waive: waive,
+    })
+    setSaving(false)
+    if (error) { setMessage(`Receiving exception could not be closed: ${error.message}`); return }
+    setMessage(closeShortfall ? 'Exception resolved and the accepted shortfall was closed.' : waive ? 'Exception waived.' : 'Receiving exception resolved.')
+    await loadPurchaseDetail(entry.purchase_id)
+    await loadPurchases(entry.purchase_id)
+  }
+
   return (
     <section className="purchase-intake">
       <div className="purchase-intake-toolbar">
@@ -302,7 +374,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
             <label>Order / invoice ref<input name="external_order_id" /></label>
             <label>Ordered date<input name="ordered_at" type="date" defaultValue={today()} /></label>
             <label>Purchase description<input name="description" required placeholder="Watch bundle, single watch, parts lot…" /></label>
-            <label>Status<select name="status" defaultValue="ordered"><option value="ordered">Ordered</option><option value="shipped">In transit</option><option value="delivered">Delivered</option><option value="received">Received</option></select></label>
+            <label>Status<select name="status" defaultValue="ordered"><option value="ordered">Ordered</option><option value="shipped">In transit</option><option value="delivered">Delivered</option></select></label>
             <label>Amount<input name="amount" type="number" step="0.01" min="0" /></label>
             <label>Currency<input name="currency" defaultValue="AUD" maxLength={3} /></label>
             <label>AUD equivalent<input name="amount_aud" type="number" step="0.01" min="0" /></label>
@@ -335,15 +407,20 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                   <div><p className="eyebrow">{statusLabels[selected.status] || selected.status}</p><h3>{selected.vendor_name || selected.description}</h3><p className="muted">{selected.external_order_id || 'No order/reference'} · {selected.channel || 'Channel not recorded'}</p></div>
                   <strong>{money(selected.amount_aud ?? selected.amount, selected.amount_aud != null ? 'AUD' : selected.currency)}</strong>
                 </div>
+                <div className="purchase-receiving-summary" aria-label="Receiving progress">
+                  <span><strong>{receivingSummary.received}</strong><small>received</small></span>
+                  <span><strong>{receivingSummary.remaining}</strong><small>remaining</small></span>
+                  <span><strong>{receivingSummary.closedShort}</strong><small>closed short</small></span>
+                  <span className={receivingSummary.openExceptions > 0 ? 'has-exception' : ''}><strong>{receivingSummary.openExceptions}</strong><small>open issues</small></span>
+                </div>
                 <div className="purchase-status-actions">
                   <button type="button" onClick={() => void updateStatus('ordered')}>Ordered</button>
                   <button type="button" onClick={() => void updateStatus('shipped')}>In transit</button>
                   <button type="button" onClick={() => void updateStatus('delivered')}>Delivered</button>
-                  <button type="button" onClick={() => void updateStatus('received')}>Received</button>
-                  <button type="button" onClick={() => { const note = window.prompt('What was wrong with the delivery?', selected.discrepancy_note || '') ?? ''; if (note.trim()) void updateStatus('discrepancy', note) }}>Discrepancy</button>
+                  <span className="purchase-status-auto">Partial, discrepancy and received states are automatic.</span>
                 </div>
                 {selected.tracking_number && <p><strong>Tracking:</strong> {selected.tracking_number}</p>}
-                {selected.discrepancy_note && <p className="purchase-discrepancy"><strong>Discrepancy:</strong> {selected.discrepancy_note}</p>}
+                {selected.discrepancy_note && <p className="purchase-discrepancy"><strong>Legacy discrepancy note:</strong> {selected.discrepancy_note}</p>}
               </section>
 
               <section className="panel">
@@ -370,14 +447,15 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                 {lots.map((lot) => {
                   const lotLinks = selectedLinks.filter((link) => link.purchase_lot_id === lot.id)
                   const lotStockLinks = stockLinks.filter((link) => link.purchase_lot_id === lot.id)
-                  const linkedQuantity = lot.category === 'item'
-                    ? lotLinks.length
-                    : lotStockLinks.reduce((sum, link) => sum + Number(link.quantity_received || 0), 0)
-                  const remaining = Math.max(0, lot.quantity_expected - linkedQuantity)
+                  const lotExceptions = exceptions.filter((entry) => entry.purchase_lot_id === lot.id)
+                  const receivedQuantity = Number(lot.quantity_received || 0)
+                  const closedShort = Number(lot.quantity_closed_short || 0)
+                  const remaining = Math.max(0, Number(lot.quantity_expected || 0) - receivedQuantity - closedShort)
+                  const openExceptions = lotExceptions.filter((entry) => entry.status === 'open')
                   return (
                     <article key={lot.id} className="panel purchase-lot-card">
                       <div className="purchase-lot-head">
-                        <div><p className="eyebrow">{lot.lot_number ? `LOT ${lot.lot_number}` : lot.category.toUpperCase()}</p><h3>{lot.title}</h3><p className="muted">Expected {lot.quantity_expected} · received {linkedQuantity} · remaining {remaining}</p></div>
+                        <div><p className="eyebrow">{lot.lot_number ? `LOT ${lot.lot_number}` : lot.category.toUpperCase()}</p><h3>{lot.title}</h3><p className="muted">Expected {lot.quantity_expected} · received {receivedQuantity}{closedShort > 0 ? ` · closed short ${closedShort}` : ''} · remaining {remaining}</p></div>
                         <div><strong>{money(lot.amount_aud ?? lot.amount, lot.amount_aud != null ? 'AUD' : lot.currency)}</strong>{lot.shared_cost_override_aud != null && <small>+ {money(lot.shared_cost_override_aud)} shared</small>}</div>
                       </div>
                       {lot.description && <p>{lot.description}</p>}
@@ -398,7 +476,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                         <form className="purchase-stock-receive" onSubmit={(event) => { event.preventDefault(); void receiveWorkshopStock(lot, event.currentTarget) }}>
                           <div className="purchase-stock-grid">
                             <label>Name<input name="stock_name" defaultValue={lot.title} /></label>
-                            <label>Receive qty<input name="stock_quantity" type="number" min="0.01" step="0.01" defaultValue={remaining} /></label>
+                            <label>Receive qty<input name="stock_quantity" type="number" min="0.01" step="0.01" max={remaining} defaultValue={remaining} /></label>
                             <label>Storage<select name="storage_location_id" defaultValue=""><option value="">Unassigned</option>{storageLocations.map((location) => <option key={location.id} value={location.id}>{locationLabel(location)}</option>)}</select></label>
                             <label>{lot.category === 'part' ? 'Part type' : 'Category'}<input name="stock_category" placeholder={lot.category === 'part' ? 'e.g. balance staff' : 'e.g. hand tools'} /></label>
                             <label>Manufacturer<input name="manufacturer" /></label>
@@ -412,7 +490,39 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                       )}
 
                       {lot.category === 'other' && <p className="muted">This lot is intentionally left unclassified. Change it to Item, Part, Tool or Consumable before receiving it into managed stock.</p>}
-                      {remaining === 0 && <p className="purchase-complete-note">Lot fully received.</p>}
+                      {remaining === 0 && openExceptions.length === 0 && <p className="purchase-complete-note">Lot receiving complete.</p>}
+
+                      <section className="purchase-exceptions">
+                        <div className="purchase-exception-head">
+                          <div><strong>Receiving exceptions</strong><small>{openExceptions.length > 0 ? `${openExceptions.length} open` : 'No open issues'}</small></div>
+                        </div>
+                        {lotExceptions.length > 0 && (
+                          <div className="purchase-exception-list">
+                            {lotExceptions.map((entry) => (
+                              <div key={entry.id} className={`purchase-exception-row ${entry.status}`}>
+                                <div>
+                                  <strong>{exceptionLabels[entry.exception_type] || entry.exception_type} · qty {entry.quantity}</strong>
+                                  <span>{entry.note}</span>
+                                  {entry.resolution_note && <small>{entry.status}: {entry.resolution_note}{entry.closes_shortfall ? ' · shortfall closed' : ''}</small>}
+                                </div>
+                                {entry.status === 'open' && (
+                                  <div className="purchase-exception-actions">
+                                    <button type="button" onClick={() => void resolveException(entry, false)}>Resolved</button>
+                                    {['missing', 'wrong_item', 'other'].includes(entry.exception_type) && <button type="button" onClick={() => void resolveException(entry, true)}>Resolve & close shortfall</button>}
+                                    <button type="button" onClick={() => void resolveException(entry, false, true)}>Waive</button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <form className="purchase-exception-form" onSubmit={(event) => { event.preventDefault(); void recordException(lot, event.currentTarget) }}>
+                          <label>Problem<select name="exception_type" defaultValue="missing"><option value="missing">Missing</option><option value="damaged">Damaged</option><option value="wrong_item">Wrong item</option><option value="extra">Extra item</option><option value="other">Other</option></select></label>
+                          <label>Qty<input name="exception_quantity" type="number" min="1" step="1" defaultValue="1" /></label>
+                          <label className="exception-note">What happened?<input name="exception_note" placeholder="e.g. lot contained 2 watches, only 1 arrived" /></label>
+                          <button type="submit" disabled={saving}>Record issue</button>
+                        </form>
+                      </section>
                     </article>
                   )
                 })}
