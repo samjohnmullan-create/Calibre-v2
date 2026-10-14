@@ -252,6 +252,20 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     await loadPurchaseDetail(selected.id)
   }
 
+  async function classifyLot(lot: PurchaseLot, category: 'item' | 'part' | 'tool' | 'consumable') {
+    setSaving(true)
+    const { error } = await supabase.rpc('classify_purchase_lot', {
+      p_workspace_id: workspaceId,
+      p_purchase_lot_id: lot.id,
+      p_category: category,
+    })
+    setSaving(false)
+    if (error) { setMessage(`Lot could not be classified: ${error.message}`); return }
+    setMessage(`Lot classified as ${category}. It is ready for receiving.`)
+    await loadPurchaseDetail(lot.purchase_id)
+    await loadPurchases(lot.purchase_id)
+  }
+
   async function updateStatus(status: string) {
     if (!selected) return
     const { error } = await supabase.from('purchases').update({ status, updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('id', selected.id)
@@ -489,7 +503,17 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                         </form>
                       )}
 
-                      {lot.category === 'other' && <p className="muted">This lot is intentionally left unclassified. Change it to Item, Part, Tool or Consumable before receiving it into managed stock.</p>}
+                      {lot.category === 'other' && remaining > 0 && (
+                        <div className="purchase-classify-lot">
+                          <div><strong>Classify before receiving</strong><span>This invoice line was preserved in the Purchase even though it was not auto-imported to Inventory.</span></div>
+                          <div className="purchase-classify-actions">
+                            <button type="button" disabled={saving} onClick={() => void classifyLot(lot, 'item')}>Item</button>
+                            <button type="button" disabled={saving} onClick={() => void classifyLot(lot, 'part')}>Part</button>
+                            <button type="button" disabled={saving} onClick={() => void classifyLot(lot, 'tool')}>Tool</button>
+                            <button type="button" disabled={saving} onClick={() => void classifyLot(lot, 'consumable')}>Consumable</button>
+                          </div>
+                        </div>
+                      )}
                       {remaining === 0 && openExceptions.length === 0 && <p className="purchase-complete-note">Lot receiving complete.</p>}
 
                       <section className="purchase-exceptions">
