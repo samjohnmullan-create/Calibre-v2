@@ -76,10 +76,14 @@ type ReceivingException = {
 
 type StorageLocation = {
   id: string
+  parent_id: string | null
   name: string
   code: string | null
   location_type: string
+  sort_order: number
 }
+
+type ReceivedItem = { id: string; item_number: number; title: string; storage_location_id?: string | null }
 
 const statusLabels: Record<string, string> = {
   suggested: 'Suggested', ordered: 'Ordered', shipped: 'In transit', delivered: 'Delivered',
@@ -101,10 +105,6 @@ function money(value: number | null | undefined, currency = 'AUD') {
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-function locationLabel(location: StorageLocation) {
-  return `${location.code ? `${location.code} · ` : ''}${location.name}`
-}
-
 export default function PurchaseIntake({ workspaceId }: { workspaceId: string }) {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -117,9 +117,34 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [showNew, setShowNew] = useState(false)
+  const [lastReceivedItem, setLastReceivedItem] = useState<ReceivedItem | null>(null)
 
   const selected = purchases.find((purchase) => purchase.id === selectedId) ?? null
   const selectedLinks = useMemo(() => links.filter((link) => lots.some((lot) => lot.id === link.purchase_lot_id)), [links, lots])
+
+  const storagePathById = useMemo(() => {
+    const byId = new Map(storageLocations.map((location) => [location.id, location]))
+    const cache = new Map<string, string>()
+    const build = (id: string, seen = new Set<string>()): string => {
+      if (cache.has(id)) return cache.get(id) || ''
+      if (seen.has(id)) return 'Invalid hierarchy'
+      const location = byId.get(id)
+      if (!location) return 'Unknown location'
+      seen.add(id)
+      const own = location.code ? `${location.code} · ${location.name}` : location.name
+      const path = location.parent_id ? `${build(location.parent_id, seen)} / ${own}` : own
+      cache.set(id, path)
+      return path
+    }
+    for (const location of storageLocations) build(location.id)
+    return cache
+  }, [storageLocations])
+
+  const sortedStorageLocations = useMemo(
+    () => [...storageLocations].sort((a, b) => (storagePathById.get(a.id) || a.name).localeCompare(storagePathById.get(b.id) || b.name)),
+    [storageLocations, storagePathById],
+  )
+
   const receivingSummary = useMemo(() => {
     const expected = lots.reduce((sum, lot) => sum + Number(lot.quantity_expected || 0), 0)
     const received = lots.reduce((sum, lot) => sum + Number(lot.quantity_received || 0), 0)
@@ -147,11 +172,11 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   async function loadStorageLocations() {
     const { data, error } = await supabase
       .from('storage_locations')
-      .select('id,name,code,location_type')
+      .select('id,parent_id,name,code,location_type,sort_order')
       .eq('workspace_id', workspaceId)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true })
-      .limit(250)
+      .limit(500)
     if (error) { setMessage(`Storage locations failed to load: ${error.message}`); return }
     setStorageLocations((data ?? []) as StorageLocation[])
   }
@@ -174,7 +199,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     ])
     if (lotResult.error) { setMessage(`Purchase lots failed to load: ${lotResult.error.message}`); return }
     if (linkResult.error) { setMessage(`Purchase links failed to load: ${linkResult.error.message}`); return }
-    if (stockResult.error) { setMessage(`Workshop stock links failed to load: ${stockResult.error.message}`); return }
+    if (stockResult.error) { setMessage(`Stock links failed to load: ${stockResult.error.message}`); return }
     if (exceptionResult.error) { setMessage(`Receiving exceptions failed to load: ${exceptionResult.error.message}`); return }
     setLots((lotResult.data ?? []) as PurchaseLot[])
     setLinks((linkResult.data ?? []) as unknown as PurchaseLink[])
@@ -187,7 +212,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     void loadPurchases()
     void loadStorageLocations()
   }, [workspaceId])
-  useEffect(() => { if (selectedId) void loadPurchaseDetail(selectedId) }, [selectedId])
+  useEffect(() => { if (selectedId) { setLastReceivedItem(null); void loadPurchaseDetail(selectedId) } }, [selectedId])
 
   async function createPurchase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -279,22 +304,26 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     const title = String(data.get('item_title') || lot.title).trim()
     const type = String(data.get('item_type') || 'watch')
     const purpose = String(data.get('item_purpose') || 'resale')
+    const storageLocationId = String(data.get('storage_location_id') || '')
     setSaving(true)
-    const { data: created, error } = await supabase.rpc('materialize_purchase_lot_item', {
+    const { data: created, error } = await supabase.rpc('materialize_purchase_lot_item_received', {
       p_workspace_id: workspaceId,
       p_purchase_lot_id: lot.id,
       p_title: title,
       p_type: type,
       p_purpose: purpose,
       p_notes: String(data.get('item_notes') || '').trim(),
+      p_storage_location_id: storageLocationId || null,
     })
     setSaving(false)
-    if (error) { setMessage(`Physical Item could not be created: ${error.message}`); return }
-    const item = Array.isArray(created) ? created[0] : created
-    setMessage(`Physical Item created from ${lot.lot_number ? `lot ${lot.lot_number}` : lot.title}. Purchase cost allocation followed it into Item economics.`)
+    if (error) { setMessage(`Physical Item could not be received: ${error.message}`); return }
+    const item = (Array.isArray(created) ? created[0] : created) as ReceivedItem | null
+    if (item?.id) setLastReceivedItem(item)
+    const destination = storageLocationId ? storagePathById.get(storageLocationId) || 'selected storage location' : 'Needs put-away'
+    setMessage(`Item received from ${lot.lot_number ? `lot ${lot.lot_number}` : lot.title} and kept in this Purchase. Location: ${destination}.`)
+    form.reset()
     await loadPurchaseDetail(lot.purchase_id)
     await loadPurchases(lot.purchase_id)
-    if (item?.id) window.location.hash = `#/items/${encodeURIComponent(item.id)}`
   }
 
   async function receiveWorkshopStock(lot: PurchaseLot, form: HTMLFormElement) {
@@ -319,7 +348,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     if (error) { setMessage(`${lot.category} could not be received: ${error.message}`); return }
     const received = result as { resource_type?: string; total_allocated_aud?: number } | null
     const costText = received?.total_allocated_aud ? ` · ${money(received.total_allocated_aud)} allocated` : ''
-    setMessage(`${lot.category[0].toUpperCase()}${lot.category.slice(1)} received into workshop inventory${costText}.`)
+    setMessage(`${lot.category[0].toUpperCase()}${lot.category.slice(1)} received into physical inventory${costText}.`)
     form.reset()
     await loadPurchaseDetail(lot.purchase_id)
     await loadPurchases(lot.purchase_id)
@@ -379,6 +408,12 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
       </div>
 
       {message && <p className="intake-message">{message}</p>}
+      {lastReceivedItem && (
+        <div className="purchase-received-item-action">
+          <span><strong>Item #{lastReceivedItem.item_number} received</strong><small>{lastReceivedItem.title}</small></span>
+          <button type="button" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(lastReceivedItem.id)}` }}>Open Item</button>
+        </div>
+      )}
 
       {showNew && (
         <form className="purchase-form panel" onSubmit={createPurchase}>
@@ -481,8 +516,9 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                           <label>Item title<input name="item_title" defaultValue={lot.title} /></label>
                           <label>Type<select name="item_type" defaultValue="watch">{itemTypes.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
                           <label>Purpose<select name="item_purpose" defaultValue="resale">{purposes.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-                          <label>Receiving note<input name="item_notes" placeholder="Condition on arrival, quick observation…" /></label>
-                          <button type="submit" className="primary" disabled={saving}>Create physical Item ({remaining} remaining)</button>
+                          <label>Physical location<select name="storage_location_id" defaultValue=""><option value="">Needs put-away</option>{sortedStorageLocations.map((location) => <option key={location.id} value={location.id}>{storagePathById.get(location.id) || location.name}</option>)}</select></label>
+                          <label className="purchase-materialize-note">Receiving note<input name="item_notes" placeholder="Condition on arrival, quick observation…" /></label>
+                          <button type="submit" className="primary" disabled={saving}>{saving ? 'Receiving…' : `Receive Item (${remaining} remaining)`}</button>
                         </form>
                       )}
 
@@ -491,7 +527,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                           <div className="purchase-stock-grid">
                             <label>Name<input name="stock_name" defaultValue={lot.title} /></label>
                             <label>Receive qty<input name="stock_quantity" type="number" min="0.01" step="0.01" max={remaining} defaultValue={remaining} /></label>
-                            <label>Storage<select name="storage_location_id" defaultValue=""><option value="">Unassigned</option>{storageLocations.map((location) => <option key={location.id} value={location.id}>{locationLabel(location)}</option>)}</select></label>
+                            <label>Storage<select name="storage_location_id" defaultValue=""><option value="">Needs put-away</option>{sortedStorageLocations.map((location) => <option key={location.id} value={location.id}>{storagePathById.get(location.id) || location.name}</option>)}</select></label>
                             <label>{lot.category === 'part' ? 'Part type' : 'Category'}<input name="stock_category" placeholder={lot.category === 'part' ? 'e.g. balance staff' : 'e.g. hand tools'} /></label>
                             <label>Manufacturer<input name="manufacturer" /></label>
                             <label>{lot.category === 'tool' ? 'Model' : 'Reference'}<input name="reference" /></label>
