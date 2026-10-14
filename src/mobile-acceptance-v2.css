@@ -1,0 +1,355 @@
+/*
+ * Phone acceptance fixes captured from the Galaxy screenshots.
+ *
+ * This layer is intentionally narrow: it fixes the live mobile shell and the
+ * specific route surfaces that were still colliding or over-scaling after the
+ * shared Calibre Classic foundation landed.
+ */
+
+@media (max-width: 820px) {
+  :root {
+    --calibre-utility-height: 52px;
+    --calibre-mobile-nav-height: 58px;
+    --calibre-phone-gutter: 12px;
+    --calibre-phone-dock-clearance: 88px;
+  }
+
+  /* --- compact top utility bar --- */
+  .calibre-utility-bar {
+    top: 0;
+    height: var(--calibre-utility-height);
+    min-height: var(--calibre-utility-height);
+    margin: 8px 10px 0;
+    padding: 0 12px;
+    gap: 10px;
+    border-radius: 15px;
+  }
+
+  .calibre-utility-title {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .calibre-utility-title > strong {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 18px;
+  }
+
+  .calibre-utility-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+    gap: 0;
+  }
+
+  .calibre-search-button {
+    flex: 0 0 40px;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 !important;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+  }
+
+  .calibre-search-label,
+  .calibre-search-shortcut {
+    display: none !important;
+  }
+
+  .calibre-search-icon {
+    display: block !important;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .calibre-new-button {
+    display: none !important;
+  }
+
+  /* --- floating dock: smaller and with deliberate content clearance --- */
+  .calibre-stage {
+    margin-left: 0;
+    padding-right: 0;
+    padding-bottom: calc(var(--calibre-phone-dock-clearance) + env(safe-area-inset-bottom));
+  }
+
+  .calibre-content-host {
+    min-width: 0;
+    padding-bottom: calc(var(--calibre-phone-dock-clearance) + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+  }
+
+  .calibre-mobile-nav {
+    inset: auto 10px calc(7px + env(safe-area-inset-bottom)) 10px;
+    min-height: var(--calibre-mobile-nav-height);
+    padding: 4px 5px;
+    border-radius: 18px;
+  }
+
+  .calibre-mobile-nav button {
+    min-height: 46px;
+    padding: 2px;
+    border-radius: 11px;
+    gap: 2px;
+  }
+
+  .calibre-mobile-nav button span {
+    font-size: 18px;
+  }
+
+  .calibre-mobile-nav button strong {
+    font-size: 9px;
+    line-height: 1.1;
+  }
+
+  .calibre-mobile-nav .mobile-new span {
+    width: 34px;
+    height: 34px;
+    margin-top: -10px;
+    font-size: 23px;
+  }
+
+  /* --- top-level page rhythm --- */
+  .home-v2-page,
+  .inventory-hub-page,
+  .intake-page,
+  .workbench-v2-page,
+  .business-v2-page,
+  .knowledge-page.library-v2-page,
+  .settings-v2-page,
+  .item-v2-page {
+    width: calc(100% - 24px) !important;
+    max-width: none;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-top: 18px !important;
+    padding-bottom: var(--calibre-phone-dock-clearance) !important;
+  }
+
+  .home-v2-heading,
+  .inventory-hub-heading,
+  .intake-heading,
+  .workbench-v2-heading,
+  .business-v2-heading,
+  .library-v2-heading,
+  .settings-v2-heading {
+    gap: 9px;
+    margin-bottom: 15px;
+  }
+
+  .home-v2-heading h1,
+  .inventory-hub-heading h1,
+  .intake-heading h1,
+  .workbench-v2-heading h1,
+  .business-v2-heading h1,
+  .library-v2-heading h1,
+  .settings-v2-heading h1,
+  .item-v2-title-row h1 {
+    font-size: clamp(34px, 9vw, 42px) !important;
+    line-height: 1;
+  }
+
+  .home-v2-heading p,
+  .inventory-hub-heading p,
+  .intake-heading p,
+  .workbench-v2-heading p,
+  .business-v2-heading p,
+  .library-v2-heading p,
+  .settings-v2-heading p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .home-v2-heading > button,
+  .inventory-hub-heading > button,
+  .intake-heading > button,
+  .business-v2-heading > button,
+  .library-v2-heading > button,
+  .settings-v2-heading > button {
+    min-height: 40px;
+    padding: 9px 13px;
+  }
+
+  /* --- summary cards: stay 2-up on a normal Galaxy phone --- */
+  .home-v2-metrics,
+  .workbench-v2-metrics,
+  .business-v2-metrics,
+  .business-v2-attention,
+  .inventory-v2-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .home-v2-metrics button {
+    min-height: 86px;
+    padding: 12px;
+    border-radius: 13px;
+  }
+
+  .home-v2-metrics strong {
+    font-size: 28px;
+  }
+
+  .home-v2-metrics span,
+  .home-v2-metrics small {
+    font-size: 10px;
+  }
+
+  .workbench-v2-metrics {
+    margin: 13px 0 12px;
+  }
+
+  .workbench-v2-metrics button {
+    min-height: 64px !important;
+    padding: 10px 12px !important;
+    border-radius: 12px;
+  }
+
+  .workbench-v2-metrics button span {
+    font-size: 11px;
+  }
+
+  .workbench-v2-metrics button strong {
+    font-size: 24px;
+  }
+
+  .business-v2-metrics > div,
+  .business-v2-attention > button {
+    min-height: 86px;
+    padding: 12px;
+  }
+
+  /* --- Workbench controls: compact, scrollable, never clipped --- */
+  .workbench-v2-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    margin-bottom: 12px;
+    overflow: visible;
+  }
+
+  .workbench-v2-tabs {
+    width: 100%;
+    max-width: 100%;
+    gap: 6px;
+    padding: 0 0 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .workbench-v2-tabs::-webkit-scrollbar,
+  .item-v2-tabs::-webkit-scrollbar,
+  .business-v2-tabs::-webkit-scrollbar,
+  .intake-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workbench-v2-tabs button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 6px 10px;
+    scroll-snap-align: start;
+  }
+
+  .workbench-v2-controls > input {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .workbench-v2-list {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .workbench-v2-card {
+    min-height: 0;
+    padding: 14px;
+  }
+
+  /* --- Inventory: make the route visibly own the screen and remain compact --- */
+  .inventory-hub-page.inventory-v2-page {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    gap: 12px;
+  }
+
+  .inventory-v2-primary {
+    width: 100%;
+  }
+
+  .inventory-v2-summary > div,
+  .inventory-v2-summary > button {
+    min-height: 68px;
+    padding: 9px 10px;
+  }
+
+  .inventory-v2-controls {
+    padding: 11px;
+  }
+
+  /* --- Item workspace: compact horizontal tabs and cards above the dock --- */
+  .item-v2-header {
+    gap: 11px;
+    margin-bottom: 12px;
+  }
+
+  .item-v2-title-row {
+    gap: 12px;
+  }
+
+  .item-v2-tabs {
+    width: 100%;
+    max-width: 100%;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .item-v2-tabs button {
+    min-height: 36px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+
+  .item-v2-page .section-card,
+  .item-v2-hero-card {
+    padding: 16px;
+  }
+
+  .item-v2-message {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Very narrow phones still keep summary cards usable instead of becoming huge. */
+@media (max-width: 360px) {
+  .home-v2-metrics,
+  .workbench-v2-metrics,
+  .business-v2-metrics,
+  .business-v2-attention,
+  .inventory-v2-summary {
+    gap: 6px !important;
+  }
+
+  .home-v2-metrics button,
+  .workbench-v2-metrics button,
+  .business-v2-metrics > div,
+  .business-v2-attention > button {
+    padding-left: 9px !important;
+    padding-right: 9px !important;
+  }
+}
