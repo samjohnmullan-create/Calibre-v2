@@ -95,6 +95,16 @@ type InvoiceSummary = {
   original_filename: string
 }
 
+type AllocationAuditEvent = {
+  id: number
+  entity_id: string
+  old_data: { amount_aud?: number | null; shared_cost_override_aud?: number | null }
+  new_data: { amount_aud?: number | null; shared_cost_override_aud?: number | null; reason?: string | null; reason_status?: string | null }
+  actor_type: string
+  source: string
+  created_at: string
+}
+
 type ReceivedItem = { id: string; item_number: number; title: string; storage_location_id?: string | null }
 type PurchaseLoadOptions = { page?: number; query?: string; status?: string }
 
@@ -122,6 +132,10 @@ function signedMoney(value: number) {
   return `${value > 0 ? '+' : '−'}${money(Math.abs(value))}`
 }
 
+function formatAuditTime(value: string) {
+  return new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
 function today() { return new Date().toISOString().slice(0, 10) }
 
 export default function PurchaseIntake({ workspaceId }: { workspaceId: string }) {
@@ -131,6 +145,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   const [links, setLinks] = useState<PurchaseLink[]>([])
   const [stockLinks, setStockLinks] = useState<StockLink[]>([])
   const [exceptions, setExceptions] = useState<ReceivingException[]>([])
+  const [allocationAudits, setAllocationAudits] = useState<AllocationAuditEvent[]>([])
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([])
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -138,6 +153,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   const [message, setMessage] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [lastReceivedItem, setLastReceivedItem] = useState<ReceivedItem | null>(null)
+  const [editingAllocationLotId, setEditingAllocationLotId] = useState('')
   const [purchaseQuery, setPurchaseQuery] = useState('')
   const [debouncedPurchaseQuery, setDebouncedPurchaseQuery] = useState('')
   const [purchaseStatusFilter, setPurchaseStatusFilter] = useState('')
@@ -252,7 +268,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   }
 
   async function loadPurchaseDetail(purchaseId: string) {
-    if (!purchaseId) { setLots([]); setLinks([]); setStockLinks([]); setExceptions([]); return }
+    if (!purchaseId) { setLots([]); setLinks([]); setStockLinks([]); setExceptions([]); setAllocationAudits([]); return }
     const [lotResult, linkResult, stockResult, exceptionResult] = await Promise.all([
       supabase.from('purchase_lots')
         .select('id,purchase_id,lot_number,title,description,category,quantity_expected,quantity_received,quantity_closed_short,receiving_note,amount,currency,amount_aud,shared_cost_override_aud,notes')
@@ -271,10 +287,25 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     if (linkResult.error) { setMessage(`Purchase links failed to load: ${linkResult.error.message}`); return }
     if (stockResult.error) { setMessage(`Stock links failed to load: ${stockResult.error.message}`); return }
     if (exceptionResult.error) { setMessage(`Receiving exceptions failed to load: ${exceptionResult.error.message}`); return }
-    setLots((lotResult.data ?? []) as PurchaseLot[])
+    const lotRows = (lotResult.data ?? []) as PurchaseLot[]
+    setLots(lotRows)
     setLinks((linkResult.data ?? []) as unknown as PurchaseLink[])
     setStockLinks((stockResult.data ?? []) as StockLink[])
     setExceptions((exceptionResult.data ?? []) as ReceivingException[])
+
+    const lotIds = lotRows.map((lot) => lot.id)
+    if (lotIds.length === 0) { setAllocationAudits([]); return }
+    const { data: auditData, error: auditError } = await supabase
+      .from('audit_events')
+      .select('id,entity_id,old_data,new_data,actor_type,source,created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('entity_type', 'purchase_lot_allocation')
+      .eq('action', 'allocation_update')
+      .in('entity_id', lotIds)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (auditError) { setAllocationAudits([]); setMessage(`Allocation history failed to load: ${auditError.message}`); return }
+    setAllocationAudits((auditData ?? []) as unknown as AllocationAuditEvent[])
   }
 
   useEffect(() => {
@@ -295,8 +326,9 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   }, [workspaceId, purchasePage, debouncedPurchaseQuery, purchaseStatusFilter])
 
   useEffect(() => {
-    if (!selectedId) return
+    setEditingAllocationLotId('')
     setLastReceivedItem(null)
+    if (!selectedId) { setAllocationAudits([]); return }
     void loadPurchaseDetail(selectedId)
   }, [selectedId])
 
@@ -368,6 +400,32 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     event.currentTarget.reset()
     setMessage('Lot added. A bundle can be split by adding more lots under the same purchase.')
     await loadPurchaseDetail(selected.id)
+  }
+
+  async function updateLotAllocation(lot: PurchaseLot, form: HTMLFormElement) {
+    const data = new FormData(form)
+    const rawAmount = String(data.get('allocation_amount_aud') || '').trim()
+    const rawShared = String(data.get('allocation_shared_aud') || '').trim()
+    const reason = String(data.get('allocation_reason') || '').trim()
+    if (!reason) { setMessage('A reason is required for every allocation change.'); return }
+    const amountAud = rawAmount === '' ? null : Number(rawAmount)
+    const sharedAud = rawShared === '' ? null : Number(rawShared)
+    if ((amountAud != null && (!Number.isFinite(amountAud) || amountAud < 0)) || (sharedAud != null && (!Number.isFinite(sharedAud) || sharedAud < 0))) {
+      setMessage('Allocation values must be valid non-negative amounts.'); return
+    }
+    setSaving(true)
+    const { error } = await supabase.rpc('update_purchase_lot_allocations', {
+      p_workspace_id: workspaceId,
+      p_purchase_lot_id: lot.id,
+      p_amount_aud: amountAud,
+      p_shared_cost_override_aud: sharedAud,
+      p_reason: reason,
+    })
+    setSaving(false)
+    if (error) { setMessage(`Allocation could not be changed: ${error.message}`); return }
+    setEditingAllocationLotId('')
+    setMessage(`Allocation updated for ${lot.lot_number ? `lot ${lot.lot_number}` : lot.title}. The reason and before/after values were added to the audit trail.`)
+    await loadPurchaseDetail(lot.purchase_id)
   }
 
   async function classifyLot(lot: PurchaseLot, category: 'item' | 'part' | 'tool' | 'consumable') {
@@ -634,17 +692,61 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                   const lotLinks = selectedLinks.filter((link) => link.purchase_lot_id === lot.id)
                   const lotStockLinks = stockLinks.filter((link) => link.purchase_lot_id === lot.id)
                   const lotExceptions = exceptions.filter((entry) => entry.purchase_lot_id === lot.id)
+                  const lotAllocationAudits = allocationAudits.filter((entry) => entry.entity_id === lot.id)
                   const receivedQuantity = Number(lot.quantity_received || 0)
                   const closedShort = Number(lot.quantity_closed_short || 0)
                   const remaining = Math.max(0, Number(lot.quantity_expected || 0) - receivedQuantity - closedShort)
                   const openExceptions = lotExceptions.filter((entry) => entry.status === 'open')
+                  const allocationLocked = receivedQuantity > 0 || closedShort > 0 || lotLinks.length > 0 || lotStockLinks.length > 0
+                  const allocationEditing = editingAllocationLotId === lot.id && !allocationLocked
                   return (
                     <article key={lot.id} className="panel purchase-lot-card">
                       <div className="purchase-lot-head">
                         <div><p className="eyebrow">{lot.lot_number ? `LOT ${lot.lot_number}` : lot.category.toUpperCase()}</p><h3>{lot.title}</h3><p className="muted">Expected {lot.quantity_expected} · received {receivedQuantity}{closedShort > 0 ? ` · closed short ${closedShort}` : ''} · remaining {remaining}</p></div>
-                        <div><strong>{money(lot.amount_aud ?? lot.amount, lot.amount_aud != null ? 'AUD' : lot.currency)}</strong>{lot.shared_cost_override_aud != null && <small>+ {money(lot.shared_cost_override_aud)} shared</small>}</div>
+                        <div className="purchase-lot-value">
+                          <strong>{money(lot.amount_aud ?? lot.amount, lot.amount_aud != null ? 'AUD' : lot.currency)}</strong>
+                          {lot.shared_cost_override_aud != null && <small>+ {money(lot.shared_cost_override_aud)} shared</small>}
+                          {allocationLocked
+                            ? <small className="purchase-allocation-lock">Allocation locked — receiving has begun</small>
+                            : <button type="button" className="purchase-allocation-toggle" disabled={saving} onClick={() => setEditingAllocationLotId((current) => current === lot.id ? '' : lot.id)}>{allocationEditing ? 'Close allocation' : 'Edit allocation'}</button>}
+                        </div>
                       </div>
                       {lot.description && <p>{lot.description}</p>}
+
+                      {allocationEditing && (
+                        <form className="purchase-allocation-editor" onSubmit={(event) => { event.preventDefault(); void updateLotAllocation(lot, event.currentTarget) }}>
+                          <div className="purchase-allocation-editor-head">
+                            <div><strong>Edit allocation</strong><span>Before receiving only. Saving creates a permanent audit entry.</span></div>
+                          </div>
+                          <div className="purchase-allocation-grid">
+                            <label>AUD lot value<input name="allocation_amount_aud" type="number" min="0" step="0.01" defaultValue={lot.amount_aud ?? ''} /></label>
+                            <label>Shared cost override AUD<input name="allocation_shared_aud" type="number" min="0" step="0.01" defaultValue={lot.shared_cost_override_aud ?? ''} placeholder="Blank = no override" /></label>
+                            <label className="purchase-allocation-reason">Reason for change<input name="allocation_reason" required placeholder="e.g. corrected hammer allocation after invoice review" /></label>
+                          </div>
+                          <div className="purchase-allocation-actions">
+                            <button type="button" onClick={() => setEditingAllocationLotId('')}>Cancel</button>
+                            <button type="submit" className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save allocation'}</button>
+                          </div>
+                        </form>
+                      )}
+
+                      {lotAllocationAudits.length > 0 && (
+                        <details className="purchase-allocation-history">
+                          <summary>Allocation history <span>{lotAllocationAudits.length}</span></summary>
+                          <div className="purchase-allocation-history-list">
+                            {lotAllocationAudits.map((entry) => (
+                              <div key={entry.id} className="purchase-allocation-history-row">
+                                <div>
+                                  <strong>{entry.new_data?.reason || 'Allocation changed'}</strong>
+                                  <span>Lot AUD {money(entry.old_data?.amount_aud)} → {money(entry.new_data?.amount_aud)} · shared {money(entry.old_data?.shared_cost_override_aud)} → {money(entry.new_data?.shared_cost_override_aud)}</span>
+                                </div>
+                                <small>{formatAuditTime(entry.created_at)} · {entry.actor_type === 'user' ? 'User' : 'System'} · {entry.source === 'allocation_rpc' ? 'Allocation editor' : entry.source}</small>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+
                       {lotLinks.length > 0 && <div className="purchase-linked-items">{lotLinks.map((link) => <button key={link.id} type="button" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(link.item_id)}` }}>#{link.items?.item_number ?? '—'} {link.items?.title ?? 'Open Item'}</button>)}</div>}
                       {lotStockLinks.length > 0 && <div className="purchase-linked-items">{lotStockLinks.map((link) => <span key={link.id} className="purchase-stock-chip">{link.resource_type} · qty {link.quantity_received}{link.allocated_purchase_cost_aud != null ? ` · ${money((link.allocated_purchase_cost_aud || 0) + (link.allocated_shared_cost_aud || 0))}` : ''}</span>)}</div>}
 
