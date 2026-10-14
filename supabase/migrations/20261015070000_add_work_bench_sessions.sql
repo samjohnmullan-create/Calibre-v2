@@ -81,6 +81,32 @@ create trigger work_sessions_guard_update
 before update on public.work_sessions
 for each row execute function public.guard_work_session_update();
 
+create or replace function public.guard_work_terminal_with_active_session()
+returns trigger
+language plpgsql
+set search_path to ''
+as $$
+begin
+  if new.status in ('complete', 'cancelled')
+     and old.status is distinct from new.status
+     and exists (
+       select 1
+       from public.work_sessions s
+       where s.workspace_id = new.workspace_id
+         and s.work_id = new.id
+         and s.ended_at is null
+     ) then
+    raise exception 'Finish the active bench session before completing or cancelling Work';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger work_records_guard_active_bench_session
+before update of status on public.work_records
+for each row execute function public.guard_work_terminal_with_active_session();
+
 create or replace function public.start_work_session(
   p_workspace_id uuid,
   p_work_id uuid
