@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import SystemHealthPanel from './SystemHealthPanel'
 
 type AuditRow = {
   id: number
@@ -96,43 +97,47 @@ export default function AuditHistoryPanel({ workspaceId }: { workspaceId: string
   }
 
   return (
-    <article className="settings-v2-card audit-v2-card">
-      <div className="audit-v2-heading">
-        <div><p className="eyebrow">AUDIT TRAIL</p><h2>Critical business changes</h2><p className="muted">Database-level history for Item, Work and financial records. This survives page refreshes and does not depend on the UI remembering to log a change.</p></div>
-        <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="Filter audit trail">
-          <option value="">All audited records</option>
-          <option value="items">Items</option>
-          <option value="work_records">Work</option>
-          <option value="cost_entries">Item costs</option>
-          <option value="valuations">Valuations</option>
-          <option value="sales">Sales</option>
-          <option value="business_ledger_entries">Business ledger</option>
-        </select>
-      </div>
+    <>
+      <SystemHealthPanel workspaceId={workspaceId} />
 
-      {message && <p className="settings-v2-message">{message}</p>}
-      {loading && <div className="loading-card">Loading audit trail…</div>}
-      {!loading && rows.length === 0 && <div className="audit-v2-empty"><strong>No audit events yet.</strong><span>New changes to audited records will appear here.</span></div>}
+      <article className="settings-v2-card audit-v2-card">
+        <div className="audit-v2-heading">
+          <div><p className="eyebrow">AUDIT TRAIL</p><h2>Critical business changes</h2><p className="muted">Database-level history for Item, Work and financial records. This survives page refreshes and does not depend on the UI remembering to log a change.</p></div>
+          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="Filter audit trail">
+            <option value="">All audited records</option>
+            <option value="items">Items</option>
+            <option value="work_records">Work</option>
+            <option value="cost_entries">Item costs</option>
+            <option value="valuations">Valuations</option>
+            <option value="sales">Sales</option>
+            <option value="business_ledger_entries">Business ledger</option>
+          </select>
+        </div>
 
-      {!loading && rows.length > 0 && <div className="audit-v2-list">
-        {rows.map((row) => {
-          const fields = changedFields(row)
-          const canOpen = Boolean(row.entity_id && (row.entity_type === 'items' || row.entity_type === 'work_records'))
-          return (
-            <button type="button" className="audit-v2-row" key={row.id} disabled={!canOpen} onClick={() => openRow(row)}>
-              <span className={`audit-v2-action action-${row.action}`}>{titleCase(row.action)}</span>
-              <span className="audit-v2-copy"><strong>{entityLabel(row.entity_type)}</strong><small>{fields.length ? `${fields.slice(0, 5).map(titleCase).join(', ')}${fields.length > 5 ? ` +${fields.length - 5}` : ''}` : 'Record changed'}</small></span>
-              <span className="audit-v2-meta"><strong>{new Date(row.created_at).toLocaleString('en-AU')}</strong><small>{titleCase(row.actor_type)} · {row.source === 'database_trigger' ? 'Database audit' : titleCase(row.source)}</small></span>
-            </button>
-          )
-        })}
-      </div>}
+        {message && <p className="settings-v2-message">{message}</p>}
+        {loading && <div className="loading-card">Loading audit trail…</div>}
+        {!loading && rows.length === 0 && <div className="audit-v2-empty"><strong>No audit events yet.</strong><span>New changes to audited records will appear here.</span></div>}
 
-      {count > pageSize && <div className="audit-v2-pagination">
-        <button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</button>
-        <span>{range} · Page {page + 1} of {totalPages}</span>
-        <button type="button" className="secondary small" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button>
-      </div>}
-    </article>
+        {!loading && rows.length > 0 && <div className="audit-v2-list">
+          {rows.map((row) => {
+            const fields = changedFields(row)
+            const canOpen = Boolean(row.entity_id && (row.entity_type === 'items' || row.entity_type === 'work_records'))
+            return (
+              <button type="button" className="audit-v2-row" key={row.id} disabled={!canOpen} onClick={() => openRow(row)}>
+                <span className={`audit-v2-action action-${row.action}`}>{titleCase(row.action)}</span>
+                <span className="audit-v2-copy"><strong>{entityLabel(row.entity_type)}</strong><small>{fields.length ? `${fields.slice(0, 5).map(titleCase).join(', ')}${fields.length > 5 ? ` +${fields.length - 5}` : ''}` : 'Record changed'}</small></span>
+                <span className="audit-v2-meta"><strong>{new Date(row.created_at).toLocaleString('en-AU')}</strong><small>{titleCase(row.actor_type)} · {row.source === 'database_trigger' ? 'Database audit' : titleCase(row.source)}</small></span>
+              </button>
+            )
+          })}
+        </div>}
+
+        {count > pageSize && <div className="audit-v2-pagination">
+          <button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</button>
+          <span>{range} · Page {page + 1} of {totalPages}</span>
+          <button type="button" className="secondary small" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button>
+        </div>}
+      </article>
+    </>
   )
 }
