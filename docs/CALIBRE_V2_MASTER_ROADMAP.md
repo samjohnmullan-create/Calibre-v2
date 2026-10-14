@@ -25,9 +25,9 @@ The physical Item is the centre of the system, but Calibre must be capable of ru
 
 `Purchase → Receive → Needs put-away → Physical storage → Bench/QC/Dispatch as needed → Return/move → permanent location history`
 
-**Future customer/community lifecycle**
+**Future intelligence lifecycle**
 
-`Customer → Owner → Repeat buyer → Club member → Contributor → Trusted community evidence`
+`Evidence → Context → Recommendation → Human approval → Calibre action → Audit history → Workshop memory`
 
 Calibre should reduce workshop friction, preserve evidence, make operational state obvious and provide trustworthy financial answers.
 
@@ -39,509 +39,369 @@ These are locked unless this roadmap is deliberately amended first.
 
 1. **Item is the physical-object root.**
 2. **Work is separate and optional.** One Item may have many Work records.
-3. **Physical location is separate from workflow state.** An Item can be in storage, on a bench, in dispatch or unassigned without that changing Work status.
+3. **Physical location is separate from workflow state.**
 4. **Supabase is authoritative.** Browser state is never the master record.
 5. **No resurrection of legacy `jobs`, `currentId`, or one giant mutable business state.**
 6. **URLs/deep links identify the thing being viewed.**
 7. **Media is uploaded once and reused by context.**
 8. **Research produces structured findings with sources, confidence and explicit decisions.**
 9. **Accepting evidence and applying it to canonical data are different actions.**
-10. **Reference knowledge and bench evidence are distinct.** Published compatibility and a physically confirmed fit are not the same claim.
+10. **Reference knowledge and bench evidence are distinct.**
 11. **Costs are transactions; valuations are snapshots; sales are lifecycle records.**
 12. **Private internal data is never exposed directly to customers or Club members.**
 13. **Generic Item core; specialist watchmaking modules where appropriate.**
 14. **Donor is an Item purpose/relationship, not a separate top-level object type.**
-15. **AI may propose; it does not silently rewrite accepted facts.**
-16. **Unknown stays unknown. No fake precision.**
-17. **Schema changes are committed migrations.**
-18. **A data-changing feature is not accepted until `change → save → refresh → confirm` succeeds.**
-19. **Phone and DeX/desktop are separate acceptance targets.**
-20. **Dead implementations are removed after replacement. Git is the archive.**
-21. **Business metrics come from underlying records, never hand-entered totals.**
-22. **Historical records are immutable where practical.** Completed Work, realised Sales and imported source documents must remain auditable.
-23. **Scale is designed in, not retrofitted.** Hundreds or thousands of Items and transactions must remain searchable and performant.
-24. **Money must be traceable.** Every financial result must be explainable back to source transactions and allocations.
-25. **Operational workflow and accounting truth are separate but linked.** A job status is not a financial transaction; a valuation is not cash.
-26. **Purchase is the commercial acquisition event; invoice/document is source evidence; Item remains the physical-object root.**
-27. **A bundle/lot may produce multiple physical Items or stock records without losing its acquisition provenance.**
-28. **Shared costs must allocate without duplication.** Manual overrides are allowed, but source and allocation must remain explainable.
-29. **Parts inventory cost belongs on Parts. Tools are capital/equipment. Consumables are operating spend. Do not double-count them in Item economics and Business Ledger.**
-30. **Public/member knowledge is a published projection, never direct database exposure.**
-31. **Community contributions are evidence, not automatic truth.**
-32. **Commercial membership status and community reputation are separate concepts.**
+15. **Unknown stays unknown. No fake precision.**
+16. **Schema changes are committed migrations.**
+17. **A data-changing feature is not accepted until `change → save → refresh → confirm` succeeds.**
+18. **Phone and DeX/desktop are separate acceptance targets.**
+19. **Dead implementations are removed after replacement. Git is the archive.**
+20. **Business metrics come from underlying records, never hand-entered totals.**
+21. **Historical records are immutable where practical.** Completed Work, realised Sales, source documents and consumed stock remain auditable.
+22. **Scale is designed in, not retrofitted.**
+23. **Money must be traceable.** Every financial result must be explainable back to source transactions and allocations.
+24. **Operational workflow and accounting truth are separate but linked.**
+25. **Purchase is the commercial acquisition event; invoice/document is source evidence; Item remains the physical-object root.**
+26. **A bundle/lot may produce multiple physical Items or stock records without losing acquisition provenance.**
+27. **Shared costs must allocate without duplication.**
+28. **Parts inventory cost belongs on Parts. Tools are capital/equipment. Consumables are operating spend.**
+29. **A donor Item retains its acquisition cost and historical economics even if written off for resale.**
+30. **Removing a material business record means Archive/Trash first, not blind hard delete.** Permanent deletion is only allowed when history, financial and dependency rules permit it.
+31. **Public/member knowledge is a published projection, never direct database exposure.**
+32. **Community contributions are evidence, not automatic truth.**
+33. **OpenAI may interpret, search, rank, extract, draft and propose. Canonical data changes only through defined Calibre functions with explicit authority and auditability.**
+34. **Material AI-proposed mutations require human approval unless an explicitly safe automation policy says otherwise.**
+35. **OpenAI API credentials never live in the React client. Trusted backend/Edge Functions own model access.**
+36. **Deterministic systems own calculations and measurements. AI may explain them but does not replace them.**
+37. **The Calibre Classic design language is product infrastructure, not optional polish. New screens must use the same visual tokens.**
 
 ---
 
-## 3. Current state snapshot — 14 October 2026
+## 3. Locked visual identity — Calibre Classic
+
+The accepted visual direction is retained and strengthened:
+
+- **Palette:** charcoal / gunmetal / petrol / steel / pale metal.
+- **Display typography:** Cormorant Garamond for brand, watch names and major headings.
+- **Interface typography:** IBM Plex Sans.
+- **Technical/data typography:** IBM Plex Mono.
+- **Background:** deep charcoal with restrained petrol sunburst/radial light.
+- **Cards:** translucent/frosted glass surfaces with soft blur, fine steel borders and subtle internal highlights.
+- **Navigation:** floating menu treatment rather than heavy full-width bars where practical.
+- **Phone:** compact floating bottom dock.
+- **DeX/desktop:** floating top/side navigation with denser working surfaces.
+- **Brand assets:** restrained monochrome maker marks beside Item titles where available.
+- **Brand logo storage:** SVG preferred, transparent PNG fallback, typographic/monogram fallback.
+
+The UI should feel like a modern precision instrument with vintage horological typography, not a generic admin dashboard and not a retro imitation.
+
+---
+
+## 4. Current state snapshot — 14 October 2026
 
 Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepted · ⬜ planned · 💤 deliberately deferred · 🧪 exploratory
 
 | Phase | State | Approx. implementation progress | Current reading |
 |---|---:|---:|---|
-| A — Foundation & scale | 🟡 | ~78% | core pagination/search, audit, backup layers and deployment discipline exist; tests, migration cleanup and restore acceptance remain |
-| B — Acquisition | 🟡→✅ | ~96% | invoice → Purchase → Lot → receiving → Item/stock, canonical sources, scalable Purchase search, allocation audit and immutable imported evidence are connected; real save/refresh, physical put-away and finance reconciliation acceptance remain |
-| C — Workshop / repair | 🟡→✅ | ~78% | Job Card, templates, parts, QC, storage visibility and completion spine exist; real end-to-end acceptance still required |
-| D — Parts / donors / storage | 🟡 | ~78% | parts workflow and first-class physical storage are live; donor intelligence and storage acceptance remain |
-| E — Commerce & ledger | 🟡 | ~63% | Item economics, Business Ledger and scalable reporting are live; reversals/refunds and accounting acceptance remain |
-| Release Candidate / Main URL | ⬜ | 0% accepted | intentionally held until A–E core exit gates and restore acceptance are satisfied |
-| F — Business Brain | 🟡 early | ~15% | dashboard foundation exists; advanced reporting/recommendations later |
-| G — Listings & sales engine | 🟡 early | ~15% | Sale records exist; full listing lifecycle/generation incomplete |
-| H — Customer / public / Club | 💤 | concept only | later, after internal spine is trustworthy |
-| I — Tools / consumables | 🟡 | ~48% | registry, receiving, storage and ledger treatment exist; asset lifecycle/reorder UX remain |
-| J — Timegrapher v2 | 💤 | partial capability | deferred until hardware validation |
-| K — Printing / physical workflow | 🧪 | exploratory | after storage/QR and release candidate |
-| L — Device modes / Smart Capture | 🟡 early | ~30% | phone/DeX shell and phone-first storage flows exist; station workflows later |
-| M — Global search / command layer | 🟡 | ~65% | unified indexed search and universal New exist; more domains/actions remain |
-| N — Automation / learning loop | 💤 | later | manual workflows first |
+| A — Foundation, resilience & safe removal | 🟡 | ~80% | core scale/audit/backup discipline exists; restore, RLS tests and archive/trash policy remain |
+| B — Acquisition | 🟡→✅ | ~96% | invoice → Purchase → Lot → receiving → Item/stock is connected; real acceptance remains |
+| C — Workbench 2.0 / workshop | 🟡→✅ | ~84% | Job Card, templates, signed QC, hardened parts evidence and storage are live; Bench Mode and real acceptance remain |
+| D — Parts, donors & storage | 🟡 | ~80% | stock, fit evidence and physical storage are live; donor economics/intelligence and lineage remain |
+| E — Commerce, ledger & cashflow | 🟡 | ~66% | Item economics and Ledger are meaningful; broader money-in, reversals and cashflow semantics remain |
+| F — Reports & Business Brain | 🟡 early | ~22% | summary foundations exist; monthly reports, graphs and recommendations remain |
+| G — Listings & sales engine | 🟡 early | ~18% | sale foundation exists; multi-channel generation/publishing remains |
+| H — Visual system & brand assets | 🟡 | ~45% | Calibre Classic exists in code but newer surfaces have drifted; consolidation required |
+| I — Workshop tools & utilities | 🟡 | ~50% | Tool/Consumable registries exist; calculators, timers and calibration workflows remain |
+| J — Timing / Timegrapher | 🟡 | ~35% | sample-clock timing foundation exists; workflow integration and hardware validation now active |
+| K — OpenAI intelligence layer | 🟡 early | ~12% | research handoff exists; contextual copilot/tool use/voice/structured agents remain |
+| L — Printing / QR / physical outputs | 🧪 | exploratory | after core acceptance; browser/PDF + desktop bridge preferred |
+| M — Device modes / Smart Capture | 🟡 early | ~35% | phone/DeX foundations exist; Bench/Capture Station workflows remain |
+| N — Search / command / attention layer | 🟡 | ~68% | unified search and universal New exist; command actions and attention centre remain |
+| O — Customer / public / Club | 💤 | later | after internal truth and commerce are stable |
+| P — Automation / learning loop | 💤 | later | manual workflows and AI controls first |
 
 **Important:** percentages describe implementation progress, not Definition-of-Done acceptance.
 
 ---
 
-## 4. Current implemented capability
+## 5. Accepted baseline already in v2
 
-### Foundation and UX shell
+### Acquisition
 
-- ✅ Separate clean Supabase v2 project in Sydney.
-- ✅ Workspace/membership model and RLS across core workspace-owned data.
-- ✅ Private `calibre-media` bucket and signed media access patterns.
-- ✅ Email OTP authentication.
-- ✅ Canonical React/TypeScript/Vite app on GitHub Pages.
-- ✅ GitHub Verify and Deploy workflows.
-- ✅ Responsive Calibre shell for desktop/DeX and phone.
-- ✅ Top-level information architecture: Home, Intake, Inventory, Workbench, Business, Library, Settings.
-- ✅ Mobile navigation and More menu.
-- ✅ Global Search modal.
-- ✅ Universal New menu.
-- ✅ Item and Work deep links.
-- ✅ Core high-volume routes use bounded/server-side loading.
-- ✅ Critical Item/Work/financial mutations feed a database-level audit trail.
-- ✅ Settings exposes Audit Trail, structured JSON backup and Storage archive.
-- ✅ Structured backup now includes Purchase/Lot/link/receiving-exception records and physical storage movement history.
-- 🟡 private Storage TAR archive exists but restore acceptance is still outstanding.
-- 🟡 Final removal of remaining legacy UI/state patterns is still required.
+- invoice/photo/PDF intake and server extraction;
+- source document preservation and duplicate protection;
+- first-class Purchases and Purchase Lots;
+- canonical Vendor/Source normalisation;
+- receiving states and status-truth protection;
+- Item/Part/Tool/Consumable receiving;
+- shared-cost allocation and reallocation history;
+- immutable imported invoice evidence;
+- source financial discrepancy preservation;
+- server-side Purchase search/pagination;
+- Needs put-away and physical receiving destinations.
 
-### Intake / acquisition
+### Workshop
 
-- ✅ Dedicated Intake workspace.
-- ✅ Explicit Inbox / Ready to Review / Purchases & Receiving / Completed Documents flow.
-- ✅ PDF/photo upload and server-side extraction.
-- ✅ structured invoice/line extraction and review-before-import.
-- ✅ historical AUD conversion.
-- ✅ original source document preserved.
-- ✅ exact-file and invoice-identity duplicate protection.
-- ✅ first-class Purchase model.
-- ✅ imported invoice automatically bridges into Purchase.
-- ✅ every invoice line becomes a Purchase Lot, including lines deliberately excluded from automatic Item import.
-- ✅ excluded lines remain visible as unclassified Lots and can later be classified as Item, Part, Tool or Consumable.
-- ✅ Purchase statuses support ordered, shipped, delivered, partially received, received, discrepancy, cancelled and returned.
-- ✅ receiving state derives automatically from real received/closed-short/open-exception state.
-- ✅ receiving status truth is protected against manual regression once receiving starts; historical non-terminal Purchases are backfilled from Lot/exception truth.
-- ✅ manual Purchase entry.
-- ✅ multi-Item/bundle splitting.
-- ✅ manual shared-cost override.
-- ✅ structured receiving exceptions: missing, damaged, wrong item, extra item and other.
-- ✅ exception resolve/waive/close-shortfall flow.
-- ✅ Purchase → Item and Purchase → stock provenance links.
-- ✅ Item receiving can remain in Purchase flow rather than forcing navigation away.
-- ✅ Item receiving can leave stock in Needs put-away or assign a real physical location immediately.
-- ✅ Parts/Tools/Consumables can be received directly to storage or left unassigned.
-- ✅ receiving is quantity-capped and supports partial quantities.
-- ✅ Item and stock cost allocation follows the Purchase/Lot.
-- ✅ invoice line allocator handles both net-line and already-gross-line invoice formats.
-- ✅ historical generated invoice costs were reconciled to Purchase allocation truth.
-- ✅ source inconsistencies such as the Gowans #32 two-cent discrepancy are deliberately preserved and explicitly presented rather than silently altered.
-- ✅ Purchase list uses server-side pagination, count, status filtering and bounded search.
-- ✅ canonical Vendor/Source normalisation and automatic Purchase source linking are enforced in the database; a richer user-facing vendor chooser can improve later.
-- ✅ formal allocation/reallocation history records before/after values, reasons, actor/source and timestamp.
-- ✅ imported invoice/source truth is read-only after import at both invoice and invoice-line level.
+- dedicated Work Job Card;
+- versioned Work Templates/checklists;
+- diagnosis, priority, next action and blocker;
+- measurements and timing-run linkage;
+- part requirements and matching;
+- reserve → fit evidence → consume → fulfil workflow;
+- database-level protection against faking reserved/fulfilled part states;
+- stock consumption requires confirmed/conditional fit evidence;
+- Waiting-on-parts classification and resume only when all unresolved needs clear;
+- QC checklist and completion gate;
+- QC sign-off stamped to authenticated user;
+- signed required QC required for completion;
+- completion summary requirement;
+- physical location visible/movable independently of Work state.
 
-### Inventory / Item workspace
+### Inventory / storage
 
-- ✅ Inventory split into Items / Parts / Storage.
-- ✅ Item type, purpose, status and physical-location filtering.
-- ✅ Needs put-away Item count/filter.
-- ✅ server-side Item pagination/count foundation.
-- ✅ Item workspace with Overview / Details / Work / Research / Sale / History.
-- ✅ Item editing and persistence.
-- ✅ Passport and media integrated into Item detail.
-- ✅ donor represented as Item purpose rather than separate object type.
-- ✅ Item Overview shows full physical storage path and inline Move action.
-- ✅ Item History includes physical location movements.
-- ✅ Work Job Card shows current physical location and can move/return the Item without changing Work status.
-- 🟡 Item archive and primary thumbnails remain incomplete.
+- Items / Parts / Storage separation;
+- hierarchical storage locations;
+- permanent location movement history;
+- Needs put-away queue;
+- phone-friendly inline moves;
+- Item passport/media/research/work/sale/history surfaces.
 
-### Physical storage
+### Business
 
-- ✅ first-class hierarchical `storage_locations` model.
-- ✅ arbitrary real-world hierarchy rather than hard-coded Workshop root.
-- ✅ supports site / room / cabinet / drawer / shelf / box / tray / bin / position / other.
-- ✅ Items, Parts, Tools and Consumables can each have a physical location.
-- ✅ atomic move RPC records permanent move history.
-- ✅ hierarchy-cycle protection.
-- ✅ Storage workspace shows contents and counts by location.
-- ✅ Needs put-away is a first-class queue, not a fake storage location.
-- ✅ combined Needs put-away queue for Items, Parts, Tools and Consumables.
-- ✅ fast inline put-away controls.
-- ✅ last put-away destination can be reused for repetitive physical sorting.
-- ✅ phone-friendly move/put-away interaction.
-- ✅ inline expansion pattern keeps move/edit actions inside the current card rather than spawning detached panels.
-- 🟡 real save/refresh phone and DeX acceptance still required.
-- ⬜ QR-assisted location lookup/moves later.
-
-### Workbench / Job Card
-
-- ✅ Workbench modes for Active / Ready / On Bench / Waiting / QC / Complete.
-- ✅ server-side Work pagination, counts and bounded search.
-- ✅ Work Job Card is the central operating record.
-- ✅ priority, next action, waiting reason, blocker, diagnosis and completion summary.
-- ✅ versioned Work Templates and copied checklist steps.
-- ✅ Mechanical Service and Mechanical Repair template foundations.
-- ✅ measurements and timing runs linked to Work.
-- ✅ part needs linked to Work.
-- ✅ parts matching embedded in Job Card.
-- ✅ reserve → fit evidence → consume → fulfil workflow.
-- ✅ QC checklist and completion gate.
-- ✅ Work cannot complete while required checklist/parts/QC conditions are unresolved.
-- ✅ current physical location visible in Work without coupling storage to Work status.
-- 🟡 printable/generated Job Card and customer-safe service summary remain.
-- 🟡 formal QC checker identity/sign-off needs hardening.
-- 🟡 one real watch must still pass the complete acceptance flow.
-
-### Parts / compatibility / donors
-
-- ✅ Parts inventory foundation.
-- ✅ physical storage linkage and direct Part movement.
-- ✅ Needs put-away Part queue.
-- ✅ compatibility knowledge and movement/application evidence.
-- ✅ part needs, allocations and reservations.
-- ✅ fit verification evidence.
-- ✅ consume/release/fulfil lifecycle.
-- ✅ Work can search owned parts for needs.
-- 🟡 donor-to-donor / donor-to-Item suggestions need a dedicated UX.
-- 🟡 donor depletion and lineage need stronger presentation.
-
-### Research / Library / Knowledge
-
-- ✅ Item research workspace.
-- ✅ ChatGPT handoff workflow.
-- ✅ structured findings, sources, confidence and decisions.
-- ✅ Current / Proposed / Apply / Keep / Ignore bridge.
-- ✅ Library consolidated into one research workspace.
-- ✅ Movement Search and Movement Finder presented coherently.
-- ✅ Compatibility Intelligence available through Library and Item/Work contexts.
-- ✅ Knowledge Engine import/admin is separated from normal daily flow.
-- ✅ knowledge engine with movements, families, part references, applications, compatibility edges, signals, documents and rules.
-- ✅ Calibre Verified bench-evidence layer.
-- 🟡 Library administration should ultimately move to Settings.
-- 🟡 global search does not yet cover all Knowledge entities.
-
-### Commerce / Item economics
-
-- ✅ Item Sale tab editable.
-- ✅ valuation low / expected / high / minimum / target.
-- ✅ additional Item costs.
-- ✅ channel, listing title/text and asking price.
-- ✅ sale price, marketplace fees and shipping to buyer.
-- ✅ listed / sold dates and notes.
-- ✅ automatic Total Invested / Target Profit / Expected Profit / Actual Profit / ROI presentation.
-- ✅ listing/sold status can update Item commercial state.
-- ✅ Business Overview / Stock / Listings / Sales / Costs.
-- ✅ Business totals use server-side summaries and paginated lists.
-- ✅ invoice/Purchase economics reconcile into Item cost foundations.
-- 🟡 refunds, discounts, reversals and deeper auditability remain.
-
-### Business Ledger
-
-- ✅ separate `business_ledger_entries` model.
-- ✅ operating expense / capital spend / other income treatment.
-- ✅ categories for tools/equipment/consumables/subscriptions/packaging/postage/software/marketing/banking/training/storage/other activity.
-- ✅ vendor / receipt-reference / date / notes.
-- ✅ source currency and optional AUD equivalent.
-- ✅ add / edit / delete / search / filter UX.
-- ✅ server-side summaries and paginated loading.
-- ✅ Tool receiving creates capital/equipment ledger treatment.
-- ✅ Consumable receiving creates operating-spend ledger treatment.
-- ✅ Part receiving keeps stock cost on Parts rather than duplicating it into Business Ledger.
-- 🟡 strict append-oriented correction/reversal policy is not yet enforced.
-
-### Global search / actions
-
-- ✅ unified indexed search across Items, Work, Parts and Invoices.
-- ✅ maker/model/reference/serial evidence participates in Item search.
-- ✅ bounded category results.
-- ✅ global New actions for Item, Invoice, Part and Work handoff.
-- 🟡 Knowledge, Tools, Consumables, Sales, Ledger, donors and locations remain to be added.
-- 🟡 command actions beyond navigation remain limited.
-
-### Data protection / recovery
-
-- ✅ structured workspace export with deterministic pagination, row counts and SHA-256 checksum.
-- ✅ Purchase acquisition child records included in structured backup.
-- ✅ storage locations and permanent physical movement history included in structured backup.
-- ✅ media/document Storage paths preserved in export manifest.
-- 🟡 private `calibre-media` TAR archive exists with per-file checksums; live restore verification remains.
-- ✅ recovery runbook exists.
-- ⬜ clean migration rebuild and full disposable restore drill still need to pass.
-- ⬜ restored finance totals and private media/document links still need reconciliation.
-- 💤 Supabase branch-based restore drill is currently blocked by paid-plan requirements and is parked rather than repeatedly pursued.
-
-### Device / deployment state
-
-- ✅ Galaxy phone and DeX-responsive shell.
-- ✅ current v2 deploys to GitHub Pages preview.
-- ✅ Vite build prepared for preview path or future custom domain.
-- ✅ `app.calibreco.com.au` remains on the original `CalibreOI` repo as rollback.
-- ⬜ custom-domain cutover intentionally deferred until Release Candidate gate.
+- Item economics and valuation foundations;
+- sales records;
+- Business Overview / Stock / Listings / Sales / Costs;
+- Business Ledger;
+- tool capital-spend and consumable operating-spend treatment;
+- server-side summaries and bounded loading;
+- global indexed search across core domains.
 
 ---
 
 # DELIVERY ORDER
 
-`Foundation & Scale → Acquisition acceptance → Workshop acceptance → Parts/Storage acceptance → Commerce/Ledger hardening → RELEASE CANDIDATE / MAIN URL → Business Brain → Listings → Customer/Public/Club → Automation & Hardware`
+The next implementation order is deliberately dependency-driven:
+
+`Foundation safety + visual-system consolidation → Workbench 2.0 + Timing integration → Donor/removal/inventory integrity → Reports/Cashflow → Tools/Command layer → OpenAI contextual intelligence → Release acceptance → Listings/Public/Automation`
+
+The real-world acceptance path continues in parallel and must not be replaced by feature work.
 
 ---
 
-## Phase A — Business-grade foundation and scale
+## Phase A — Foundation, resilience and safe removal
 
-**Status: 🟡 active and mandatory before release candidate**
+**Status: 🟡 active and mandatory**
 
-### Data and engineering
+### Engineering
 
 - [ ] generate and commit Supabase TypeScript database types;
-- [x] recent schema changes committed as repository migrations;
-- [ ] complete older live-vs-repo migration audit;
-- [ ] define clearer service/data-access boundaries;
-- [ ] continue decomposing oversized UI components;
-- [x] CI build/verification workflow;
+- [ ] finish live-vs-repo migration audit;
 - [ ] focused regression tests for critical workflows;
 - [ ] RLS/security acceptance tests;
 - [ ] error observability/system-health diagnostics;
-- [x] duplicate/idempotency protection for invoice intake;
-- [🟡] idempotent Purchase/receiving RPCs exist; broader retry discipline still needs review.
+- [ ] secondary-route scale audit;
+- [ ] real backup/restore reconciliation drill.
 
-### Scale
+### Remove / Archive / Trash model
 
-- [x] core Items, Workbench, Business and Ledger bounded/server-paginated;
-- [x] indexed search/filter groundwork in key domains;
-- [x] Home summaries server-bounded;
-- [x] Global Search unified and bounded;
-- [ ] saved views;
-- [🟡] secondary routes still need unbounded-loading audit;
-- [ ] primary thumbnails in high-volume lists;
-- [x] deterministic Work numbering;
-- [ ] deterministic Item numbering acceptance;
-- [ ] archive-not-delete policy across all material business records.
+Every Item, Part, Tool, Consumable and material business record needs a deliberate removal path.
 
-### Audit / resilience
+- [ ] add consistent **Remove** action on relevant surfaces;
+- [ ] default material records to Archive/Trash rather than hard delete;
+- [ ] Trash view with Restore;
+- [ ] dependency-aware permanent-delete rules;
+- [ ] prevent permanent deletion where purchase cost, Work, fit evidence, stock consumption, sale, media, audit or donor history would be damaged;
+- [ ] allow true accidental empty records to be permanently removed;
+- [ ] recent-actions/undo where technically safe;
+- [ ] audit every destructive or restoration action.
 
-- [🟡] audit trail exists for critical domains; remaining acquisition/storage audit coverage should be reviewed;
-- [x] portable structured export;
-- [x] Storage TAR export implementation;
-- [x] Purchase/receiving/storage-history tables included in structured backup;
-- [ ] real restore drill before main-domain cutover;
-- [ ] error observability for failed writes/background work.
-
-**Exit gate:** representative scale must remain fast and trustworthy on phone/DeX, and recovery must be proven before business-critical cutover.
+**Exit gate:** destructive operations must be predictable, recoverable and incapable of silently rewriting business history.
 
 ---
 
-## Phase B — Acquisition and inventory operations
+## Phase B — Acquisition and receiving acceptance
 
-**Status: 🟡→✅ ~96% implemented; real acceptance remains**
+**Status: 🟡→✅ ~96% implemented**
 
-Goal: every purchase enters Calibre once and remains traceable from source evidence to physical stock and final sale.
+Remaining:
 
-### Acquisition model
+- [ ] real invoice → Purchase → receiving → put-away save/refresh acceptance;
+- [ ] explicit `received_at` / physical-intake semantics acceptance;
+- [ ] representative Purchase finance reconciliation;
+- [ ] phone acceptance;
+- [ ] DeX acceptance.
 
-- [x] invoice document intake;
-- [x] structured extraction/review/import;
-- [x] AUD conversion;
-- [x] original document preserved;
-- [x] duplicate protection;
-- [x] first-class Purchase record integrated with invoice intake;
-- [x] canonical Vendor/Source normalisation and automatic Purchase linkage;
-- [x] coherent order/invoice/lot references;
-- [x] ordered / shipped / delivered / partially received / received / discrepancy / cancelled / returned states;
-- [x] receiving status is derived from real receiving evidence and cannot regress to a pre-receipt logistics state once receiving begins;
-- [x] multi-Item lots and bundles;
-- [x] manual Purchase entry;
-- [x] structured receiving exceptions;
-- [x] partial quantities and closed-shortfall handling;
-- [x] excluded invoice lines preserved as unclassified Purchase Lots;
-- [x] safe pre-receiving Lot classification;
-- [x] Item / Part / Tool / Consumable receiving;
-- [x] receive directly to location or Needs put-away;
-- [🟡] explicit received-date/physical-intake semantics need real-world acceptance.
-
-### Cost allocation
-
-- [x] line purchase cost to Item/stock;
-- [x] buyer premium/postage/shared allocation;
-- [x] proportional allocation;
-- [x] manual shared-cost override;
-- [x] original currency and AUD basis preserved;
-- [x] adaptive gross-vs-net invoice-line allocation;
-- [x] historical generated invoice-cost reconciliation;
-- [x] formal allocation/reallocation history;
-- [x] explicit source-financial-discrepancy presentation.
-
-### Scale / integrity remaining
-
-- [x] server pagination/search for Purchases;
-- [x] canonical Vendor/Source normalisation;
-- [x] imported-source immutability after import;
-- [ ] real save → refresh acceptance across invoice → Purchase → receiving → put-away;
-- [ ] finance reconciliation acceptance on representative real purchases.
-
-**Exit gate:** every physical Item/stock record can answer “where did I buy it, what did it really cost, what did I actually receive, and where is it now?”
+**Exit gate:** every acquired object can answer: where did it come from, what did it really cost, what did I receive, and where is it now?
 
 ---
 
-## Phase C — Workshop / repair operations
+## Phase C — Workbench 2.0 and workshop operations
 
-**Status: 🟡 advanced implementation; acceptance pass still required**
+**Status: 🟡 advanced implementation; now the highest-value product phase**
 
-- [x] dedicated Job Card;
-- [x] diagnosis/fault notes;
-- [x] next action/blocker/priority;
-- [x] measurements/timing/parts linkage;
-- [x] completion summary;
-- [x] physical location visible and movable without changing Work state;
-- [x] versioned templates/checklists;
-- [x] QC gate;
-- [ ] formal QC checker identity/sign-off;
+### Workbench Command Centre
+
+Replace the mental model of “list of Work records” with a working bench dashboard.
+
+- [ ] **On My Bench** primary area with large active cards;
+- [ ] Ready Next / Waiting / QC / Queue secondary areas;
+- [ ] stronger next-action prominence;
+- [ ] progress from copied checklist steps;
+- [ ] smart exceptions: missing evidence, worse timing, unresolved blocker, part arrived, missing photo, ready for QC;
+- [ ] Work priority recommendations based on blocker state, expected return, age, remaining effort and readiness;
+- [ ] optional “I have 30/60/90 minutes” prioritisation;
+- [ ] Attention Centre handoff for workshop issues.
+
+### Bench Mode
+
+A stripped-back mode for actual hands-on work.
+
+- [ ] Start Bench Session / Finish Bench Session;
+- [ ] large current-step and next-step presentation;
+- [ ] one-tap Photo / Note / Measurement / Part Needed / Timing / Blocked actions;
+- [ ] session labour duration capture;
+- [ ] step-level microscope/photo capture;
+- [ ] work session history;
+- [ ] minimal-navigation phone layout;
+- [ ] DeX expanded bench view.
+
+### Workshop evidence
+
+- [x] signed QC identity;
+- [x] evidence-backed parts consumption;
+- [x] completion gate;
 - [ ] printable/generated Job Card;
 - [ ] customer-safe service summary;
-- [ ] one real watch end-to-end acceptance on phone and DeX.
+- [ ] repair decision log: Repair / Replace / Donor / Leave / Write off;
+- [ ] structured bench measurements;
+- [ ] photo-completeness prompts;
+- [ ] before/after media comparison;
+- [ ] service-consumable methodology notes where useful;
+- [ ] real Waltham end-to-end acceptance on phone and DeX.
+
+**Exit gate:** one real watch must progress through bench work, any parts path, timing, signed QC and completion without shadow notes or manual database fixes.
 
 ---
 
 ## Phase D — Parts, donors and physical storage
 
-**Status: 🟡 ~78% implemented**
+**Status: 🟡 ~80% implemented**
 
 ### Parts
 
-- [x] stock inventory foundation;
-- [x] condition/provenance/acquisition-cost foundations;
-- [x] donor linkage;
-- [x] compatibility evidence and bench-fit verification;
-- [x] reservation/allocation/consume/release/fulfil;
-- [x] physical location assignment/movement;
-- [x] Needs put-away queue;
-- [🟡] failed-fit/returned presentation can improve.
+- [x] stock inventory and physical locations;
+- [x] needs, reservation, fit, consumption and fulfilment;
+- [x] confirmed bench-fit evidence;
+- [ ] consistent Remove/Archive/Trash actions;
+- [ ] failed-fit/returned presentation;
+- [ ] richer stock transaction history;
+- [ ] quick measurement capture on parts.
 
-### Donors
+### Donor economics and intelligence
 
-- [🟡] donor relationships/inventory foundation exists;
-- [ ] proactive compatible-donor suggestions;
-- [ ] clear donor lineage/history;
-- [ ] donor depletion visibility.
+A donor remains an economic asset/history source, not a zero-cost discarded Item.
 
-### Physical storage
+- [ ] writing an Item off as donor retains full acquisition and shared costs;
+- [ ] donor carrying cost visible in Item economics;
+- [ ] harvested-part lineage: donor Item → part/assembly → recipient Item/Work;
+- [ ] optional attributed donor cost when a harvested part is consumed;
+- [ ] donor depletion and remaining-assemblies visibility;
+- [ ] proactive donor compatibility suggestions;
+- [ ] same-calibre/family suggestions remain leads, never proof;
+- [ ] donor return/value reporting;
+- [ ] fast Parts Harvesting Mode with photo + part creation from one donor session.
 
-Hierarchy is deliberately generic, for example:
+### Storage
 
-`Site → Zone/Room → Cabinet → Drawer → Tray/Bin → Position`
+- [ ] phone + DeX save/refresh acceptance;
+- [ ] QR location lookup/move;
+- [ ] printable labels;
+- [ ] storage stocktake flow.
 
-- [x] arbitrary hierarchy creation;
-- [x] Items/Parts/Tools/Consumables can share the same location model;
-- [x] atomic move workflow;
-- [x] permanent location history;
-- [x] Needs put-away queue;
-- [x] phone-friendly inline moves;
-- [x] Job Card location visibility and return-to-previous-location flow;
-- [ ] phone + DeX save/refresh acceptance pass;
-- [ ] QR lookup/moves later.
-
-**Rule:** family similarity is a lead, not proof of fit.
+**Exit gate:** every consumed or harvested part remains traceable to source, fit evidence, cost basis and recipient.
 
 ---
 
-## Phase E — Commerce and proper financials
+## Phase E — Commerce, ledger and cashflow
 
-**Status: 🟡 meaningful implementation exists; accounting hardening remains**
+**Status: 🟡 meaningful implementation exists**
 
-### Item commerce
+### Money In / Money Out
 
-- [x] acquisition cost projection;
-- [x] allocated shared costs;
-- [x] additional Item costs;
-- [x] valuation snapshots;
-- [x] target/minimum/list price;
-- [x] sale lifecycle;
-- [x] fees and outbound shipping;
-- [x] invested / expected / target / realised profit / ROI;
-- [ ] refunds/discounts/reversals;
-- [ ] margin/reporting consistency.
+Expand beyond watch sales without corrupting profit reporting.
 
-### Business Ledger
+- [ ] general **Money In** action;
+- [ ] revenue types: service/repair income, parts sales, accessories, postage recovered and miscellaneous business income;
+- [ ] reimbursement/refund treatment distinct from revenue;
+- [ ] owner capital contributions distinct from revenue;
+- [ ] owner drawings distinct from expenses where appropriate;
+- [ ] cash-position definition and reconciliation;
+- [ ] refunds, discounts and marketplace adjustments;
+- [ ] formal reversal/correction workflow rather than destructive financial edits;
+- [ ] fees/postage reconciliation;
+- [ ] representative finance acceptance.
 
-- [x] first-class ledger;
-- [x] operating / capital / other income treatment;
-- [x] tools/equipment separated from Item economics;
-- [x] consumable/tool receiving can create correct ledger treatment;
-- [x] Part receiving avoids duplicate ledger treatment;
-- [x] foreign currency + optional AUD equivalent;
-- [x] server-side summaries/pagination;
-- [ ] owner contributions/drawings if required;
-- [ ] formal adjustment/reversal workflow.
+### Economics rules
 
-### Accounting principles
+- [x] acquisition cost remains attached to Item;
+- [ ] donor conversion never removes or hides acquisition cost;
+- [ ] stock value at cost vs valuation vs realised proceeds clearly separated;
+- [ ] projected profit and realised profit visually separated;
+- [ ] cash movements explainable from Ledger and sale/purchase records.
 
-- [x] stock costs and operating expenses structurally distinguishable;
-- [x] realised cash and hypothetical valuation separate;
-- [x] totals computed from records;
-- [x] critical finance mutations audited;
-- [🟡] destructive edit/delete still exists in Ledger UI;
-- [ ] representative end-to-end finance reconciliation acceptance.
+**Exit gate:** every business total must reconcile from transactions without valuations masquerading as cash.
 
 ---
 
-# RELEASE CANDIDATE / MAIN URL CUTOVER GATE
-
-**Status: ⬜ deliberately not rushed**
-
-`app.calibreco.com.au` stays on the original app until the operational and financial spine is demonstrably safer to run than legacy.
-
-Required before cutover:
-
-1. [ ] one complete real-world workflow succeeds: purchase → Item → research → Work → parts → QC → valuation/listing → sale → financial result;
-2. [ ] save → refresh → confirm passes on all critical writes;
-3. [ ] phone acceptance pass;
-4. [ ] DeX/desktop acceptance pass;
-5. [🟡] core high-volume routes scale; secondary routes still need review;
-6. [x] structured backup and Storage archive layers exist;
-7. [ ] real database/media restore drill succeeds;
-8. [ ] invoice/Purchase → Item cost → Business reporting reconciliation succeeds;
-9. [ ] remaining legacy active-route leakage removed;
-10. [ ] rollback plan documented and old app frozen, not deleted;
-11. [ ] final Verify and Deploy green;
-12. [ ] custom-domain routing/auth/private-media/write validation.
-
----
-
-## Phase F — Business Brain
+## Phase F — Monthly reports, graphs and Business Brain
 
 **Status: 🟡 early foundation**
 
-Already present: Business Overview, stock invested, target/expected value, projected gross, realised-profit groundwork, ready-to-sell/needs-valuation/aged-stock indicators, Item cost breakdown and separate Ledger summaries.
+### Reports
 
-Still to mature:
+Build **Business → Reports** over existing canonical data.
 
-- [ ] cash position with clearly defined scope;
-- [ ] stock at cost / capital tied up;
-- [ ] expected vs realised profit;
-- [ ] revenue/profit by period and monthly P&L;
-- [ ] average margin / ROI / days to sale;
+- [ ] month selector;
+- [ ] Year to Date;
+- [ ] custom date range;
+- [ ] Revenue;
+- [ ] Realised profit;
+- [ ] Purchase spend;
+- [ ] Parts/workshop costs;
+- [ ] Other expenses;
+- [ ] Other income;
+- [ ] Stock acquired / sold;
+- [ ] Stock value and capital tied up;
+- [ ] Average profit per Item;
+- [ ] Average margin / ROI;
+- [ ] Average days to sale;
+- [ ] Work completed;
+- [ ] Parts consumed;
+- [ ] Donor usage/value recovery;
+- [ ] exportable monthly snapshot.
+
+### Graphs
+
+- [ ] revenue and profit over time;
+- [ ] spend vs sales;
+- [ ] profit by Item;
+- [ ] profit by acquisition source;
+- [ ] channel performance;
+- [ ] stock ageing;
+- [ ] capital tied up by age/category;
+- [ ] potential-profit pipeline;
+- [ ] bench hours vs realised profit when labour capture matures.
+
+### Business Brain
+
+- [ ] month-over-month narrative;
+- [ ] slow/dead-stock scoring;
 - [ ] most/least profitable Items;
-- [ ] slow/dead stock scoring;
-- [ ] incoming purchases/parts;
+- [ ] source/vendor performance;
 - [ ] sale-ready prioritisation;
-- [ ] waiting Work/blockers;
-- [ ] tool vs stock expenditure;
-- [ ] advisory “what should I work on next?” reasoning.
+- [ ] Work blockers and likely quickest wins;
+- [ ] “what should I work on next?” reasoning;
+- [ ] later AI-generated report narrative grounded only in deterministic metrics.
 
 ---
 
@@ -549,91 +409,242 @@ Still to mature:
 
 **Status: 🟡 early foundation**
 
-- [🟡] sale/listing record foundation;
-- [ ] true multiple listings/channels per Item;
-- [x] listed date / asking price / channel;
-- [ ] external listing URL;
-- [🟡] offer records exist;
-- [ ] accepted/rejected/countered offer workflow;
-- [x] sale conversion foundation;
-- [ ] channel-specific listing generation;
-- [ ] image selection/order;
+- [ ] true multi-listing/multi-channel records;
+- [ ] eBay/Facebook/Calibre-site variants;
+- [ ] listing photo roles/order;
 - [ ] publication checklist;
-- [ ] sold/archive/post-sale handoff.
-
-Never invent water resistance, service state, originality or technical certainty.
-
----
-
-## Phase H — Customer, public and Calibre Club
-
-**Status: 💤 later**
-
-Customer/member access must come from an explicitly sanitised publication projection, never direct internal tables.
-
-Future outputs include customer-safe Passport, repair report, invoice/receipt, public catalogue, Wix/customer-site integration, QR provenance, owned-watch area and optional Club/community evidence workflows.
+- [ ] offer accepted/rejected/countered lifecycle;
+- [ ] listing URL tracking;
+- [ ] post-sale handoff;
+- [ ] AI-assisted listing drafting using only verified Calibre facts;
+- [ ] never invent originality, service state, water resistance, material or technical certainty.
 
 ---
 
-## Phase I — Tools, consumables and workshop registry
+## Phase H — Visual system restoration and brand assets
 
-**Status: 🟡 foundation now meaningful**
+**Status: 🟡 active, should happen early rather than at the end**
+
+### Calibre Classic consolidation
+
+- [ ] create shared design tokens/component primitives for glass panels, cards, headings, status chips and navigation;
+- [ ] restore consistent charcoal/petrol sunburst background on all major routes;
+- [ ] frosted-glass tile treatment with sensible performance fallbacks;
+- [ ] floating navigation on DeX/desktop;
+- [ ] floating bottom dock on phone;
+- [ ] remove visual drift introduced by route-specific CSS;
+- [ ] preserve classic Cormorant + IBM Plex hierarchy;
+- [ ] responsive density tuning for Galaxy phone and DeX.
+
+### Maker marks
+
+- [ ] `brand_assets` library;
+- [ ] approved monochrome maker logo beside Item/watch titles;
+- [ ] SVG preferred;
+- [ ] transparent PNG fallback;
+- [ ] text/monogram fallback;
+- [ ] never depend on remote third-party logo hotlinks.
+
+**Exit gate:** Home, Inventory, Workbench, Business, Intake and Item Workspace must clearly look like one product.
+
+---
+
+## Phase I — Workshop tools and utilities
+
+**Status: 🟡 foundation exists**
+
+### Existing asset registry
 
 - [x] Tool registry;
 - [x] Consumable registry;
-- [x] Purchase receiving can materialise Tools/Consumables;
-- [x] physical storage linkage and put-away;
-- [x] Business Ledger treatment distinguishes Tool capital spend and Consumable operating spend;
-- [ ] service/calibration dates where relevant;
-- [ ] low-stock/reorder workflow;
-- [ ] richer asset lifecycle/reporting.
+- [x] receiving and storage linkage;
+- [ ] service/calibration dates;
+- [ ] richer asset lifecycle;
+- [ ] low-stock/reorder workflow.
+
+### Calibre Tools drawer
+
+Build tools that are specific to this business rather than duplicating a phone calculator.
+
+- [ ] auction max-bid calculator;
+- [ ] landed-cost calculator;
+- [ ] profit / margin / ROI calculator;
+- [ ] mm / inch / ligne converter;
+- [ ] crystal/case measurement helper;
+- [ ] timing comparison calculator;
+- [ ] bench measurement scratchpad with Save to Work;
+- [ ] ultrasonic/soak/test timers;
+- [ ] quick QR/label generator;
+- [ ] quick camera/microscope capture;
+- [ ] Parts/Donor Finder shortcut;
+- [ ] Movement Finder shortcut;
+- [ ] knowledge/lubrication lookup.
 
 ---
 
-## Phase J — Timegrapher v2
+## Phase J — Timing and Timegrapher in the Work lifecycle
 
-**Status: 💤 deferred until dedicated mic/hardware is validated**
+**Status: 🟡 active foundation; no longer treated as an isolated deferred tool**
 
-- [x] sample-clock / AudioWorklet timing foundation;
+### Principle
+
+Timing belongs in three contexts:
+
+1. **Workbench** — a real service/repair step;
+2. **Item/Work history** — permanent evidence;
+3. **Tools** — standalone test when no Work is active.
+
+### Canonical timing checkpoints
+
+For appropriate mechanical templates:
+
+- [ ] Intake / pre-service timing;
+- [ ] first stable run after reassembly;
+- [ ] regulation runs;
+- [ ] final QC timing;
+- [ ] optional positional sequence.
+
+### Data
+
+Persist:
+
 - [x] BPH;
 - [x] rate;
 - [x] beat error;
-- [🟡] persistent timing runs;
-- [ ] richer positional workflow;
-- [ ] before/after comparison;
-- [ ] hardware-specific calibration/validation.
+- [ ] position;
+- [ ] sample duration;
+- [ ] signal confidence;
+- [ ] microphone/device identity;
+- [ ] lift angle when explicitly known/entered;
+- [ ] amplitude only after defensible hardware validation.
 
-Amplitude remains disabled until defensible.
+### UX
+
+- [ ] launch Timegrapher directly from current Work step with Item/Work/stage preselected;
+- [ ] no manual refiling after capture;
+- [ ] Before → Reassembly → Regulation → Final comparison graph;
+- [ ] positional spread summary;
+- [ ] signal-quality warnings;
+- [ ] final timing requirement configurable by Work Template;
+- [ ] permanent timing history on Item.
+
+### Interpretation
+
+Deterministic detector owns measurements. AI may explain trends, for example “rate improved but positional spread worsened”, while clearly labelling mechanical causes as possibilities rather than facts.
+
+### Hardware
+
+- [ ] validate incoming USB timegrapher mic on Android;
+- [ ] validate same mic on PC/DeX where applicable;
+- [ ] compare against reference instrument before detector changes;
+- [ ] calibration notes/device profile.
 
 ---
 
-## Phase K — Printing and physical workflow
+## Phase K — OpenAI intelligence layer
 
-**Status: 🧪 explore after core acceptance**
+**Status: 🟡 early, strategically important**
 
-Preferred direction: browser/PDF outputs plus a desktop Print Bridge for hardware that phones cannot drive directly.
+### Architecture
 
-Potential outputs: Item labels, storage labels, Job Cards, repair reports, invoices/receipts and QR Passport labels.
+`Calibre UI → trusted Supabase/backend layer → OpenAI → approved Calibre functions → Supabase`
+
+The model never receives unrestricted database write authority and never holds canonical truth in conversation state.
+
+### K1 — Contextual Calibre Copilot
+
+- [ ] **Ask Calibre** inside Item, Work, Intake, Research and Business surfaces;
+- [ ] automatic current Item/Work context;
+- [ ] structured photo analysis proposals;
+- [ ] structured research findings with confidence/evidence;
+- [ ] reference + Calibre Knowledge search;
+- [ ] listing draft generation from verified facts;
+- [ ] explanation of timing/finance/workshop data;
+- [ ] proposed actions rendered before execution.
+
+### K2 — Workshop Assistant
+
+- [ ] Bench Mode voice commands;
+- [ ] record note/measurement/fault hands-free;
+- [ ] mark checklist state through approved function calls;
+- [ ] add Part Need by voice;
+- [ ] open timing step;
+- [ ] retrieve lubrication/reference notes;
+- [ ] microphone/camera context aware of current Work;
+- [ ] material data mutations require confirmation.
+
+### K3 — Acquisition and Business intelligence
+
+- [ ] auction-lot image/text analysis;
+- [ ] missing-evidence detection;
+- [ ] likely repair complexity suggestions;
+- [ ] Calibre computes economics/max bid deterministically;
+- [ ] monthly-report narrative;
+- [ ] stock/work prioritisation;
+- [ ] anomaly detection and Attention Centre summaries.
+
+### K4 — Workshop Memory
+
+Use accumulated Calibre evidence rather than generic memory:
+
+- [ ] similar repairs previously completed;
+- [ ] previous successful/rejected part fits;
+- [ ] donor usage history;
+- [ ] recurring fault patterns by movement family;
+- [ ] historical timing outcomes;
+- [ ] supplier/source outcomes;
+- [ ] median bench time/profit by category once enough data exists.
+
+### K5 — Calibre Agent
+
+Later, allow multi-step orchestration through approved tools, for example:
+
+`load Item → inspect open Work → check parts → search donor stock → retrieve references → prepare bench-session brief`
+
+No silent canonical rewrites.
 
 ---
 
-## Phase L — Device modes / Smart Capture
+## Phase L — Printing, labels and physical outputs
 
-**Status: 🟡 early foundations**
+**Status: 🧪 exploratory after core acceptance**
 
-- phone: status, photos, measurements, parts, storage/put-away, QR;
-- DeX: research, finance, comparisons, dense admin;
-- capture station: microscope/camera capture against a selected Item.
-
-Dedicated capture-station workflows remain future work.
+- [ ] browser/PDF Item labels;
+- [ ] storage labels;
+- [ ] Job Cards;
+- [ ] repair reports;
+- [ ] invoices/receipts;
+- [ ] QR Passport labels;
+- [ ] desktop Print Bridge for printers not exposed to Android/browser printing.
 
 ---
 
-## Phase M — Global search / command layer
+## Phase M — Device modes and Smart Capture
+
+**Status: 🟡 early foundation**
+
+### Phone
+
+Fast capture, status, photos, measurements, parts, timing, storage, QR, Bench Mode voice.
+
+### DeX/desktop
+
+Research, finance, comparisons, dense administration, graphs, full Workbench command centre.
+
+### Capture Station
+
+- [ ] microscope/camera capture directly into selected Item/Work/step;
+- [ ] stable media ownership;
+- [ ] quick evidence classification;
+- [ ] before/after capture workflow.
+
+---
+
+## Phase N — Search, command and Attention Centre
 
 **Status: 🟡 active**
 
-### Search now
+### Global search expansion
 
 - [x] Items;
 - [x] Work;
@@ -643,127 +654,168 @@ Dedicated capture-station workflows remain future work.
 - [ ] donors;
 - [ ] locations;
 - [ ] vendors/sources;
-- [ ] ledger transactions;
+- [ ] ledger entries;
 - [ ] listings/offers/sales;
 - [ ] tools/consumables.
 
-### Command actions
+### Command palette
 
-- [x] open/create Item;
-- [x] open Invoice intake;
-- [x] add Part;
-- [🟡] start Work handoff;
-- [ ] move Work;
-- [ ] add cost/ledger entry;
-- [ ] put away/move physical stock from global command;
-- [ ] locate donor;
-- [ ] start named Work template;
-- [ ] open linked source document.
+DeX/desktop keyboard and phone search entry should support actions such as:
+
+- [ ] `Item 42` / `Work 7` open;
+- [ ] new cost / money in;
+- [ ] move Item / put away;
+- [ ] add Part Need;
+- [ ] find donor;
+- [ ] start named Work Template;
+- [ ] auction calculator;
+- [ ] timing;
+- [ ] open source invoice/document;
+- [ ] start Bench Session.
+
+### Attention Centre
+
+- [ ] parts arrived / ready to resume;
+- [ ] Work blocked too long;
+- [ ] QC waiting;
+- [ ] missing listing photos;
+- [ ] stock unvalued;
+- [ ] aged stock;
+- [ ] invoice/Purchase exception;
+- [ ] donor candidate found;
+- [ ] low consumable stock;
+- [ ] optional AI prioritised summary over deterministic alerts.
 
 ---
 
-## Phase N — Automation and learning loop
+## Phase O — Customer, public and Calibre Club
 
-**Status: 💤 after manual workflows are proven**
+**Status: 💤 later**
 
-Potential automation: purchase email/invoice capture, shipment/arrival, stale Work alerts, auction intake, listing/publication, finance summaries, reorder warnings and scheduled business briefs.
+Customer/member access must come from an explicitly sanitised publication projection.
+
+Potential outputs:
+
+- customer-safe Passport;
+- repair/service report;
+- invoice/receipt;
+- public catalogue;
+- QR provenance;
+- owned-watch area;
+- optional Club/community evidence workflows.
 
 ---
 
-# CROSS-CUTTING GATES
+## Phase P — Automation and learning loop
 
-## Scale and performance
+**Status: 💤 after manual workflows and AI authority boundaries are proven**
 
-Core Home, Inventory, Workbench, Business/Ledger, Global Search and Purchase intake are bounded/server-paginated where appropriate. Secondary long-tail routes still need scale review.
+Potential automation:
 
-## Timeline/history
+- purchase email/invoice capture;
+- shipment/arrival monitoring;
+- stale Work alerts;
+- auction intake;
+- listing/publication;
+- finance summaries;
+- reorder warnings;
+- scheduled business briefs;
+- safe proactive Copilot preparation.
 
-Business lifecycle history and low-level audit logging remain distinct. Storage moves are now a permanent user-facing physical-history source.
+---
 
-## Backups/recovery
+# RELEASE CANDIDATE / MAIN URL CUTOVER GATE
 
-Structured JSON export, Storage TAR export and written recovery runbook exist. The structured export includes acquisition child records and storage movement history. A successful restore/reconciliation drill remains mandatory before main-domain cutover.
+`app.calibreco.com.au` remains on the legacy app until v2 is demonstrably safer to run.
 
-## Security
+Required before cutover:
 
-RLS on workspace-owned data; least privilege; no frontend secrets; signed private media; explicit publication boundary; no direct member access to internal operational tables.
+1. [ ] one complete real-world workflow succeeds: purchase → Item → research → Work → parts if required → timing → signed QC → valuation/listing → sale → financial result;
+2. [ ] save → refresh → confirm passes on all critical writes;
+3. [ ] phone acceptance pass;
+4. [ ] DeX/desktop acceptance pass;
+5. [ ] physical storage acceptance;
+6. [ ] finance reconciliation acceptance;
+7. [ ] safe Remove/Archive/Trash behaviour on Items and Parts;
+8. [ ] core high-volume routes remain bounded/fast;
+9. [ ] structured backup + private media archive exist and real restore drill succeeds;
+10. [ ] remaining active legacy-route leakage removed;
+11. [ ] final Verify and Deploy green;
+12. [ ] custom-domain routing/auth/private-media/write validation;
+13. [ ] rollback plan documented; legacy app frozen, not deleted.
 
-## Financial integrity
-
-- no profit without transactions;
-- no cash position from valuations;
-- no silent allocation changes;
-- original currency preserved;
-- material financial changes auditable;
-- Business Ledger and Item/stock economics must not double-count costs;
-- source discrepancies stay visible rather than being quietly “fixed”.
-
-## Physical integrity
-
-- location is independent of Work/status;
-- Needs put-away means unassigned, not “Workshop”;
-- physical moves are explicit and historical;
-- receiving can assign storage, but does not have to;
-- moving to Bench never starts Work automatically.
-
-## Phone / DeX acceptance
-
-Every operational phase must be usable on phone and DeX/desktop before acceptance.
-
-## Design language
-
-Keep the accepted Swiss technical-instrument / old-steel / workshop direction. Prefer inline expansion over detached action panels when editing/moving a specific card or row.
+Visual-system restoration can land before this gate. Deep OpenAI automation and customer/public features do not block the gate unless they become required daily workflow before cutover.
 
 ---
 
 # IMMEDIATE EXECUTION PLAN
 
-### 1. Acquisition acceptance and scale hardening
+### 1. Real workshop acceptance
 
-- [x] server pagination/search for Purchases;
-- [x] canonical Vendor/Source treatment;
-- [x] formal source discrepancy presentation;
-- [x] formal allocation/reallocation history;
-- [x] imported-source immutability rules;
-- [x] receiving-status truth/backfill and regression protection;
-- [ ] real invoice → Purchase → receiving → put-away save/refresh acceptance;
-- [ ] representative Purchase finance reconciliation acceptance.
+- [ ] run the Waltham through the current real workflow;
+- [ ] record friction rather than inventing synthetic evidence;
+- [ ] validate checklist → parts → timing → QC → completion.
 
-### 2. Workshop acceptance
+### 2. Calibre Classic restoration
 
-- [ ] run one real watch end-to-end through current Work/QC/storage system;
-- [ ] formal QC signer identity;
-- [ ] Work timeline polish;
-- [ ] printable/generated Job Card;
-- [ ] customer-safe completion summary.
+- [ ] consolidate theme tokens;
+- [ ] sunburst background everywhere appropriate;
+- [ ] frosted glass cards;
+- [ ] floating navigation;
+- [ ] restore classic typography consistently;
+- [ ] eliminate route-specific visual drift.
 
-### 3. Parts / donor intelligence
+### 3. Workbench 2.0 + Bench Mode
 
-- [ ] donor suggestions;
+- [ ] On My Bench command centre;
+- [ ] quick capture actions;
+- [ ] bench-session labour timing;
+- [ ] smarter exception surfacing;
+- [ ] timing checkpoints integrated into Work Templates.
+
+### 4. Safe removal + donor economics
+
+- [ ] Remove/Trash/Restore for Items/Parts;
+- [ ] dependency-aware hard delete;
+- [ ] donor cost retention;
 - [ ] donor lineage/depletion;
-- [ ] failed-fit/returned presentation;
-- [ ] real storage acceptance on phone and DeX;
-- [ ] later QR move/lookup.
+- [ ] donor-to-recipient part history.
 
-### 4. Foundation hardening
+### 5. Business reporting and cashflow
 
-- [ ] generate DB types;
-- [ ] finish live-vs-repo migration audit;
-- [ ] regression/RLS tests;
-- [ ] secondary-route scale audit;
+- [ ] Money In workflow;
+- [ ] owner capital vs revenue separation;
+- [ ] monthly reports and graphs;
+- [ ] custom range / YTD;
+- [ ] cash-position semantics;
+- [ ] reversal-based corrections.
+
+### 6. Tools + command layer
+
+- [ ] auction/profit calculators;
+- [ ] measurement/timing tools;
+- [ ] Attention Centre;
+- [ ] command palette actions;
+- [ ] maker brand assets beside titles.
+
+### 7. OpenAI Phase K1
+
+After the above functions expose clean, auditable application actions:
+
+- [ ] contextual Ask Calibre;
+- [ ] photo/research structured proposals;
+- [ ] reference search;
+- [ ] verified-fact listing drafts;
+- [ ] proposed-action confirmation pattern;
+- [ ] trusted backend API integration and usage/cost logging.
+
+### 8. Foundation acceptance in parallel
+
+- [ ] DB types;
+- [ ] migration audit;
+- [ ] RLS/regression tests;
 - [ ] error observability;
-- [ ] execute clean rebuild + restore drill when a practical disposable environment is available.
-
-### 5. Commerce / ledger hardening
-
-- [ ] refunds / discounts / adjustments;
-- [ ] reversal-based correction path;
-- [ ] margin/reporting consistency;
-- [ ] finance reconciliation tests.
-
-### 6. Release Candidate / main URL
-
-Only after A–E core exit gates are satisfied. Do not cut over early.
+- [ ] backup/restore drill.
 
 ---
 
@@ -782,9 +834,12 @@ Unless not applicable, a phase is complete only when:
 9. destructive actions are deliberate and recoverable where appropriate;
 10. history/audit behaviour is defined;
 11. performance is acceptable at intended scale;
-12. financial calculations can be traced to source records;
-13. no legacy duplicate implementation remains active on the accepted route;
+12. financial calculations trace to source records;
+13. no duplicate legacy implementation remains active on the accepted route;
 14. backup/recovery requirements are satisfied before business-critical cutover;
-15. public/member access uses a sanitised publication boundary;
-16. physical-location behaviour is explicit where relevant;
-17. the roadmap is updated to reflect accepted reality.
+15. physical-location behaviour is explicit where relevant;
+16. deterministic calculations remain deterministic;
+17. AI output is labelled as proposal/interpretation unless it is confirmed canonical data;
+18. AI-triggered mutations use approved functions and are auditable;
+19. the Calibre Classic design system is respected;
+20. the roadmap is updated to reflect accepted reality.
