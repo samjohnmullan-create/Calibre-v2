@@ -4,12 +4,6 @@ import { supabase } from './lib/supabase'
 type HealthLevel = 'good' | 'attention' | 'unknown'
 type HealthRow = { label: string; value: string; detail: string; level: HealthLevel }
 
-type Props = {
-  workspaceId: string
-  lastStructuredExport: string
-  lastStorageExport: string
-}
-
 function backupAgeLabel(value: string) {
   if (!value) return { value: 'Not recorded', level: 'attention' as const, detail: 'Create an owner-controlled backup.' }
   const ageMs = Date.now() - new Date(value).getTime()
@@ -21,7 +15,7 @@ function backupAgeLabel(value: string) {
   }
 }
 
-export default function SystemHealthPanel({ workspaceId, lastStructuredExport, lastStorageExport }: Props) {
+export default function SystemHealthPanel({ workspaceId }: { workspaceId: string }) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [databaseOk, setDatabaseOk] = useState(false)
@@ -30,11 +24,15 @@ export default function SystemHealthPanel({ workspaceId, lastStructuredExport, l
   const [openReceivingExceptions, setOpenReceivingExceptions] = useState(0)
   const [waitingWork, setWaitingWork] = useState(0)
   const [unassigned, setUnassigned] = useState({ items: 0, parts: 0, tools: 0, consumables: 0 })
+  const [lastStructuredExport, setLastStructuredExport] = useState('')
+  const [lastStorageExport, setLastStorageExport] = useState('')
 
   async function load() {
     if (!workspaceId) return
     setLoading(true)
     setMessage('')
+    setLastStructuredExport(localStorage.getItem('calibre:last-structured-export') ?? '')
+    setLastStorageExport(localStorage.getItem('calibre:last-storage-export') ?? '')
 
     const [
       workspaceResult,
@@ -86,54 +84,14 @@ export default function SystemHealthPanel({ workspaceId, lastStructuredExport, l
   const totalUnassigned = unassigned.items + unassigned.parts + unassigned.tools + unassigned.consumables
 
   const rows: HealthRow[] = [
-    {
-      label: 'Database & workspace',
-      value: databaseOk ? 'Connected' : 'Not verified',
-      detail: databaseOk ? 'Current workspace is reachable under the signed-in user.' : 'Connection could not be confirmed.',
-      level: databaseOk ? 'good' : 'unknown',
-    },
-    {
-      label: 'Audit trail',
-      value: latestAudit ? `Latest ${new Date(latestAudit).toLocaleString('en-AU')}` : 'No event recorded',
-      detail: latestAudit ? 'Database-level audit history is readable.' : 'No audit event is currently visible for this workspace.',
-      level: latestAudit ? 'good' : 'attention',
-    },
-    {
-      label: 'Active Bench sessions',
-      value: String(activeSessions),
-      detail: activeSessions ? 'A hands-on Bench session is currently open.' : 'No active Bench session.',
-      level: activeSessions > 1 ? 'attention' : 'good',
-    },
-    {
-      label: 'Receiving exceptions',
-      value: String(openReceivingExceptions),
-      detail: openReceivingExceptions ? 'Open Purchase receiving exceptions need a decision.' : 'No open receiving exceptions.',
-      level: openReceivingExceptions ? 'attention' : 'good',
-    },
-    {
-      label: 'Waiting Work',
-      value: String(waitingWork),
-      detail: waitingWork ? 'Work is intentionally blocked or waiting for something.' : 'No Work records are waiting.',
-      level: waitingWork ? 'attention' : 'good',
-    },
-    {
-      label: 'Needs put-away',
-      value: String(totalUnassigned),
-      detail: `${unassigned.items} Items · ${unassigned.parts} Parts · ${unassigned.tools} Tools · ${unassigned.consumables} Consumables`,
-      level: totalUnassigned ? 'attention' : 'good',
-    },
-    {
-      label: 'Structured backup',
-      value: structuredBackup.value,
-      detail: structuredBackup.detail,
-      level: structuredBackup.level,
-    },
-    {
-      label: 'Storage archive',
-      value: storageBackup.value,
-      detail: storageBackup.detail,
-      level: storageBackup.level,
-    },
+    { label: 'Database & workspace', value: databaseOk ? 'Connected' : 'Not verified', detail: databaseOk ? 'Current workspace is reachable under the signed-in user.' : 'Connection could not be confirmed.', level: databaseOk ? 'good' : 'unknown' },
+    { label: 'Audit trail', value: latestAudit ? `Latest ${new Date(latestAudit).toLocaleString('en-AU')}` : 'No event recorded', detail: latestAudit ? 'Database-level audit history is readable.' : 'No audit event is currently visible for this workspace.', level: latestAudit ? 'good' : 'attention' },
+    { label: 'Active Bench sessions', value: String(activeSessions), detail: activeSessions ? 'A hands-on Bench session is currently open.' : 'No active Bench session.', level: activeSessions > 1 ? 'attention' : 'good' },
+    { label: 'Receiving exceptions', value: String(openReceivingExceptions), detail: openReceivingExceptions ? 'Open Purchase receiving exceptions need a decision.' : 'No open receiving exceptions.', level: openReceivingExceptions ? 'attention' : 'good' },
+    { label: 'Waiting Work', value: String(waitingWork), detail: waitingWork ? 'Work is intentionally blocked or waiting for something.' : 'No Work records are waiting.', level: waitingWork ? 'attention' : 'good' },
+    { label: 'Needs put-away', value: String(totalUnassigned), detail: `${unassigned.items} Items · ${unassigned.parts} Parts · ${unassigned.tools} Tools · ${unassigned.consumables} Consumables`, level: totalUnassigned ? 'attention' : 'good' },
+    { label: 'Structured backup', value: structuredBackup.value, detail: structuredBackup.detail, level: structuredBackup.level },
+    { label: 'Storage archive', value: storageBackup.value, detail: storageBackup.detail, level: storageBackup.level },
   ]
 
   return (
