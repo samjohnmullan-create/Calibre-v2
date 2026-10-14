@@ -84,6 +84,7 @@ type StorageLocation = {
 }
 
 type ReceivedItem = { id: string; item_number: number; title: string; storage_location_id?: string | null }
+type PurchaseLoadOptions = { page?: number; query?: string; status?: string }
 
 const statusLabels: Record<string, string> = {
   suggested: 'Suggested', ordered: 'Ordered', shipped: 'In transit', delivered: 'Delivered',
@@ -97,6 +98,7 @@ const exceptionLabels: Record<string, string> = {
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const purposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
 const lotCategories = ['item', 'part', 'tool', 'consumable', 'other']
+const purchasePageSize = 30
 
 function money(value: number | null | undefined, currency = 'AUD') {
   if (value == null) return '—'
@@ -118,9 +120,17 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   const [message, setMessage] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [lastReceivedItem, setLastReceivedItem] = useState<ReceivedItem | null>(null)
+  const [purchaseQuery, setPurchaseQuery] = useState('')
+  const [debouncedPurchaseQuery, setDebouncedPurchaseQuery] = useState('')
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState('')
+  const [purchasePage, setPurchasePage] = useState(0)
+  const [purchaseCount, setPurchaseCount] = useState(0)
 
   const selected = purchases.find((purchase) => purchase.id === selectedId) ?? null
   const selectedLinks = useMemo(() => links.filter((link) => lots.some((lot) => lot.id === link.purchase_lot_id)), [links, lots])
+  const purchaseTotalPages = Math.max(1, Math.ceil(purchaseCount / purchasePageSize))
+  const purchaseFirstShown = purchaseCount === 0 ? 0 : purchasePage * purchasePageSize + 1
+  const purchaseLastShown = Math.min(purchaseCount, (purchasePage + 1) * purchasePageSize)
 
   const storagePathById = useMemo(() => {
     const byId = new Map(storageLocations.map((location) => [location.id, location]))
@@ -153,19 +163,34 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     return { expected, received, closedShort, openExceptions, remaining: Math.max(0, expected - received - closedShort) }
   }, [lots, exceptions])
 
-  async function loadPurchases(selectId?: string) {
+  async function loadPurchases(selectId?: string, options: PurchaseLoadOptions = {}) {
+    const page = options.page ?? purchasePage
+    const query = options.query ?? debouncedPurchaseQuery
+    const status = options.status ?? purchaseStatusFilter
     setLoading(true)
-    const { data, error } = await supabase
+    let request = supabase
       .from('purchases')
-      .select('id,vendor_name,channel,external_order_id,description,category,amount,currency,amount_aud,status,ordered_at,tracking_number,eta,received_at,discrepancy_note,notes,created_at')
+      .select('id,vendor_name,channel,external_order_id,description,category,amount,currency,amount_aud,status,ordered_at,tracking_number,eta,received_at,discrepancy_note,notes,created_at', { count: 'exact' })
       .eq('workspace_id', workspaceId)
+    if (status) request = request.eq('status', status)
+    if (query.trim()) request = request.ilike('search_text', `%${query.trim()}%`)
+    const from = page * purchasePageSize
+    const { data, error, count } = await request
       .order('created_at', { ascending: false })
-      .limit(100)
+      .range(from, from + purchasePageSize - 1)
     setLoading(false)
     if (error) { setMessage(`Purchases failed to load: ${error.message}`); return }
+    const total = count ?? 0
+    if (page > 0 && from >= total) {
+      setPurchasePage(Math.max(0, Math.ceil(total / purchasePageSize) - 1))
+      return
+    }
     const rows = (data ?? []) as Purchase[]
     setPurchases(rows)
-    const target = selectId || (rows.some((row) => row.id === selectedId) ? selectedId : rows[0]?.id || '')
+    setPurchaseCount(total)
+    const target = selectId && rows.some((row) => row.id === selectId)
+      ? selectId
+      : rows.some((row) => row.id === selectedId) ? selectedId : rows[0]?.id || ''
     setSelectedId(target)
   }
 
@@ -209,9 +234,21 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
 
   useEffect(() => {
     if (!workspaceId) return
-    void loadPurchases()
     void loadStorageLocations()
   }, [workspaceId])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedPurchaseQuery(purchaseQuery.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [purchaseQuery])
+
+  useEffect(() => { setPurchasePage(0) }, [debouncedPurchaseQuery, purchaseStatusFilter])
+
+  useEffect(() => {
+    if (!workspaceId) return
+    void loadPurchases()
+  }, [workspaceId, purchasePage, debouncedPurchaseQuery, purchaseStatusFilter])
+
   useEffect(() => { if (selectedId) { setLastReceivedItem(null); void loadPurchaseDetail(selectedId) } }, [selectedId])
 
   async function createPurchase(event: FormEvent<HTMLFormElement>) {
@@ -242,8 +279,11 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     if (error) { setMessage(`Purchase could not be created: ${error.message}`); return }
     event.currentTarget.reset()
     setShowNew(false)
+    setPurchaseQuery('')
+    setPurchaseStatusFilter('')
+    setPurchasePage(0)
     setMessage('Purchase created. Add one or more lots/bundle components, then receive them into physical stock.')
-    await loadPurchases(data.id)
+    await loadPurchases(data.id, { page: 0, query: '', status: '' })
   }
 
   async function addLot(event: FormEvent<HTMLFormElement>) {
@@ -437,14 +477,28 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
 
       <div className="purchase-layout">
         <aside className="purchase-list panel">
-          <div className="purchase-list-heading"><strong>Purchases</strong><span>{loading ? 'Loading…' : purchases.length}</span></div>
-          {purchases.length === 0 && !loading && <p className="muted">No purchases yet.</p>}
+          <div className="purchase-list-heading"><strong>Purchases</strong><span>{loading ? 'Loading…' : `${purchaseFirstShown}–${purchaseLastShown} of ${purchaseCount}`}</span></div>
+          <div className="purchase-list-controls">
+            <input type="search" value={purchaseQuery} onChange={(event) => setPurchaseQuery(event.target.value)} placeholder="Search vendor, ref, description, tracking…" aria-label="Search purchases" />
+            <select value={purchaseStatusFilter} onChange={(event) => setPurchaseStatusFilter(event.target.value)} aria-label="Filter purchases by status">
+              <option value="">All statuses</option>
+              {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          {purchases.length === 0 && !loading && <p className="muted">No purchases match this view.</p>}
           {purchases.map((purchase) => (
             <button key={purchase.id} type="button" className={purchase.id === selectedId ? 'purchase-row active' : 'purchase-row'} onClick={() => setSelectedId(purchase.id)}>
               <span><strong>{purchase.vendor_name || purchase.description}</strong><small>{purchase.external_order_id || purchase.description}</small></span>
               <span><small>{statusLabels[purchase.status] || purchase.status}</small><strong>{money(purchase.amount_aud ?? purchase.amount, purchase.amount_aud != null ? 'AUD' : purchase.currency)}</strong></span>
             </button>
           ))}
+          {purchaseCount > purchasePageSize && (
+            <div className="purchase-list-pagination">
+              <button type="button" disabled={loading || purchasePage === 0} onClick={() => setPurchasePage((value) => Math.max(0, value - 1))}>Previous</button>
+              <span>Page {purchasePage + 1} of {purchaseTotalPages}</span>
+              <button type="button" disabled={loading || purchasePage + 1 >= purchaseTotalPages} onClick={() => setPurchasePage((value) => value + 1)}>Next</button>
+            </div>
+          )}
         </aside>
 
         <div className="purchase-detail">
