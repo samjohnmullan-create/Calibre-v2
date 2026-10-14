@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import InvoiceIntakeServer from './InvoiceIntakeServer'
+import PurchaseIntake from './PurchaseIntake'
 
-type IntakeTab = 'inbox' | 'review' | 'completed'
+type IntakeTab = 'inbox' | 'review' | 'completed' | 'purchases'
+type InvoiceQueue = Exclude<IntakeTab, 'purchases'>
 
 function isIntakeRoute() {
   return window.location.hash.replace(/\/$/, '') === '#/intake'
@@ -44,8 +46,12 @@ export default function IntakeRoute() {
       <header className="intake-heading">
         <div>
           <p className="eyebrow">INTAKE</p>
-          <h1>Incoming</h1>
-          <p className="muted">Turn purchases and incoming documents into clean Calibre records before they enter Inventory.</p>
+          <h1>{tab === 'purchases' ? 'Purchases & receiving' : 'Incoming'}</h1>
+          <p className="muted">
+            {tab === 'purchases'
+              ? 'Track what was bought, split bundles into lots, receive physical Items and preserve the cost trail.'
+              : 'Turn purchases and incoming documents into clean Calibre records before they enter Inventory.'}
+          </p>
         </div>
       </header>
 
@@ -53,11 +59,12 @@ export default function IntakeRoute() {
         <button type="button" className={tab === 'inbox' ? 'active' : ''} onClick={() => setTab('inbox')}>Inbox</button>
         <button type="button" className={tab === 'review' ? 'active' : ''} onClick={() => setTab('review')}>Ready to Review</button>
         <button type="button" className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>Completed</button>
-        <button type="button" disabled title="Purchase intake is coming next">Purchases</button>
+        <button type="button" className={tab === 'purchases' ? 'active' : ''} onClick={() => setTab('purchases')}>Purchases</button>
       </nav>
 
       {message && <p className="intake-message">{message}</p>}
-      {workspaceId && <InvoiceIntakeServer workspaceId={workspaceId} queue={tab} />}
+      {workspaceId && tab === 'purchases' && <PurchaseIntake workspaceId={workspaceId} />}
+      {workspaceId && tab !== 'purchases' && <InvoiceIntakeServer workspaceId={workspaceId} queue={tab as InvoiceQueue} />}
     </main>
   )
 }
