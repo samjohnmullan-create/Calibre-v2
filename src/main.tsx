@@ -22,7 +22,6 @@ import './theme-classic.css'
 import './brand-polish.css'
 import './shell-layout.css'
 import './shell-chrome.css'
-import './bronze-accent.css'
 import './responsive-cards.css'
 import './device-shell'
 import './dex-scroll'
@@ -40,6 +39,7 @@ import './business-ledger-v2.css'
 import './business-pagination.css'
 import './settings-v2.css'
 import './audit-history-v2.css'
+import './calibre-classic-v2.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
