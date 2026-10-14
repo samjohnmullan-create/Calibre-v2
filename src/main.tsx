@@ -49,6 +49,7 @@ import './bench-mode-host.css'
 import './bench-quick-layout.css'
 import './safe-removal.css'
 import './system-health.css'
+import './resource-inventory.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
