@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import ArchiveConfirmDialog from './ArchiveConfirmDialog'
 
 type Part = {
   id: string
@@ -56,6 +57,9 @@ export default function PartsInventory() {
   const [unassignedParts, setUnassignedParts] = useState(0)
   const [totalApplications, setTotalApplications] = useState(0)
   const [totalConfirmedFits, setTotalConfirmedFits] = useState(0)
+  const [archiveTarget, setArchiveTarget] = useState<Part | null>(null)
+  const [archiveBusy, setArchiveBusy] = useState(false)
+  const [refreshToken, setRefreshToken] = useState(0)
 
   const [partType, setPartType] = useState('')
   const [manufacturer, setManufacturer] = useState('')
@@ -118,7 +122,7 @@ export default function PartsInventory() {
     const [locationResult, donorResult, unassignedResult, applicationCountResult, confirmedFitCountResult] = await Promise.all([
       supabase.from('storage_locations').select('id,parent_id,name,code,location_type,sort_order').eq('workspace_id', workspaceId).order('sort_order').order('name'),
       supabase.from('items').select('id,item_number,title,status').eq('workspace_id', workspaceId).eq('purpose', 'donor').is('archived_at', null).order('item_number', { ascending: false }).limit(200),
-      supabase.from('parts').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('storage_location_id', null),
+      supabase.from('parts').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('archived_at', null).is('storage_location_id', null),
       supabase.from('part_applications').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId),
       supabase.from('part_fit_verifications').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).eq('result', 'confirmed'),
     ])
@@ -138,6 +142,7 @@ export default function PartsInventory() {
     let request = supabase.from('parts')
       .select('id,part_type,manufacturer,reference,description,condition,quantity,unit_cost,currency,storage_location_id,donor_item_id,notes,provenance_type,provenance_note,replacement_cost,knowledge_part_ref_id', { count: 'exact' })
       .eq('workspace_id', workspaceId)
+      .is('archived_at', null)
     if (term) request = request.or(`part_type.ilike.%${term}%,manufacturer.ilike.%${term}%,reference.ilike.%${term}%,description.ilike.%${term}%,notes.ilike.%${term}%`)
     if (conditionFilter !== 'all') request = request.eq('condition', conditionFilter)
     if (sourceFilter === 'donor') request = request.not('donor_item_id', 'is', null)
@@ -165,8 +170,8 @@ export default function PartsInventory() {
     setParts(nextParts); setApplications(pageApplications); setFits(pageFits); setTotalParts(partsResult.count ?? 0); setLoading(false); setMessage('')
   }
 
-  useEffect(() => { if (workspaceId) void loadReferenceData() }, [workspaceId])
-  useEffect(() => { if (workspaceId) void loadParts() }, [workspaceId, page, query, conditionFilter, sourceFilter, locationFilter])
+  useEffect(() => { if (workspaceId) void loadReferenceData() }, [workspaceId, refreshToken])
+  useEffect(() => { if (workspaceId) void loadParts() }, [workspaceId, page, query, conditionFilter, sourceFilter, locationFilter, refreshToken])
 
   function resetForm() {
     setPartType(''); setManufacturer(''); setReference(''); setDescription(''); setCondition('used'); setQuantity('1'); setUnitCost(''); setReplacementCost(''); setProvenanceType('unknown'); setProvenanceNote(''); setDonorItemId(''); setStorageLocationId(''); setNotes('')
@@ -192,6 +197,27 @@ export default function PartsInventory() {
     if (error) { setMessage(`Part location could not be changed: ${error.message}`); return }
     setMessage(`${part.description} moved to ${destinationId ? (pathById.get(destinationId) || 'selected location') : 'Unassigned'}.`)
     await Promise.all([loadReferenceData(), loadParts()])
+  }
+
+  async function archivePart(reason: string) {
+    if (!workspaceId || !archiveTarget || archiveBusy) return
+    const target = archiveTarget
+    setArchiveBusy(true)
+    const { error } = await supabase.rpc('archive_inventory_entity', {
+      p_workspace_id: workspaceId,
+      p_entity_type: 'part',
+      p_entity_id: target.id,
+      p_reason: reason,
+    })
+    setArchiveBusy(false)
+    if (error) {
+      setMessage(`Part could not be archived: ${error.message}`)
+      return
+    }
+    setArchiveTarget(null)
+    setMessage(`${target.description} archived. It can be restored from Inventory → Trash.`)
+    if (parts.length === 1 && page > 0) setPage((value) => Math.max(0, value - 1))
+    else setRefreshToken((value) => value + 1)
   }
 
   return (
@@ -252,11 +278,20 @@ export default function PartsInventory() {
             <label className="part-quick-move">Move part<select value={part.storage_location_id || ''} disabled={movingPartId === part.id} onChange={(event) => void movePart(part, event.target.value)}><option value="">Needs put-away</option>{sortedLocations.map((location) => <option key={location.id} value={location.id}>{pathById.get(location.id) || location.name}</option>)}</select></label>
             <div className="part-evidence-row"><span>{partApplications.length} application{partApplications.length === 1 ? '' : 's'}</span><span>{confirmedFits} confirmed fit{confirmedFits === 1 ? '' : 's'}</span>{part.knowledge_part_ref_id && <span>Knowledge linked</span>}</div>
             {(part.provenance_note || part.notes) && <p className="part-notes">{part.provenance_note || part.notes}</p>}
+            <div className="part-card-actions"><button type="button" className="secondary small" onClick={() => setArchiveTarget(part)}>Remove</button></div>
           </article>
         })}
       </div>
 
       {totalParts > PAGE_SIZE && <div className="parts-pagination" aria-label="Parts pages"><button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>← Previous</button><span>Page {page + 1} of {pageCount} · {totalParts} matching</span><button type="button" className="secondary small" disabled={page + 1 >= pageCount || loading} onClick={() => setPage((value) => value + 1)}>Next →</button></div>}
+
+      <ArchiveConfirmDialog
+        open={Boolean(archiveTarget)}
+        label={archiveTarget?.description || 'Part'}
+        busy={archiveBusy}
+        onCancel={() => { if (!archiveBusy) setArchiveTarget(null) }}
+        onConfirm={archivePart}
+      />
     </section>
   )
 }
