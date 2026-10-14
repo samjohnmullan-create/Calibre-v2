@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import InvoiceIntakeServer from './InvoiceIntakeServer'
 import PurchaseIntake from './PurchaseIntake'
 
-type IntakeTab = 'inbox' | 'review' | 'completed' | 'purchases'
+type IntakeTab = 'inbox' | 'review' | 'purchases' | 'completed'
 type InvoiceQueue = Exclude<IntakeTab, 'purchases'>
 
 function isIntakeRoute() {
@@ -41,25 +41,28 @@ export default function IntakeRoute() {
 
   if (!active) return null
 
+  const heading = tab === 'purchases' ? 'Purchases & receiving' : tab === 'completed' ? 'Completed intake' : 'Incoming'
+  const description = tab === 'purchases'
+    ? 'Track every acquisition from Purchase to Lot to physical stock. Completed invoice imports are handed into this queue automatically.'
+    : tab === 'completed'
+      ? 'Read-only source-document history. Imported invoices remain preserved here after their operational Purchase/Lot records are created.'
+      : 'Upload and review source documents before anything becomes operational stock.'
+
   return (
     <main className="intake-page">
       <header className="intake-heading">
         <div>
           <p className="eyebrow">INTAKE</p>
-          <h1>{tab === 'purchases' ? 'Purchases & receiving' : 'Incoming'}</h1>
-          <p className="muted">
-            {tab === 'purchases'
-              ? 'Track what was bought, split bundles into lots, receive physical Items and preserve the cost trail.'
-              : 'Turn purchases and incoming documents into clean Calibre records before they enter Inventory.'}
-          </p>
+          <h1>{heading}</h1>
+          <p className="muted">{description}</p>
         </div>
       </header>
 
       <nav className="intake-tabs" aria-label="Intake views">
         <button type="button" className={tab === 'inbox' ? 'active' : ''} onClick={() => setTab('inbox')}>Inbox</button>
         <button type="button" className={tab === 'review' ? 'active' : ''} onClick={() => setTab('review')}>Ready to Review</button>
-        <button type="button" className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>Completed</button>
-        <button type="button" className={tab === 'purchases' ? 'active' : ''} onClick={() => setTab('purchases')}>Purchases</button>
+        <button type="button" className={tab === 'purchases' ? 'active' : ''} onClick={() => setTab('purchases')}>Purchases & Receiving</button>
+        <button type="button" className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>Completed Documents</button>
       </nav>
 
       {message && <p className="intake-message">{message}</p>}
