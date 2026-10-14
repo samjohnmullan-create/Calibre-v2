@@ -79,7 +79,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 | Phase | State | Approx. implementation progress | Current reading |
 |---|---:|---:|---|
 | A — Foundation & scale | 🟡 | ~78% | core pagination/search, audit, backup layers and deployment discipline exist; tests, migration cleanup and restore acceptance remain |
-| B — Acquisition | 🟡 | ~88% | invoice → Purchase → Lot → receiving → Item/stock is now connected; real acceptance, scale pagination, vendor normalisation and allocation history remain |
+| B — Acquisition | 🟡→✅ | ~96% | invoice → Purchase → Lot → receiving → Item/stock, canonical sources, scalable Purchase search, allocation audit and immutable imported evidence are connected; real save/refresh, physical put-away and finance reconciliation acceptance remain |
 | C — Workshop / repair | 🟡→✅ | ~78% | Job Card, templates, parts, QC, storage visibility and completion spine exist; real end-to-end acceptance still required |
 | D — Parts / donors / storage | 🟡 | ~78% | parts workflow and first-class physical storage are live; donor intelligence and storage acceptance remain |
 | E — Commerce & ledger | 🟡 | ~63% | Item economics, Business Ledger and scalable reporting are live; reversals/refunds and accounting acceptance remain |
@@ -136,6 +136,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - ✅ excluded lines remain visible as unclassified Lots and can later be classified as Item, Part, Tool or Consumable.
 - ✅ Purchase statuses support ordered, shipped, delivered, partially received, received, discrepancy, cancelled and returned.
 - ✅ receiving state derives automatically from real received/closed-short/open-exception state.
+- ✅ receiving status truth is protected against manual regression once receiving starts; historical non-terminal Purchases are backfilled from Lot/exception truth.
 - ✅ manual Purchase entry.
 - ✅ multi-Item/bundle splitting.
 - ✅ manual shared-cost override.
@@ -149,11 +150,11 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - ✅ Item and stock cost allocation follows the Purchase/Lot.
 - ✅ invoice line allocator handles both net-line and already-gross-line invoice formats.
 - ✅ historical generated invoice costs were reconciled to Purchase allocation truth.
-- 🟡 source inconsistencies such as the Gowans #32 two-cent discrepancy are deliberately preserved rather than silently altered; explicit discrepancy presentation is still needed.
-- 🟡 Purchase list currently uses a bounded 100-row load rather than full server pagination/search.
-- 🟡 canonical Vendor/Source entity normalisation is not yet complete.
-- 🟡 formal allocation/reallocation history is not yet first-class.
-- 🟡 imported document mutation policy needs hardening; imported source truth should become controlled/immutable.
+- ✅ source inconsistencies such as the Gowans #32 two-cent discrepancy are deliberately preserved and explicitly presented rather than silently altered.
+- ✅ Purchase list uses server-side pagination, count, status filtering and bounded search.
+- ✅ canonical Vendor/Source normalisation and automatic Purchase source linking are enforced in the database; a richer user-facing vendor chooser can improve later.
+- ✅ formal allocation/reallocation history records before/after values, reasons, actor/source and timestamp.
+- ✅ imported invoice/source truth is read-only after import at both invoice and invoice-line level.
 
 ### Inventory / Item workspace
 
@@ -347,7 +348,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 
 ## Phase B — Acquisition and inventory operations
 
-**Status: 🟡 ~88% implemented; acceptance and hardening remain**
+**Status: 🟡→✅ ~96% implemented; real acceptance remains**
 
 Goal: every purchase enters Calibre once and remains traceable from source evidence to physical stock and final sale.
 
@@ -359,9 +360,10 @@ Goal: every purchase enters Calibre once and remains traceable from source evide
 - [x] original document preserved;
 - [x] duplicate protection;
 - [x] first-class Purchase record integrated with invoice intake;
-- [🟡] vendor/source linkage exists through vendor name/source invoice; canonical Vendor entity remains;
+- [x] canonical Vendor/Source normalisation and automatic Purchase linkage;
 - [x] coherent order/invoice/lot references;
 - [x] ordered / shipped / delivered / partially received / received / discrepancy / cancelled / returned states;
+- [x] receiving status is derived from real receiving evidence and cannot regress to a pre-receipt logistics state once receiving begins;
 - [x] multi-Item lots and bundles;
 - [x] manual Purchase entry;
 - [x] structured receiving exceptions;
@@ -381,14 +383,14 @@ Goal: every purchase enters Calibre once and remains traceable from source evide
 - [x] original currency and AUD basis preserved;
 - [x] adaptive gross-vs-net invoice-line allocation;
 - [x] historical generated invoice-cost reconciliation;
-- [ ] formal allocation/reallocation history;
-- [ ] explicit source-financial-discrepancy presentation.
+- [x] formal allocation/reallocation history;
+- [x] explicit source-financial-discrepancy presentation.
 
 ### Scale / integrity remaining
 
-- [ ] server pagination/search for Purchases beyond current bounded 100-row list;
-- [ ] canonical Vendor/Source normalisation;
-- [ ] imported-source immutability or controlled amendment workflow;
+- [x] server pagination/search for Purchases;
+- [x] canonical Vendor/Source normalisation;
+- [x] imported-source immutability after import;
 - [ ] real save → refresh acceptance across invoice → Purchase → receiving → put-away;
 - [ ] finance reconciliation acceptance on representative real purchases.
 
@@ -672,7 +674,7 @@ Potential automation: purchase email/invoice capture, shipment/arrival, stale Wo
 
 ## Scale and performance
 
-Core Home, Inventory, Workbench, Business/Ledger and Global Search are bounded/server-paginated where appropriate. Purchase intake and secondary long-tail routes still need scale review.
+Core Home, Inventory, Workbench, Business/Ledger, Global Search and Purchase intake are bounded/server-paginated where appropriate. Secondary long-tail routes still need scale review.
 
 ## Timeline/history
 
@@ -718,12 +720,14 @@ Keep the accepted Swiss technical-instrument / old-steel / workshop direction. P
 
 ### 1. Acquisition acceptance and scale hardening
 
-- [ ] server pagination/search for Purchases;
-- [ ] canonical Vendor/Source treatment;
-- [ ] formal source discrepancy presentation;
-- [ ] formal allocation/reallocation history;
-- [ ] imported-source amendment/immutability rules;
-- [ ] real invoice → Purchase → receiving → put-away save/refresh acceptance.
+- [x] server pagination/search for Purchases;
+- [x] canonical Vendor/Source treatment;
+- [x] formal source discrepancy presentation;
+- [x] formal allocation/reallocation history;
+- [x] imported-source immutability rules;
+- [x] receiving-status truth/backfill and regression protection;
+- [ ] real invoice → Purchase → receiving → put-away save/refresh acceptance;
+- [ ] representative Purchase finance reconciliation acceptance.
 
 ### 2. Workshop acceptance
 
