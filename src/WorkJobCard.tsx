@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import WorkOperationsPanel from './WorkOperationsPanel'
 import './work-job-card.css'
@@ -41,6 +41,21 @@ type ChecklistStep = {
   blocked_reason: string
   started_at: string | null
   completed_at: string | null
+}
+
+type StorageLocation = {
+  id: string
+  parent_id: string | null
+  name: string
+  code: string | null
+  sort_order: number
+}
+
+type StorageMove = {
+  from_location_id: string | null
+  to_location_id: string | null
+  note: string
+  moved_at: string
 }
 
 const workStatuses: { value: WorkStatus; label: string }[] = [
@@ -86,8 +101,37 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
   const [diagnosis, setDiagnosis] = useState('')
   const [nextAction, setNextAction] = useState('')
   const [notes, setNotes] = useState('')
+  const [locations, setLocations] = useState<StorageLocation[]>([])
+  const [storageLocationId, setStorageLocationId] = useState<string | null>(null)
+  const [storageHistory, setStorageHistory] = useState<StorageMove[]>([])
+  const [storageDestination, setStorageDestination] = useState('')
+  const [storageSaving, setStorageSaving] = useState(false)
 
   const selected = work.find((record) => record.id === selectedWorkId) ?? work[0] ?? null
+
+  const locationPathById = useMemo(() => {
+    const byId = new Map(locations.map((location) => [location.id, location]))
+    const cache = new Map<string, string>()
+    const build = (id: string, visited = new Set<string>()): string => {
+      if (cache.has(id)) return cache.get(id) || ''
+      if (visited.has(id)) return 'Invalid hierarchy'
+      const location = byId.get(id)
+      if (!location) return 'Unknown location'
+      visited.add(id)
+      const own = location.code ? `${location.code} · ${location.name}` : location.name
+      const path = location.parent_id ? `${build(location.parent_id, visited)} / ${own}` : own
+      cache.set(id, path)
+      return path
+    }
+    for (const location of locations) build(location.id)
+    return cache
+  }, [locations])
+
+  const currentStoragePath = storageLocationId ? locationPathById.get(storageLocationId) || 'Unknown location' : 'Needs put-away'
+  const latestStorageMove = storageHistory[0] ?? null
+  const returnLocationId = latestStorageMove?.to_location_id === storageLocationId ? latestStorageMove.from_location_id : null
+  const returnStoragePath = returnLocationId ? locationPathById.get(returnLocationId) || 'Previous location' : ''
+  const sortedLocations = useMemo(() => [...locations].sort((a, b) => (locationPathById.get(a.id) || a.name).localeCompare(locationPathById.get(b.id) || b.name)), [locations, locationPathById])
 
   async function loadWork(preferredId?: string) {
     if (!workspaceId || !itemId) return
@@ -113,6 +157,25 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     setSelectedWorkId(target)
   }
 
+  async function loadStorage() {
+    if (!workspaceId || !itemId) return
+    const [itemResult, locationResult, historyResult] = await Promise.all([
+      supabase.from('items').select('storage_location_id').eq('workspace_id', workspaceId).eq('id', itemId).maybeSingle(),
+      supabase.from('storage_locations').select('id,parent_id,name,code,sort_order').eq('workspace_id', workspaceId).order('sort_order', { ascending: true }).order('name', { ascending: true }).limit(500),
+      supabase.from('storage_location_events').select('from_location_id,to_location_id,note,moved_at').eq('workspace_id', workspaceId).eq('entity_type', 'item').eq('entity_id', itemId).order('moved_at', { ascending: false }).limit(10),
+    ])
+    const error = itemResult.error ?? locationResult.error ?? historyResult.error
+    if (error) {
+      setMessage(`Physical location could not be loaded: ${error.message}`)
+      return
+    }
+    const current = itemResult.data?.storage_location_id ?? null
+    setLocations((locationResult.data ?? []) as StorageLocation[])
+    setStorageLocationId(current)
+    setStorageDestination(current || '')
+    setStorageHistory((historyResult.data ?? []) as StorageMove[])
+  }
+
   async function loadSteps(workId: string) {
     if (!workId) {
       setSteps([])
@@ -133,6 +196,7 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
 
   useEffect(() => {
     void loadWork(focusWorkId ?? undefined)
+    void loadStorage()
   }, [workspaceId, itemId, focusWorkId])
 
   useEffect(() => {
@@ -164,6 +228,49 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     }
     return [...map.entries()]
   }, [steps])
+
+  async function moveItemStorage(destinationId: string, note: string) {
+    if (storageSaving || destinationId === (storageLocationId || '')) return
+    setStorageSaving(true)
+    const { error } = await supabase.rpc('move_storage_entity', {
+      p_workspace_id: workspaceId,
+      p_entity_type: 'item',
+      p_entity_id: itemId,
+      p_to_location_id: destinationId || null,
+      p_note: note,
+    })
+    setStorageSaving(false)
+    if (error) {
+      setMessage(`Physical location could not be changed: ${error.message}`)
+      return
+    }
+    setMessage(destinationId ? 'Physical location updated. Work status was left unchanged.' : 'Item marked as needing put-away. Work status was left unchanged.')
+    await loadStorage()
+  }
+
+  function storagePanel() {
+    return (
+      <section className="section-card work-job-storage">
+        <div className="work-job-storage-copy">
+          <p className="eyebrow">PHYSICAL LOCATION</p>
+          <h3>{currentStoragePath}</h3>
+          <p className="muted">Location and Work status are independent. Moving this Item does not start, pause or complete the job.</p>
+        </div>
+        <div className="work-job-storage-actions">
+          <label>Move Item
+            <select value={storageDestination} onChange={(event) => setStorageDestination(event.target.value)} disabled={storageSaving}>
+              <option value="">Needs put-away / unassigned</option>
+              {sortedLocations.map((location) => <option key={location.id} value={location.id}>{locationPathById.get(location.id) || location.name}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => void moveItemStorage(storageDestination, selected ? `Moved from Work #${selected.work_number} Job Card` : 'Moved from Item Work tab')} disabled={storageSaving || storageDestination === (storageLocationId || '')}>{storageSaving ? 'Moving…' : 'Move'}</button>
+          {returnLocationId && returnLocationId !== storageLocationId && (
+            <button type="button" className="secondary" onClick={() => void moveItemStorage(returnLocationId, selected ? `Returned from Work #${selected.work_number} Job Card` : 'Returned from Item Work tab')} disabled={storageSaving}>Return to {returnStoragePath}</button>
+          )}
+        </div>
+      </section>
+    )
+  }
 
   async function startWork() {
     if (saving) return
@@ -269,14 +376,17 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
 
   if (!selected) {
     return (
-      <section className="section-card work-job-empty">
-        <div><p className="eyebrow">WORK</p><h3>No Work record yet</h3><p className="muted">Start a Work record when this Item actually enters the workshop. It does not happen automatically just because the Item exists.</p></div>
-        <div className="work-job-start-row">
-          <label>Work type<select value={startType} onChange={(event) => setStartType(event.target.value as WorkType)}>{startTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <button type="button" onClick={startWork} disabled={saving}>{saving ? 'Starting…' : 'Start Work'}</button>
-        </div>
-        {message && <p className="work-job-message">{message}</p>}
-      </section>
+      <div className="work-job-shell">
+        {storagePanel()}
+        <section className="section-card work-job-empty">
+          <div><p className="eyebrow">WORK</p><h3>No Work record yet</h3><p className="muted">Start a Work record when this Item actually enters the workshop workflow. Its physical storage location stays separate.</p></div>
+          <div className="work-job-start-row">
+            <label>Work type<select value={startType} onChange={(event) => setStartType(event.target.value as WorkType)}>{startTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <button type="button" onClick={startWork} disabled={saving}>{saving ? 'Starting…' : 'Start Work'}</button>
+          </div>
+          {message && <p className="work-job-message">{message}</p>}
+        </section>
+      </div>
     )
   }
 
@@ -298,6 +408,8 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
         <div className="work-job-save-row"><button type="button" onClick={saveWorkNotes} disabled={saving}>{saving ? 'Saving…' : 'Save job notes'}</button></div>
         {message && <p className="work-job-message">{message}</p>}
       </section>
+
+      {storagePanel()}
 
       <section className="section-card work-job-checklist-card">
         <div className="work-job-checklist-heading">
