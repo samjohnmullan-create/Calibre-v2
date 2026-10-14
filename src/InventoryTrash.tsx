@@ -11,6 +11,13 @@ type TrashRow = {
   archive_reason: string
 }
 
+type DeleteEligibility = {
+  entity_type: TrashKind
+  entity_id: string
+  can_delete: boolean
+  reasons: string[]
+}
+
 type Props = {
   workspaceId: string
   refreshToken?: number
@@ -25,6 +32,7 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
   const [rows, setRows] = useState<TrashRow[]>([])
   const [loading, setLoading] = useState(false)
   const [restoringId, setRestoringId] = useState('')
+  const [deletingId, setDeletingId] = useState('')
   const [message, setMessage] = useState('')
   const [kindFilter, setKindFilter] = useState<'all' | TrashKind>('all')
 
@@ -94,7 +102,7 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
   }), [rows])
 
   async function restore(row: TrashRow) {
-    if (!workspaceId || restoringId) return
+    if (!workspaceId || restoringId || deletingId) return
     setRestoringId(row.id)
     const { error } = await supabase.rpc('restore_inventory_entity', {
       p_workspace_id: workspaceId,
@@ -111,10 +119,56 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
     onRestored?.()
   }
 
+  async function permanentlyDelete(row: TrashRow) {
+    if (!workspaceId || deletingId || restoringId) return
+    setDeletingId(row.id)
+    setMessage('Checking whether permanent deletion is safe…')
+    const eligibilityResult = await supabase.rpc('inventory_delete_eligibility', {
+      p_workspace_id: workspaceId,
+      p_entity_type: row.kind,
+      p_entity_id: row.id,
+    })
+    if (eligibilityResult.error) {
+      setDeletingId('')
+      setMessage(`Could not check ${row.title}: ${eligibilityResult.error.message}`)
+      return
+    }
+
+    const eligibility = eligibilityResult.data as DeleteEligibility | null
+    if (!eligibility?.can_delete) {
+      setDeletingId('')
+      const reasons = eligibility?.reasons?.length ? eligibility.reasons.join(' · ') : 'Dependent history exists.'
+      setMessage(`Permanent delete blocked for ${row.title}: ${reasons}`)
+      return
+    }
+
+    const confirmed = window.confirm(`Permanently delete “${row.title}”?\n\nCalibre found no linked history that requires preservation. This final deletion cannot be undone.`)
+    if (!confirmed) {
+      setDeletingId('')
+      setMessage('Permanent deletion cancelled. The record remains safely archived.')
+      return
+    }
+
+    const deleteResult = await supabase.rpc('permanently_delete_inventory_entity', {
+      p_workspace_id: workspaceId,
+      p_entity_type: row.kind,
+      p_entity_id: row.id,
+    })
+    setDeletingId('')
+    if (deleteResult.error) {
+      setMessage(`Permanent delete failed for ${row.title}: ${deleteResult.error.message}`)
+      return
+    }
+
+    setMessage(`${row.title} permanently deleted. Audit evidence of the deletion is retained where applicable.`)
+    await load()
+    onRestored?.()
+  }
+
   return (
     <section className="inventory-trash">
       <div className="inventory-trash-heading">
-        <div><p className="eyebrow">TRASH</p><h2>Archived inventory</h2><p className="muted">Archived records stay financially and historically intact. Permanent deletion is deliberately unavailable until Calibre can prove that no purchase, Work, fit, sale, donor, media or audit history would be damaged.</p></div>
+        <div><p className="eyebrow">TRASH</p><h2>Archived inventory</h2><p className="muted">Archive is the normal Remove action. Restore is always preferred. Permanent deletion is available only for archived records that the database proves have no purchase, Work, fit, donor, sale, media, storage or other dependent history.</p></div>
         <button type="button" className="secondary" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
       </div>
 
@@ -136,7 +190,10 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
             <div className="inventory-trash-kind">{titleCase(row.kind)}</div>
             <div className="inventory-trash-main"><strong>{row.title}</strong><span>{row.detail}</span>{row.archive_reason && <small>Reason: {row.archive_reason}</small>}</div>
             <time dateTime={row.archived_at}>{new Date(row.archived_at).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}</time>
-            <button type="button" className="secondary small" disabled={restoringId === row.id} onClick={() => void restore(row)}>{restoringId === row.id ? 'Restoring…' : 'Restore'}</button>
+            <div className="inventory-trash-actions">
+              <button type="button" className="secondary small" disabled={restoringId === row.id || deletingId === row.id} onClick={() => void restore(row)}>{restoringId === row.id ? 'Restoring…' : 'Restore'}</button>
+              <button type="button" className="danger small" disabled={restoringId === row.id || deletingId === row.id} onClick={() => void permanentlyDelete(row)}>{deletingId === row.id ? 'Checking…' : 'Delete permanently…'}</button>
+            </div>
           </article>
         ))}
       </div>
