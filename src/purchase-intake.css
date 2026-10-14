@@ -30,6 +30,10 @@
 .purchase-stock-receive { display: grid; gap: .7rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--border, rgba(127,127,127,.2)); }
 .purchase-stock-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
 .purchase-stock-receive > button { justify-self: start; }
+.purchase-classify-lot { display: grid; gap: .65rem; margin-top: .85rem; padding: .8rem; border: 1px dashed var(--border, rgba(127,127,127,.35)); border-radius: .7rem; }
+.purchase-classify-lot > div:first-child { display: grid; gap: .2rem; }
+.purchase-classify-lot span { color: var(--text-muted, #777); font-size: .82rem; }
+.purchase-classify-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
 .purchase-complete-note { margin: .85rem 0 0; font-size: .84rem; font-weight: 650; }
 .purchase-exceptions { display: grid; gap: .65rem; margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--border, rgba(127,127,127,.2)); }
 .purchase-exception-head > div { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
@@ -65,6 +69,8 @@
   .purchase-stock-receive > button { width: 100%; }
   .purchase-status-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .purchase-status-auto { grid-column: 1 / -1; }
+  .purchase-classify-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .purchase-classify-actions button { width: 100%; }
   .purchase-exception-row { grid-template-columns: 1fr; }
   .purchase-exception-actions { justify-content: stretch; }
   .purchase-exception-actions button, .purchase-exception-form button { width: 100%; }
