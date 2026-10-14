@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import InvoiceIntakeServer from './InvoiceIntakeServer'
 
+type IntakeTab = 'inbox' | 'review' | 'completed'
+
 function isIntakeRoute() {
   return window.location.hash.replace(/\/$/, '') === '#/intake'
 }
@@ -10,6 +12,7 @@ export default function IntakeRoute() {
   const [active, setActive] = useState(isIntakeRoute)
   const [workspaceId, setWorkspaceId] = useState('')
   const [message, setMessage] = useState('')
+  const [tab, setTab] = useState<IntakeTab>('inbox')
 
   useEffect(() => {
     const sync = () => setActive(isIntakeRoute())
@@ -47,13 +50,14 @@ export default function IntakeRoute() {
       </header>
 
       <nav className="intake-tabs" aria-label="Intake views">
-        <button type="button" className="active">Inbox</button>
+        <button type="button" className={tab === 'inbox' ? 'active' : ''} onClick={() => setTab('inbox')}>Inbox</button>
+        <button type="button" className={tab === 'review' ? 'active' : ''} onClick={() => setTab('review')}>Ready to Review</button>
+        <button type="button" className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>Completed</button>
         <button type="button" disabled title="Purchase intake is coming next">Purchases</button>
-        <button type="button" disabled title="Completed intake history is coming next">Completed</button>
       </nav>
 
       {message && <p className="intake-message">{message}</p>}
-      {workspaceId && <InvoiceIntakeServer workspaceId={workspaceId} />}
+      {workspaceId && <InvoiceIntakeServer workspaceId={workspaceId} queue={tab} />}
     </main>
   )
 }
