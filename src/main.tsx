@@ -47,6 +47,7 @@ import './route-acceptance-fixes.css'
 import './workbench-command-centre.css'
 import './bench-mode-host.css'
 import './bench-quick-layout.css'
+import './safe-removal.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

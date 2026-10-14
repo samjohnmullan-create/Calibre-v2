@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
 import StorageManager from './StorageManager'
+import ArchiveConfirmDialog from './ArchiveConfirmDialog'
+import InventoryTrash from './InventoryTrash'
 
 type ItemRow = {
   id: string
@@ -16,7 +18,7 @@ type ItemRow = {
 }
 
 type StorageLocation = { id: string; parent_id: string | null; name: string; code: string | null; sort_order: number }
-type InventoryView = 'items' | 'parts' | 'storage'
+type InventoryView = 'items' | 'parts' | 'storage' | 'trash'
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
@@ -55,6 +57,9 @@ export default function InventoryHubRoute() {
   const [readyCount, setReadyCount] = useState(0)
   const [donorCount, setDonorCount] = useState(0)
   const [unassignedCount, setUnassignedCount] = useState(0)
+  const [archiveTarget, setArchiveTarget] = useState<ItemRow | null>(null)
+  const [archiveBusy, setArchiveBusy] = useState(false)
+  const [refreshToken, setRefreshToken] = useState(0)
 
   const pathById = useMemo(() => {
     const byId = new Map(locations.map((location) => [location.id, location]))
@@ -83,7 +88,7 @@ export default function InventoryHubRoute() {
   useEffect(() => {
     const openView = (event: Event) => {
       const requested = (event as CustomEvent<string>).detail
-      if (requested === 'items' || requested === 'parts' || requested === 'storage') setView(requested)
+      if (requested === 'items' || requested === 'parts' || requested === 'storage' || requested === 'trash') setView(requested)
       if (requested === 'workshop') setView('storage')
     }
     const chooseWorkItem = () => { setView('items'); setMessage('Choose the Item you want to work on, then open its Work tab.') }
@@ -124,7 +129,7 @@ export default function InventoryHubRoute() {
       setLocations((locationResult.data ?? []) as StorageLocation[])
     })()
     return () => { cancelled = true }
-  }, [active, workspaceId])
+  }, [active, workspaceId, refreshToken])
 
   useEffect(() => {
     if (!active || !workspaceId || view !== 'items') return
@@ -152,7 +157,27 @@ export default function InventoryHubRoute() {
       setMessage((current) => current.startsWith('Choose the Item') ? current : '')
     })()
     return () => { cancelled = true }
-  }, [active, workspaceId, view, page, debouncedQuery, typeFilter, purposeFilter, statusFilter, storageFilter])
+  }, [active, workspaceId, view, page, debouncedQuery, typeFilter, purposeFilter, statusFilter, storageFilter, refreshToken])
+
+  async function archiveItem(reason: string) {
+    if (!workspaceId || !archiveTarget || archiveBusy) return
+    setArchiveBusy(true)
+    const target = archiveTarget
+    const { error } = await supabase.rpc('archive_inventory_entity', {
+      p_workspace_id: workspaceId,
+      p_entity_type: 'item',
+      p_entity_id: target.id,
+      p_reason: reason,
+    })
+    setArchiveBusy(false)
+    if (error) {
+      setMessage(`Item #${target.item_number} could not be archived: ${error.message}`)
+      return
+    }
+    setArchiveTarget(null)
+    setMessage(`Item #${target.item_number} archived. It can be restored from Trash.`)
+    setRefreshToken((value) => value + 1)
+  }
 
   const activeFilterCount = [typeFilter, purposeFilter, statusFilter, storageFilter].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(matchCount / pageSize))
@@ -172,6 +197,7 @@ export default function InventoryHubRoute() {
         <button type="button" className={view === 'items' ? 'active' : ''} onClick={() => setView('items')}><span>Items</span><strong>{totalItems}</strong></button>
         <button type="button" className={view === 'parts' ? 'active' : ''} onClick={() => setView('parts')}><span>Parts</span></button>
         <button type="button" className={view === 'storage' ? 'active' : ''} onClick={() => setView('storage')}><span>Storage</span></button>
+        <button type="button" className={view === 'trash' ? 'active' : ''} onClick={() => setView('trash')}><span>Trash</span></button>
       </nav>
 
       {view === 'items' && <>
@@ -198,11 +224,14 @@ export default function InventoryHubRoute() {
           {loading && <p className="inventory-empty">Loading inventory…</p>}
           {!loading && items.length === 0 && <div className="inventory-empty"><strong>No Items match this view.</strong><span>{totalItems ? 'Clear a filter or try another search.' : 'Add your first Item or import a purchase through Intake.'}</span></div>}
           <div className="inventory-list">
-            {items.map((item) => <button key={item.id} type="button" className="inventory-row" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
-              <span className="inventory-row-number">#{item.item_number}</span>
-              <span className="inventory-row-main"><strong>{item.title}</strong><small>{titleCase(item.type)} · {titleCase(item.purpose)} · {item.storage_location_id ? (pathById.get(item.storage_location_id) || 'Unknown location') : 'Needs put-away'}</small></span>
-              <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
-            </button>)}
+            {items.map((item) => <div key={item.id} className="inventory-row-shell">
+              <button type="button" className="inventory-row inventory-row-open" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
+                <span className="inventory-row-number">#{item.item_number}</span>
+                <span className="inventory-row-main"><strong>{item.title}</strong><small>{titleCase(item.type)} · {titleCase(item.purpose)} · {item.storage_location_id ? (pathById.get(item.storage_location_id) || 'Unknown location') : 'Needs put-away'}</small></span>
+                <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
+              </button>
+              <button type="button" className="inventory-row-remove secondary small" onClick={() => setArchiveTarget(item)} aria-label={`Remove Item #${item.item_number}`}>Remove</button>
+            </div>)}
           </div>
           {matchCount > pageSize && <div className="inventory-v2-search-row" aria-label="Inventory pagination"><button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</button><span>Page {page + 1} of {totalPages}</span><button type="button" className="secondary small" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button></div>}
         </section>
@@ -214,6 +243,16 @@ export default function InventoryHubRoute() {
         <div className="inventory-v2-workshop-copy"><p className="eyebrow">PHYSICAL STORAGE</p><h2>Location is independent of workflow.</h2><p className="muted">Create any physical zones you actually use — Incoming, Watch Stock, Parts Storage, Donor Watches, Bench, Tools, Dispatch or something else. Nothing is automatically treated as being in the workshop.</p></div>
         {workspaceId && <StorageManager workspaceId={workspaceId} />}
       </section>}
+
+      {view === 'trash' && workspaceId && <InventoryTrash workspaceId={workspaceId} refreshToken={refreshToken} onRestored={() => setRefreshToken((value) => value + 1)} />}
+
+      <ArchiveConfirmDialog
+        open={Boolean(archiveTarget)}
+        label={archiveTarget ? `Item #${archiveTarget.item_number} · ${archiveTarget.title}` : 'Item'}
+        busy={archiveBusy}
+        onCancel={() => { if (!archiveBusy) setArchiveTarget(null) }}
+        onConfirm={archiveItem}
+      />
     </main>
   )
 }
