@@ -96,9 +96,9 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
     setLoading(true)
     const [itemResult, partResult, toolResult, consumableResult] = await Promise.all([
       locationFilter(supabase.from('items').select('id,item_number,title,type,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
-      locationFilter(supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId)).order('updated_at', { ascending: false }).limit(100),
-      locationFilter(supabase.from('tools').select('id,name,category,manufacturer,model,quantity,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId)).order('updated_at', { ascending: false }).limit(100),
-      locationFilter(supabase.from('consumables').select('id,name,category,quantity,unit,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId)).order('updated_at', { ascending: false }).limit(100),
+      locationFilter(supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
+      locationFilter(supabase.from('tools').select('id,name,category,manufacturer,model,quantity,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
+      locationFilter(supabase.from('consumables').select('id,name,category,quantity,unit,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
     ])
     setLoading(false)
     const error = itemResult.error ?? partResult.error ?? toolResult.error ?? consumableResult.error
@@ -125,18 +125,18 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
       return
     }
     if (entityType === 'part') {
-      const { data, error } = await supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id').eq('workspace_id', workspaceId).or(`part_type.ilike.${pattern},manufacturer.ilike.${pattern},reference.ilike.${pattern},description.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
+      const { data, error } = await supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id').eq('workspace_id', workspaceId).is('archived_at', null).or(`part_type.ilike.${pattern},manufacturer.ilike.${pattern},reference.ilike.${pattern},description.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
       if (error) { setMessage(`Part search failed: ${error.message}`); return }
       setSearchResults((data ?? []).map((row) => ({ id: row.id, entityType: 'part' as const, label: [row.part_type, row.manufacturer, row.reference].filter(Boolean).join(' · '), detail: `Qty ${row.quantity}`, storageLocationId: row.storage_location_id })))
       return
     }
     if (entityType === 'tool') {
-      const { data, error } = await supabase.from('tools').select('id,name,category,manufacturer,model,storage_location_id').eq('workspace_id', workspaceId).or(`name.ilike.${pattern},category.ilike.${pattern},manufacturer.ilike.${pattern},model.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
+      const { data, error } = await supabase.from('tools').select('id,name,category,manufacturer,model,storage_location_id').eq('workspace_id', workspaceId).is('archived_at', null).or(`name.ilike.${pattern},category.ilike.${pattern},manufacturer.ilike.${pattern},model.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
       if (error) { setMessage(`Tool search failed: ${error.message}`); return }
       setSearchResults((data ?? []).map((row) => ({ id: row.id, entityType: 'tool' as const, label: row.name, detail: [row.category, row.manufacturer, row.model].filter(Boolean).join(' · '), storageLocationId: row.storage_location_id })))
       return
     }
-    const { data, error } = await supabase.from('consumables').select('id,name,category,quantity,unit,storage_location_id').eq('workspace_id', workspaceId).or(`name.ilike.${pattern},category.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
+    const { data, error } = await supabase.from('consumables').select('id,name,category,quantity,unit,storage_location_id').eq('workspace_id', workspaceId).is('archived_at', null).or(`name.ilike.${pattern},category.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
     if (error) { setMessage(`Consumable search failed: ${error.message}`); return }
     setSearchResults((data ?? []).map((row) => ({ id: row.id, entityType: 'consumable' as const, label: row.name, detail: `${row.quantity}${row.unit ? ` ${row.unit}` : ''}`, storageLocationId: row.storage_location_id })))
   }
