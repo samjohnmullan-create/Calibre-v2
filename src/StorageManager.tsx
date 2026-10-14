@@ -157,12 +157,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
     for (const row of toolResult.data ?? []) rows.push({ id: row.id, entityType: 'tool', label: row.name, detail: [row.category, row.manufacturer, row.model].filter(Boolean).join(' · '), storageLocationId: row.storage_location_id })
     for (const row of consumableResult.data ?? []) rows.push({ id: row.id, entityType: 'consumable', label: row.name, detail: `${row.quantity}${row.unit ? ` ${row.unit}` : ''}${row.category ? ` · ${row.category}` : ''}`, storageLocationId: row.storage_location_id })
     setContents(rows)
-    setCounts({
-      items: itemResult.count ?? 0,
-      parts: partResult.count ?? 0,
-      tools: toolResult.count ?? 0,
-      consumables: consumableResult.count ?? 0,
-    })
+    setCounts({ items: itemResult.count ?? 0, parts: partResult.count ?? 0, tools: toolResult.count ?? 0, consumables: consumableResult.count ?? 0 })
   }
 
   async function searchEntities() {
@@ -179,7 +174,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
       return
     }
     if (entityType === 'part') {
-      const { data, error } = await supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id').eq('workspace_id', workspaceId).or(`part_type.ilike.${pattern},manufacturer.ilike.${pattern},reference.ilike.${pattern},description.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
+      const { data, error } = await supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id').eq('workspace_id', workspaceId).or(`part_type.ilike.${pattern},manufacturer.ilike.%${text}%,reference.ilike.%${text}%,description.ilike.${pattern}`).order('updated_at', { ascending: false }).limit(20)
       if (error) { setMessage(`Part search failed: ${error.message}`); return }
       setSearchResults((data ?? []).map((row) => ({ id: row.id, entityType: 'part' as const, label: [row.part_type, row.manufacturer, row.reference].filter(Boolean).join(' · '), detail: `Qty ${row.quantity}`, storageLocationId: row.storage_location_id })))
       return
@@ -203,6 +198,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
 
   useEffect(() => {
     if (!workspaceId) return
+    setMoveTarget(null)
     void loadContents()
   }, [workspaceId, selectedLocationId])
 
@@ -213,6 +209,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
 
   useEffect(() => {
     if (!workspaceId) return
+    setMoveTarget(null)
     void searchEntities()
   }, [workspaceId, entityType, debouncedQuery])
 
@@ -240,8 +237,13 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
   }
 
   function chooseMove(entity: StoredEntity) {
+    const sameTarget = moveTarget?.id === entity.id && moveTarget.entityType === entity.entityType
+    if (sameTarget) {
+      setMoveTarget(null)
+      return
+    }
     setMoveTarget(entity)
-    setDestinationId(selectedLocationId || entity.storageLocationId || '')
+    setDestinationId(entity.storageLocationId || '')
     setMessage('')
   }
 
@@ -260,15 +262,38 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
     setSaving(false)
     if (error) { setMessage(`Move failed: ${error.message}`); return }
     const result = data as { to_location_name?: string } | null
-    setMessage(`${moveTarget.label} moved to ${result?.to_location_name || 'the selected location'}.`)
+    setMessage(`${moveTarget.label} moved to ${result?.to_location_name || (destinationId ? 'the selected location' : 'Unassigned')}.`)
     setMoveTarget(null)
-    setQuery('')
-    setSearchResults([])
     await Promise.all([loadContents(), loadHistory()])
+    if (query.trim()) await searchEntities()
   }
 
   function currentPath(locationId: string | null) {
     return locationId ? pathById.get(locationId) || 'Unknown location' : 'Unassigned'
+  }
+
+  function isMoveTarget(entity: StoredEntity) {
+    return moveTarget?.id === entity.id && moveTarget.entityType === entity.entityType
+  }
+
+  function renderMoveForm(entity: StoredEntity) {
+    if (!isMoveTarget(entity)) return null
+    return (
+      <form className="storage-move-inline" onSubmit={moveEntity}>
+        <div className="storage-move-inline-copy"><small>Moving from</small><strong>{currentPath(entity.storageLocationId)}</strong></div>
+        <label>Destination
+          <select value={destinationId} onChange={(event) => setDestinationId(event.target.value)} disabled={saving}>
+            <option value="">Unassigned</option>
+            {flattenedLocations.map((location) => <option key={location.id} value={location.id}>{pathById.get(location.id)}</option>)}
+          </select>
+        </label>
+        <label>Move note<input name="move_note" placeholder="Optional — put-away, bench return…" disabled={saving} /></label>
+        <div className="storage-move-actions">
+          <button type="button" className="secondary" onClick={() => setMoveTarget(null)} disabled={saving}>Cancel</button>
+          <button type="submit" className="primary" disabled={saving || destinationId === (entity.storageLocationId || '')}>{saving ? 'Moving…' : 'Confirm move'}</button>
+        </div>
+      </form>
+    )
   }
 
   return (
@@ -277,7 +302,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
         <div>
           <p className="eyebrow">PHYSICAL STORAGE</p>
           <h2>Know exactly where everything is.</h2>
-          <p className="muted">Build Workshop → Cabinet → Drawer → Tray → Position, then move Items and workshop stock with a permanent location history.</p>
+          <p className="muted">Create any physical hierarchy you actually use — Incoming, Watch Stock, Parts Storage, Donor Watches, Bench, Tools, Dispatch or something else. Location never starts Work automatically.</p>
         </div>
         <button type="button" className="primary" onClick={() => setShowCreate((value) => !value)}>{showCreate ? 'Close' : 'Add location'}</button>
       </div>
@@ -288,7 +313,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
         <form className="panel storage-create" onSubmit={createLocation}>
           <div className="storage-create-grid">
             <label>Name<input name="name" required placeholder="e.g. Drawer 03" /></label>
-            <label>Code<input name="code" placeholder="e.g. W-C1-D03" /></label>
+            <label>Code<input name="code" placeholder="e.g. PS-C1-D03" /></label>
             <label>Type<select name="location_type" defaultValue="drawer">{locationTypes.map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}</select></label>
             <label>Parent<select name="parent_id" defaultValue=""><option value="">Top level</option>{flattenedLocations.map((location) => <option key={location.id} value={location.id}>{'—'.repeat(location.depth)} {location.code ? `${location.code} · ` : ''}{location.name}</option>)}</select></label>
             <label>Sort order<input name="sort_order" type="number" defaultValue="0" /></label>
@@ -302,9 +327,9 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
         <aside className="panel storage-tree">
           <div className="storage-tree-head"><strong>Locations</strong><span>{locations.length}</span></div>
           <button type="button" className={selectedLocationId === '' ? 'storage-location-row active' : 'storage-location-row'} onClick={() => setSelectedLocationId('')}>
-            <span className="storage-location-icon">?</span><span><strong>Unassigned</strong><small>Not put away yet</small></span>
+            <span className="storage-location-icon">?</span><span><strong>Needs put-away</strong><small>Not allocated yet</small></span>
           </button>
-          {flattenedLocations.length === 0 && <p className="muted">No physical locations yet. Add Workshop or your first cabinet.</p>}
+          {flattenedLocations.length === 0 && <p className="muted">No physical locations yet. Add the areas, cabinets, drawers or trays you actually use.</p>}
           {flattenedLocations.map((location) => (
             <button key={location.id} type="button" className={selectedLocationId === location.id ? 'storage-location-row active' : 'storage-location-row'} style={{ paddingLeft: `${0.75 + location.depth * 0.85}rem` }} onClick={() => setSelectedLocationId(location.id)}>
               <span className="storage-location-icon">{location.location_type === 'position' ? '•' : location.depth + 1}</span>
@@ -317,7 +342,7 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
           <section className="panel storage-location-detail">
             <div className="storage-location-detail-head">
               <div>
-                <p className="eyebrow">{selectedLocation ? titleCase(selectedLocation.location_type) : 'UNASSIGNED'}</p>
+                <p className="eyebrow">{selectedLocation ? titleCase(selectedLocation.location_type) : 'NEEDS PUT-AWAY'}</p>
                 <h3>{selectedLocation ? pathById.get(selectedLocation.id) : 'Stock waiting for a home'}</h3>
               </div>
               <strong>{counts.items + counts.parts + counts.tools + counts.consumables}</strong>
@@ -332,17 +357,20 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
             {!loading && contents.length === 0 && <p className="muted">Nothing is stored here yet.</p>}
             <div className="storage-contents-list">
               {contents.map((entity) => (
-                <div key={`${entity.entityType}-${entity.id}`} className="storage-entity-row">
-                  <span className="storage-entity-type">{titleCase(entity.entityType)}</span>
-                  <span><strong>{entity.label}</strong><small>{entity.detail || 'No extra detail'}</small></span>
-                  <button type="button" onClick={() => chooseMove(entity)}>Move</button>
+                <div key={`${entity.entityType}-${entity.id}`} className={`storage-entity-card ${isMoveTarget(entity) ? 'expanded' : ''}`}>
+                  <div className="storage-entity-row">
+                    <span className="storage-entity-type">{titleCase(entity.entityType)}</span>
+                    <span><strong>{entity.label}</strong><small>{entity.detail || 'No extra detail'}</small></span>
+                    <button type="button" className={isMoveTarget(entity) ? 'secondary' : ''} onClick={() => chooseMove(entity)}>{isMoveTarget(entity) ? 'Close' : 'Move'}</button>
+                  </div>
+                  {renderMoveForm(entity)}
                 </div>
               ))}
             </div>
           </section>
 
           <section className="panel storage-quick-move">
-            <div><p className="eyebrow">QUICK MOVE</p><h3>Find it, tap it, put it away.</h3><p className="muted">Built for phone use at the bench as well as DeX.</p></div>
+            <div><p className="eyebrow">QUICK MOVE</p><h3>Find it, tap it, put it away.</h3><p className="muted">Search results expand in place, so the thing you are moving stays in context.</p></div>
             <div className="storage-search-controls">
               <select value={entityType} onChange={(event) => setEntityType(event.target.value as StoredEntity['entityType'])}>{entityTypes.map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}</select>
               <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${entityType}s…`} />
@@ -350,21 +378,15 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
             {query.trim().length > 0 && searchResults.length === 0 && <p className="muted">No matches.</p>}
             <div className="storage-search-results">
               {searchResults.map((entity) => (
-                <button key={`${entity.entityType}-${entity.id}`} type="button" onClick={() => chooseMove(entity)}>
-                  <span><strong>{entity.label}</strong><small>{entity.detail || titleCase(entity.entityType)}</small></span>
-                  <span><small>Currently</small><strong>{currentPath(entity.storageLocationId)}</strong></span>
-                </button>
+                <div key={`${entity.entityType}-${entity.id}`} className={`storage-search-result-card ${isMoveTarget(entity) ? 'expanded' : ''}`}>
+                  <button className="storage-search-result-row" type="button" onClick={() => chooseMove(entity)}>
+                    <span><strong>{entity.label}</strong><small>{entity.detail || titleCase(entity.entityType)}</small></span>
+                    <span><small>Currently</small><strong>{currentPath(entity.storageLocationId)}</strong></span>
+                  </button>
+                  {renderMoveForm(entity)}
+                </div>
               ))}
             </div>
-
-            {moveTarget && (
-              <form className="storage-move-card" onSubmit={moveEntity}>
-                <div><span>Moving</span><strong>{moveTarget.label}</strong><small>From {currentPath(moveTarget.storageLocationId)}</small></div>
-                <label>Destination<select value={destinationId} onChange={(event) => setDestinationId(event.target.value)}><option value="">Unassigned</option>{flattenedLocations.map((location) => <option key={location.id} value={location.id}>{pathById.get(location.id)}</option>)}</select></label>
-                <label>Move note<input name="move_note" placeholder="Optional — tray change, bench return…" /></label>
-                <div className="storage-move-actions"><button type="button" onClick={() => setMoveTarget(null)}>Cancel</button><button type="submit" className="primary" disabled={saving}>{saving ? 'Moving…' : 'Confirm move'}</button></div>
-              </form>
-            )}
           </section>
 
           <section className="panel storage-history">
