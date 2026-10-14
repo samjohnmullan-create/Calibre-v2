@@ -1,0 +1,266 @@
+.timing-workflow-card {
+  display: grid;
+  gap: 14px;
+}
+
+.timing-workflow-intro {
+  margin: -4px 0 0;
+  color: var(--calibre-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.timing-workflow-comparison {
+  display: grid;
+  gap: 12px;
+}
+
+.timing-workflow-checkpoints {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.timing-checkpoint-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 112px;
+  padding: 11px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 11px;
+  background: rgba(14, 24, 29, .42);
+}
+
+.timing-checkpoint-card.has-run {
+  border-color: rgba(102, 158, 177, .34);
+  background: rgba(18, 55, 67, .28);
+}
+
+.timing-checkpoint-card > span,
+.timing-workflow-row > div:first-child > span,
+.timing-workflow-delta span {
+  color: #9ab6bb;
+  font: 600 8px/1.25 "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.timing-checkpoint-card strong {
+  font: 600 18px/1 "IBM Plex Mono", monospace;
+  color: var(--calibre-text-strong);
+}
+
+.timing-checkpoint-card small,
+.timing-checkpoint-card p,
+.timing-checkpoint-card em {
+  margin: 0;
+  color: var(--calibre-muted);
+  font-size: 9px;
+  line-height: 1.35;
+  font-style: normal;
+}
+
+.timing-checkpoint-card em {
+  color: #a9c7cb;
+}
+
+.timing-workflow-chart {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 11px;
+  background: rgba(12, 21, 26, .40);
+}
+
+.timing-workflow-chart svg {
+  width: 100%;
+  height: 110px;
+  overflow: visible;
+}
+
+.timing-workflow-chart .zero-guide {
+  stroke: rgba(154, 182, 187, .16);
+  stroke-width: .8;
+  stroke-dasharray: 2 2;
+}
+
+.timing-workflow-chart .rate-line {
+  fill: none;
+  stroke: #6aa2b5;
+  stroke-width: 1.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.timing-workflow-chart circle {
+  fill: #c7d8d6;
+  stroke: #245f73;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.timing-workflow-chart > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  color: var(--calibre-muted);
+  font: 600 8px/1.2 "IBM Plex Mono", monospace;
+  text-align: center;
+}
+
+.timing-workflow-delta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.timing-workflow-delta > div {
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 10px;
+  background: rgba(24, 38, 45, .44);
+}
+
+.timing-workflow-delta strong {
+  font-size: 11px;
+}
+
+.timing-workflow-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 12px;
+  background: rgba(18, 29, 35, .44);
+}
+
+.timing-workflow-form label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--calibre-muted);
+  font-size: 10px;
+}
+
+.timing-workflow-form input,
+.timing-workflow-form select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.timing-workflow-form .span-all {
+  grid-column: 1 / -1;
+}
+
+.timing-workflow-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.timing-workflow-history {
+  display: grid;
+  border-top: 1px solid var(--calibre-line);
+}
+
+.timing-workflow-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--calibre-line);
+}
+
+.timing-workflow-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.timing-workflow-row > div:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.timing-workflow-row strong,
+.timing-workflow-row small,
+.timing-workflow-row span {
+  overflow-wrap: anywhere;
+}
+
+.timing-workflow-row small,
+.timing-workflow-row > div:last-child span {
+  color: var(--calibre-muted);
+  font-size: 9px;
+}
+
+.timing-workflow-row > div:last-child > strong {
+  font: 600 14px/1.1 "IBM Plex Mono", monospace;
+}
+
+.timing-workflow-row em {
+  padding: 3px 6px;
+  border: 1px solid rgba(170, 143, 88, .34);
+  border-radius: 999px;
+  color: #d3bd94;
+  background: rgba(95, 69, 31, .12);
+  font: 600 8px/1.2 "IBM Plex Mono", monospace;
+  font-style: normal;
+}
+
+@media (max-width: 920px) {
+  .timing-workflow-checkpoints,
+  .timing-workflow-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .timing-workflow-checkpoints {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(62vw, 1fr);
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .timing-workflow-checkpoints::-webkit-scrollbar { display: none; }
+  .timing-checkpoint-card { scroll-snap-align: start; }
+
+  .timing-workflow-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .timing-workflow-delta {
+    grid-template-columns: 1fr;
+  }
+
+  .timing-workflow-row {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .timing-workflow-row > div:last-child {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media (max-width: 420px) {
+  .timing-workflow-form {
+    grid-template-columns: 1fr;
+  }
+
+  .timing-workflow-form .span-all {
+    grid-column: auto;
+  }
+}
