@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import BenchQuickCapture from './BenchQuickCapture'
 import './bench-mode.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -222,7 +223,7 @@ export default function BenchModePanel({
               <section className="bench-mode-current-step">
                 <span>CURRENT STEP</span>
                 <h1>{currentStep?.label ?? 'No open checklist step'}</h1>
-                <p>{currentStep?.description || 'Open the Job Card checklist to choose or update the next workshop step.'}</p>
+                <p>{currentStep?.description || 'The current Work checklist has no remaining open step.'}</p>
                 {currentStep && <small>{currentStep.status.replaceAll('_', ' ')}</small>}
               </section>
 
@@ -231,6 +232,15 @@ export default function BenchModePanel({
                 <strong>{nextStep?.label ?? 'No next step'}</strong>
                 <p>{nextStep?.description || 'The current checklist state does not expose another open step yet.'}</p>
               </section>
+
+              <BenchQuickCapture
+                workspaceId={workspaceId}
+                itemId={itemId}
+                workId={workId}
+                workNumber={workNumber}
+                currentStep={currentStep}
+                onSaved={onWorkChanged}
+              />
             </main>
 
             <footer>
