@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
+import StorageManager from './StorageManager'
 
 type ItemRow = {
   id: string
@@ -309,15 +310,15 @@ export default function InventoryHubRoute() {
         <section className="inventory-v2-workshop">
           <div className="inventory-v2-workshop-copy">
             <p className="eyebrow">WORKSHOP INVENTORY</p>
-            <h2>Workshop resources belong together.</h2>
-            <p className="muted">Tools, consumables, oils and storage locations will live here instead of becoming separate top-level sections.</p>
+            <h2>Resources and physical storage.</h2>
+            <p className="muted">Tools, consumables and storage stay together here. Physical location is now operational rather than just a field in the database.</p>
           </div>
           <div className="inventory-v2-workshop-grid">
             <article><span>01</span><strong>Tools & equipment</strong><p>Bench tools, machines, test equipment and specialist holders.</p></article>
             <article><span>02</span><strong>Consumables</strong><p>Oils, cleaning fluids, Rodico, pegwood and workshop supplies.</p></article>
-            <article><span>03</span><strong>Storage</strong><p>Cabinets, drawers, trays and physical locations for stock.</p></article>
+            <article><span>03</span><strong>Storage</strong><p>Hierarchical locations, put-away, quick moves and permanent location history.</p></article>
           </div>
-          <p className="inventory-v2-workshop-note">This is the destination structure. The existing Tools, Consumables and Storage records will be surfaced here as we connect the next Inventory layer.</p>
+          {workspaceId && <StorageManager workspaceId={workspaceId} />}
         </section>
       )}
     </main>
