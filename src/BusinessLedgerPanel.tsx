@@ -17,6 +17,8 @@ type LedgerEntry = {
   notes: string
   purchase_id: string | null
   external_key: string
+  reversal_of_entry_id: string | null
+  reversal_reason: string
   created_at: string
   updated_at: string
 }
@@ -141,10 +143,10 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [reversingId, setReversingId] = useState('')
   const [message, setMessage] = useState('')
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all')
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft>(blankDraft)
   const [showEditor, setShowEditor] = useState(false)
 
@@ -156,7 +158,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
 
     let entriesQuery = supabase
       .from('business_ledger_entries')
-      .select('id,workspace_id,entry_type,treatment,category,description,amount,currency,amount_aud,occurred_at,vendor,reference,notes,purchase_id,external_key,created_at,updated_at', { count: 'exact' })
+      .select('id,workspace_id,entry_type,treatment,category,description,amount,currency,amount_aud,occurred_at,vendor,reference,notes,purchase_id,external_key,reversal_of_entry_id,reversal_reason,created_at,updated_at', { count: 'exact' })
       .eq('workspace_id', workspaceId)
 
     if (typeFilter !== 'all') entriesQuery = entriesQuery.eq('entry_type', typeFilter)
@@ -197,27 +199,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
   }, [workspaceId, page, query, typeFilter])
 
   function startNew() {
-    setEditingId(null)
     setDraft(blankDraft())
-    setShowEditor(true)
-    setMessage('')
-  }
-
-  function startEdit(entry: LedgerEntry) {
-    setEditingId(entry.id)
-    setDraft({
-      entry_type: entry.entry_type,
-      treatment: entry.treatment,
-      category: entry.category,
-      description: entry.description,
-      amount: String(entry.amount),
-      currency: entry.currency,
-      amount_aud: entry.amount_aud == null ? '' : String(entry.amount_aud),
-      occurred_at: entry.occurred_at,
-      vendor: entry.vendor,
-      reference: entry.reference,
-      notes: entry.notes,
-    })
     setShowEditor(true)
     setMessage('')
   }
@@ -251,7 +233,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
     }
 
     setSaving(true)
-    const payload = {
+    const result = await supabase.from('business_ledger_entries').insert({
       workspace_id: workspaceId,
       entry_type: draft.entry_type,
       treatment: draft.treatment,
@@ -264,45 +246,45 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
       vendor: draft.vendor.trim(),
       reference: draft.reference.trim(),
       notes: draft.notes.trim(),
-      updated_at: new Date().toISOString(),
-    }
-    const wasEditing = Boolean(editingId)
-    const result = editingId
-      ? await supabase.from('business_ledger_entries').update(payload).eq('workspace_id', workspaceId).eq('id', editingId)
-      : await supabase.from('business_ledger_entries').insert(payload)
+    })
     setSaving(false)
     if (result.error) {
       setMessage(`Ledger entry could not be saved: ${result.error.message}`)
       return
     }
     setShowEditor(false)
-    setEditingId(null)
     setDraft(blankDraft())
-    setMessage(wasEditing ? 'Ledger entry updated.' : 'Ledger entry added.')
+    setMessage('Ledger entry added. Existing ledger history is immutable; corrections use linked reversals.')
     if (page !== 1) setPage(1)
     else await load(1)
   }
 
-  async function remove(entry: LedgerEntry) {
-    if (!window.confirm(`Delete “${entry.description}” from the business ledger?`)) return
-    const result = await supabase
-      .from('business_ledger_entries')
-      .delete()
-      .eq('workspace_id', workspaceId)
-      .eq('id', entry.id)
-    if (result.error) {
-      setMessage(`Ledger entry could not be deleted: ${result.error.message}`)
+  async function reverse(entry: LedgerEntry) {
+    if (reversingId) return
+    if (entry.reversal_of_entry_id) {
+      setMessage('A reversal entry cannot itself be reversed.')
       return
     }
-    if (editingId === entry.id) {
-      setEditingId(null)
-      setShowEditor(false)
-      setDraft(blankDraft())
+    if (entry.purchase_id || entry.external_key) {
+      setMessage('This entry is linked to a source transaction. Correct the Purchase/receiving source instead of reversing it here.')
+      return
     }
-    setMessage('Ledger entry deleted.')
-    const maxPageAfterDelete = Math.max(1, Math.ceil(Math.max(0, resultCount - 1) / PAGE_SIZE))
-    if (page > maxPageAfterDelete) setPage(maxPageAfterDelete)
-    else await load(page)
+    const reason = window.prompt(`Reverse “${entry.description}”?\n\nThe original record will remain in history and Calibre will add an equal-and-opposite entry. Optional reason:`, '')
+    if (reason === null) return
+
+    setReversingId(entry.id)
+    const { error } = await supabase.rpc('reverse_business_ledger_entry', {
+      p_workspace_id: workspaceId,
+      p_entry_id: entry.id,
+      p_reason: reason.trim(),
+    })
+    setReversingId('')
+    if (error) {
+      setMessage(`Ledger entry could not be reversed: ${error.message}`)
+      return
+    }
+    setMessage('Reversal added. The original ledger entry remains permanently visible in history.')
+    await load(page)
   }
 
   const categories = draft.entry_type === 'expense' ? expenseCategories : incomeCategories
@@ -319,7 +301,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
 
       <section className="section-card ledger-v2-card">
         <div className="business-v2-panel-heading">
-          <div><p className="eyebrow">BUSINESS LEDGER</p><h2>Overheads & business cash movement</h2><p className="muted">Keep business overhead here. Item purchases, repair costs and sale proceeds stay on their Item records so profit is not counted twice.</p></div>
+          <div><p className="eyebrow">BUSINESS LEDGER</p><h2>Overheads & business cash movement</h2><p className="muted">Ledger history is append-only. If a manual entry is wrong, reverse it and add the corrected entry; source-linked Purchase entries are corrected at their source.</p></div>
           <button type="button" onClick={startNew}>＋ Add entry</button>
         </div>
 
@@ -339,14 +321,16 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
           <div className="ledger-v2-list">
             {entries.map((entry) => {
               const converted = audValue(entry)
+              const sourceControlled = Boolean(entry.purchase_id || entry.external_key)
+              const isReversal = Boolean(entry.reversal_of_entry_id)
               return (
                 <article className="ledger-v2-row" key={entry.id}>
-                  <button type="button" className="ledger-v2-row-main" onClick={() => startEdit(entry)}>
-                    <span className={`ledger-v2-type ledger-v2-type-${entry.entry_type}`}>{entry.entry_type === 'expense' ? 'Expense' : 'Income'}</span>
-                    <span><strong>{entry.description}</strong><small>{titleCase(entry.category)} · {titleCase(entry.treatment)}{entry.vendor ? ` · ${entry.vendor}` : ''}</small></span>
+                  <div className="ledger-v2-row-main">
+                    <span className={`ledger-v2-type ledger-v2-type-${entry.entry_type}`}>{isReversal ? 'Reversal' : entry.entry_type === 'expense' ? 'Expense' : 'Income'}</span>
+                    <span><strong>{entry.description}</strong><small>{titleCase(entry.category)} · {titleCase(entry.treatment)}{entry.vendor ? ` · ${entry.vendor}` : ''}{entry.reversal_reason ? ` · ${entry.reversal_reason}` : ''}</small></span>
                     <span className="ledger-v2-row-money"><strong>{entry.entry_type === 'expense' ? '−' : '+'}{money(entry.amount, entry.currency)}</strong><small>{entry.currency === 'AUD' ? new Date(entry.occurred_at).toLocaleDateString('en-AU') : `${converted == null ? 'AUD not set' : money(converted, 'AUD')} · ${new Date(entry.occurred_at).toLocaleDateString('en-AU')}`}</small></span>
-                  </button>
-                  <button type="button" className="secondary small ledger-v2-delete" onClick={() => void remove(entry)} aria-label={`Delete ${entry.description}`}>Delete</button>
+                  </div>
+                  <button type="button" className="secondary small ledger-v2-delete" disabled={isReversal || sourceControlled || reversingId === entry.id} onClick={() => void reverse(entry)} title={sourceControlled ? 'Correct this record at its source Purchase/receiving record.' : isReversal ? 'Reversal records are historical.' : 'Add an equal-and-opposite linked entry.'}>{reversingId === entry.id ? 'Reversing…' : isReversal ? 'Historical' : sourceControlled ? 'Source controlled' : 'Reverse'}</button>
                 </article>
               )
             })}
@@ -366,7 +350,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
       {showEditor && (
         <div className="ledger-v2-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowEditor(false) }}>
           <form className="ledger-v2-editor" onSubmit={save}>
-            <div className="business-v2-panel-heading"><div><p className="eyebrow">{editingId ? 'EDIT ENTRY' : 'NEW ENTRY'}</p><h2>{editingId ? 'Update ledger entry' : 'Add business ledger entry'}</h2></div><button type="button" className="secondary small" onClick={() => setShowEditor(false)} disabled={saving}>Close</button></div>
+            <div className="business-v2-panel-heading"><div><p className="eyebrow">NEW ENTRY</p><h2>Add business ledger entry</h2><p className="muted">Once saved, this entry becomes historical. Correct mistakes with a reversal and a new entry.</p></div><button type="button" className="secondary small" onClick={() => setShowEditor(false)} disabled={saving}>Close</button></div>
             <div className="ledger-v2-form-grid">
               <label>Type<select value={draft.entry_type} onChange={(event) => patch({ entry_type: event.target.value as 'expense' | 'income' })}><option value="expense">Expense</option><option value="income">Other income</option></select></label>
               <label>Treatment<select value={draft.treatment} onChange={(event) => patch({ treatment: event.target.value as 'operating' | 'capital' | 'other' })}><option value="operating">Operating</option><option value="capital">Capital</option><option value="other">Other</option></select></label>
@@ -380,7 +364,7 @@ export default function BusinessLedgerPanel({ workspaceId }: { workspaceId: stri
               <label>Reference<input value={draft.reference} onChange={(event) => patch({ reference: event.target.value })} placeholder="Order / receipt / invoice" /></label>
               <label className="span-2">Notes<textarea rows={3} value={draft.notes} onChange={(event) => patch({ notes: event.target.value })} /></label>
             </div>
-            <div className="ledger-v2-editor-actions"><button type="button" className="secondary" onClick={() => setShowEditor(false)} disabled={saving}>Cancel</button><button type="submit" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add entry'}</button></div>
+            <div className="ledger-v2-editor-actions"><button type="button" className="secondary" onClick={() => setShowEditor(false)} disabled={saving}>Cancel</button><button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add entry'}</button></div>
           </form>
         </div>
       )}

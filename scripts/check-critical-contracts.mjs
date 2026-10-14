@@ -1,7 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 
-const root = new URL('..', import.meta.url)
 const migrationDir = new URL('../supabase/migrations/', import.meta.url)
 
 const files = (await readdir(migrationDir)).filter((name) => name.endsWith('.sql')).sort()
@@ -91,6 +89,16 @@ requireAllInOneMigration('physical inventory archive audit coverage', [
   /audit_tools_mutations/,
   /audit_consumables_mutations/,
   /log_calibre_audit_event/,
+])
+
+// 7. Business Ledger history is accounting evidence: rows become immutable once
+// created, and corrections are equal-and-opposite linked reversal records.
+requireAllInOneMigration('append-only Business Ledger contract', [
+  /business_ledger_entries_immutable/,
+  /guard_business_ledger_history/,
+  /reverse_business_ledger_entry/,
+  /reversal_of_entry_id/,
+  /(cannot be deleted|immutable)/,
 ])
 
 if (process.exitCode) process.exit(process.exitCode)
