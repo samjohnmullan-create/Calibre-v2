@@ -1,0 +1,281 @@
+/* Global Bench Mode launcher and chooser */
+
+.bench-mode-launcher {
+  position: fixed;
+  z-index: 820;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 13px 8px 9px;
+  border: 1px solid var(--calibre-line-strong);
+  border-radius: 16px;
+  color: var(--calibre-text-strong);
+  background:
+    linear-gradient(145deg, rgba(225, 235, 232, .045), transparent 44%),
+    rgba(22, 34, 41, .82);
+  box-shadow: 0 16px 44px rgba(2, 8, 12, .34);
+  backdrop-filter: blur(12px) saturate(114%);
+  -webkit-backdrop-filter: blur(12px) saturate(114%);
+}
+
+.bench-mode-launcher:hover,
+.bench-mode-launcher:focus-visible {
+  border-color: var(--calibre-accent-line);
+  background: rgba(25, 52, 63, .88);
+}
+
+.bench-mode-launcher > span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #dbe7e4;
+  background: rgba(18, 78, 102, .42);
+  font-size: 20px;
+}
+
+.bench-mode-launcher > div {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.bench-mode-launcher small {
+  color: #9ab6bb;
+  font: 600 8px/1.2 "IBM Plex Mono", monospace;
+  letter-spacing: .11em;
+}
+
+.bench-mode-launcher strong {
+  font-size: 11px;
+}
+
+.bench-mode-launcher.active {
+  border-color: rgba(107, 179, 194, .56);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(45, 132, 157, .24), transparent 52%),
+    rgba(21, 49, 60, .90);
+  box-shadow: 0 16px 48px rgba(2, 8, 12, .38), 0 0 0 1px rgba(78, 151, 171, .08);
+}
+
+.bench-mode-launcher.active > span {
+  background: rgba(46, 130, 153, .52);
+  box-shadow: 0 0 18px rgba(68, 156, 180, .14);
+}
+
+.bench-mode-host-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(6, 11, 14, .74);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.bench-mode-host-card {
+  width: min(720px, calc(100vw - var(--calibre-rail-width, 0px) - 28px));
+  height: 100dvh;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+  border-left: 1px solid var(--calibre-line-strong);
+  background:
+    radial-gradient(ellipse 70% 34% at 54% 0%, rgba(30, 103, 127, .18), transparent 72%),
+    rgba(22, 32, 38, .96);
+  box-shadow: -24px 0 74px rgba(0, 0, 0, .42);
+}
+
+.bench-mode-host-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 66px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--calibre-line);
+}
+
+.bench-mode-host-toolbar > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.bench-mode-host-toolbar p {
+  margin: 0;
+}
+
+.bench-mode-host-toolbar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bench-mode-host-message {
+  margin: 12px 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 10px;
+  color: var(--calibre-muted);
+  background: rgba(15, 26, 31, .58);
+}
+
+.bench-mode-host-content,
+.bench-mode-chooser {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.bench-mode-host-content {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.bench-mode-change-work {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--calibre-muted);
+  padding: 3px 0;
+  font-size: 11px;
+}
+
+.bench-mode-chooser {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.bench-mode-chooser h2,
+.bench-mode-chooser p {
+  margin-top: 0;
+}
+
+.bench-mode-chooser-list {
+  display: grid;
+  gap: 8px;
+}
+
+.bench-mode-chooser-list > button {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 12px;
+  color: inherit;
+  background:
+    linear-gradient(145deg, rgba(225, 235, 232, .03), transparent 44%),
+    rgba(31, 43, 51, .66);
+  text-align: left;
+}
+
+.bench-mode-chooser-list > button:hover,
+.bench-mode-chooser-list > button:focus-visible {
+  border-color: var(--calibre-accent-line);
+  background: rgba(35, 58, 68, .74);
+}
+
+.bench-mode-chooser-list > button > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.bench-mode-chooser-list > button > div > span {
+  color: var(--calibre-muted);
+  font: 600 9px/1.2 "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.bench-mode-chooser-list > button > div > strong,
+.bench-mode-chooser-list > button > div > small {
+  overflow-wrap: anywhere;
+}
+
+.bench-mode-chooser-list > button > div > small {
+  color: var(--calibre-muted);
+}
+
+@media (min-width: 821px) {
+  .calibre-os[data-shell-section="workbench"] ~ .bench-mode-launcher,
+  .bench-mode-launcher {
+    right: 24px;
+    bottom: 22px;
+  }
+}
+
+@media (max-width: 820px) {
+  .bench-mode-launcher {
+    right: 12px;
+    bottom: calc(var(--calibre-mobile-nav-height, 58px) + 18px + env(safe-area-inset-bottom));
+    min-height: 44px;
+    padding: 6px 9px 6px 6px;
+    border-radius: 14px;
+  }
+
+  .bench-mode-launcher > span {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 18px;
+  }
+
+  .bench-mode-launcher small {
+    font-size: 7px;
+  }
+
+  .bench-mode-launcher strong {
+    font-size: 10px;
+  }
+
+  .bench-mode-host-card {
+    width: 100%;
+    height: 100dvh;
+    border-left: 0;
+  }
+
+  .bench-mode-host-toolbar {
+    min-height: 58px;
+    padding: 10px 12px;
+  }
+
+  .bench-mode-host-content,
+  .bench-mode-chooser {
+    padding: 12px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .bench-mode-chooser-list > button {
+    align-items: flex-start;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .bench-mode-launcher:not(.active) > div {
+    display: none;
+  }
+
+  .bench-mode-launcher:not(.active) {
+    padding-right: 6px;
+  }
+
+  .bench-mode-chooser-list > button {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
