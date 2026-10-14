@@ -4,6 +4,7 @@ import PartsInventory from './PartsInventory'
 import StorageManager from './StorageManager'
 import ArchiveConfirmDialog from './ArchiveConfirmDialog'
 import InventoryTrash from './InventoryTrash'
+import ResourceInventory from './ResourceInventory'
 
 type ItemRow = {
   id: string
@@ -18,7 +19,7 @@ type ItemRow = {
 }
 
 type StorageLocation = { id: string; parent_id: string | null; name: string; code: string | null; sort_order: number }
-type InventoryView = 'items' | 'parts' | 'storage' | 'trash'
+type InventoryView = 'items' | 'parts' | 'tools' | 'consumables' | 'storage' | 'trash'
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
@@ -88,7 +89,7 @@ export default function InventoryHubRoute() {
   useEffect(() => {
     const openView = (event: Event) => {
       const requested = (event as CustomEvent<string>).detail
-      if (requested === 'items' || requested === 'parts' || requested === 'storage' || requested === 'trash') setView(requested)
+      if (requested === 'items' || requested === 'parts' || requested === 'tools' || requested === 'consumables' || requested === 'storage' || requested === 'trash') setView(requested)
       if (requested === 'workshop') setView('storage')
     }
     const chooseWorkItem = () => { setView('items'); setMessage('Choose the Item you want to work on, then open its Work tab.') }
@@ -196,6 +197,8 @@ export default function InventoryHubRoute() {
       <nav className="inventory-v2-primary" aria-label="Inventory views">
         <button type="button" className={view === 'items' ? 'active' : ''} onClick={() => setView('items')}><span>Items</span><strong>{totalItems}</strong></button>
         <button type="button" className={view === 'parts' ? 'active' : ''} onClick={() => setView('parts')}><span>Parts</span></button>
+        <button type="button" className={view === 'tools' ? 'active' : ''} onClick={() => setView('tools')}><span>Tools</span></button>
+        <button type="button" className={view === 'consumables' ? 'active' : ''} onClick={() => setView('consumables')}><span>Consumables</span></button>
         <button type="button" className={view === 'storage' ? 'active' : ''} onClick={() => setView('storage')}><span>Storage</span></button>
         <button type="button" className={view === 'trash' ? 'active' : ''} onClick={() => setView('trash')}><span>Trash</span></button>
       </nav>
@@ -238,6 +241,8 @@ export default function InventoryHubRoute() {
       </>}
 
       {view === 'parts' && <PartsInventory />}
+      {view === 'tools' && workspaceId && <ResourceInventory kind="tool" workspaceId={workspaceId} onArchived={() => setRefreshToken((value) => value + 1)} />}
+      {view === 'consumables' && workspaceId && <ResourceInventory kind="consumable" workspaceId={workspaceId} onArchived={() => setRefreshToken((value) => value + 1)} />}
 
       {view === 'storage' && <section className="inventory-v2-workshop">
         <div className="inventory-v2-workshop-copy"><p className="eyebrow">PHYSICAL STORAGE</p><h2>Location is independent of workflow.</h2><p className="muted">Create any physical zones you actually use — Incoming, Watch Stock, Parts Storage, Donor Watches, Bench, Tools, Dispatch or something else. Nothing is automatically treated as being in the workshop.</p></div>
