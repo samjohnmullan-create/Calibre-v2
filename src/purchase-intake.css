@@ -1,0 +1,40 @@
+.purchase-intake { display: grid; gap: 1rem; }
+.purchase-intake-toolbar, .purchase-summary-head, .purchase-lot-head, .purchase-section-head, .purchase-list-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.purchase-intake-toolbar h2, .purchase-summary h3, .purchase-lot-card h3, .purchase-section-head h3 { margin: .15rem 0 .25rem; }
+.purchase-form { display: grid; gap: .9rem; }
+.purchase-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.purchase-form label, .purchase-materialize label { display: grid; gap: .35rem; min-width: 0; font-size: .82rem; color: var(--text-muted, #777); }
+.purchase-form input, .purchase-form select, .purchase-form textarea, .purchase-materialize input, .purchase-materialize select { width: 100%; min-width: 0; }
+.purchase-layout { display: grid; grid-template-columns: minmax(230px, .72fr) minmax(0, 2fr); gap: 1rem; align-items: start; }
+.purchase-list { display: grid; gap: .45rem; position: sticky; top: 1rem; max-height: calc(100vh - 11rem); overflow: auto; }
+.purchase-list-heading { padding-bottom: .5rem; border-bottom: 1px solid var(--border, rgba(127,127,127,.2)); }
+.purchase-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; text-align: left; align-items: center; padding: .75rem; border-radius: .7rem; }
+.purchase-row span { display: grid; gap: .12rem; min-width: 0; }
+.purchase-row span:last-child { text-align: right; }
+.purchase-row strong, .purchase-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.purchase-row.active { outline: 1px solid var(--accent, currentColor); }
+.purchase-detail, .purchase-lots { display: grid; gap: 1rem; }
+.purchase-status-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .8rem; }
+.purchase-discrepancy { padding: .65rem .75rem; border-radius: .6rem; background: color-mix(in srgb, var(--accent, #b58a55) 10%, transparent); }
+.purchase-lot-head > div:last-child { display: grid; gap: .2rem; text-align: right; }
+.purchase-linked-items { display: flex; flex-wrap: wrap; gap: .45rem; margin: .7rem 0; }
+.purchase-materialize { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(110px, .6fr) minmax(110px, .7fr) minmax(180px, 1.5fr) auto; gap: .6rem; align-items: end; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--border, rgba(127,127,127,.2)); }
+.purchase-materialize button { white-space: nowrap; }
+
+@media (max-width: 980px) {
+  .purchase-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .purchase-layout { grid-template-columns: 1fr; }
+  .purchase-list { position: static; max-height: 18rem; }
+  .purchase-materialize { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .purchase-materialize button { grid-column: 1 / -1; }
+}
+
+@media (max-width: 640px) {
+  .purchase-intake-toolbar, .purchase-summary-head, .purchase-lot-head, .purchase-section-head { align-items: stretch; flex-direction: column; }
+  .purchase-intake-toolbar > button { width: 100%; }
+  .purchase-form-grid, .purchase-materialize { grid-template-columns: 1fr; }
+  .purchase-row { grid-template-columns: minmax(0, 1fr); }
+  .purchase-row span:last-child, .purchase-lot-head > div:last-child { text-align: left; }
+  .purchase-materialize button { grid-column: auto; width: 100%; }
+  .purchase-status-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
