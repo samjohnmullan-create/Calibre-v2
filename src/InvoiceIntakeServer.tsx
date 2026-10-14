@@ -1,6 +1,8 @@
 import { ChangeEvent, useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 
+type IntakeQueue = 'inbox' | 'review' | 'completed'
+
 type Invoice = {
   id: string
   vendor_name: string
@@ -51,6 +53,35 @@ type ImportedItem = {
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
+const queueStatus: Record<IntakeQueue, string> = {
+  inbox: 'uploaded',
+  review: 'needs_review',
+  completed: 'imported',
+}
+
+const queueCopy: Record<IntakeQueue, { eyebrow: string; title: string; description: string; listTitle: string; empty: string }> = {
+  inbox: {
+    eyebrow: 'BULK INTAKE',
+    title: 'Invoice inbox',
+    description: 'Upload source documents and have Calibre extract draft records. Nothing enters Inventory until review and import.',
+    listTitle: 'Unread invoices',
+    empty: 'No unread invoices.',
+  },
+  review: {
+    eyebrow: 'REVIEW QUEUE',
+    title: 'Ready to Review',
+    description: 'Check extracted facts, titles and costs before committing Items to Inventory.',
+    listTitle: 'Awaiting review',
+    empty: 'Nothing is waiting for review.',
+  },
+  completed: {
+    eyebrow: 'INTAKE HISTORY',
+    title: 'Completed intake',
+    description: 'Imported source documents and the Items they created. Originals remain preserved in Files.',
+    listTitle: 'Imported invoices',
+    empty: 'No completed invoice imports yet.',
+  },
+}
 
 function safeName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'invoice'
@@ -76,7 +107,7 @@ async function sha256File(file: File) {
   return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('')
 }
 
-export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: string }) {
+export default function InvoiceIntakeServer({ workspaceId, queue }: { workspaceId: string; queue: IntakeQueue }) {
   const [open, setOpen] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -91,10 +122,11 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
   const [message, setMessage] = useState('')
   const fileRef = useRef<HTMLInputElement | null>(null)
 
+  const visible = queue !== 'inbox' || open
   const selected = invoices.find((invoice) => invoice.id === selectedId) ?? null
-  const pendingInvoices = invoices.filter((invoice) => invoice.extraction_status === 'uploaded')
   const includedCount = lines.filter((line) => line.include_on_import && !line.created_item_id).length
   const importedCount = lines.filter((line) => Boolean(line.created_item_id)).length
+  const copy = queueCopy[queue]
 
   async function loadInvoices(selectId?: string) {
     if (!workspaceId) return
@@ -103,7 +135,9 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       .from('acquisition_invoices')
       .select('id,vendor_name,invoice_number,invoice_date,currency,subtotal,fees,postage,total,exchange_rate_to_aud,exchange_rate_date,subtotal_aud,fees_aud,postage_aud,total_aud,original_filename,mime_type,storage_path,extraction_status,created_at')
       .eq('workspace_id', workspaceId)
+      .eq('extraction_status', queueStatus[queue])
       .order('created_at', { ascending: false })
+      .limit(100)
     setLoading(false)
     if (error) {
       setMessage(`Invoices failed to load: ${error.message}`)
@@ -111,31 +145,16 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     }
     const rows = (data ?? []) as Invoice[]
     setInvoices(rows)
-    const pending = rows.filter((invoice) => invoice.extraction_status === 'uploaded')
-    const target = selectId || (rows.some((invoice) => invoice.id === selectedId) ? selectedId : '') || pending[0]?.id || ''
+    const target = (selectId && rows.some((invoice) => invoice.id === selectId) ? selectId : '')
+      || (rows.some((invoice) => invoice.id === selectedId) ? selectedId : '')
+      || rows[0]?.id
+      || ''
     setSelectedId(target)
-    if (!target) setLines([])
-  }
-
-  async function loadLines(invoiceId: string) {
-    if (!invoiceId) {
+    if (!target) {
       setLines([])
+      setImportedItems([])
       setDirty(false)
-      return
     }
-    const { data, error } = await supabase
-      .from('acquisition_invoice_lines')
-      .select('id,line_number,lot_number,raw_text,proposed_title,proposed_type,proposed_purpose,quantity,unit_price,line_total,unit_price_aud,line_total_aud,confidence,include_on_import,review_note,created_item_id')
-      .eq('workspace_id', workspaceId)
-      .eq('invoice_id', invoiceId)
-      .order('line_number', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true })
-    if (error) {
-      setMessage(`Invoice lines failed to load: ${error.message}`)
-      return
-    }
-    setLines((data ?? []) as DraftLine[])
-    setDirty(false)
   }
 
   async function loadImportedItems(ids: string[]) {
@@ -157,17 +176,47 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     setImportedItems((data ?? []) as ImportedItem[])
   }
 
-  useEffect(() => {
-    if (open && workspaceId) void loadInvoices()
-  }, [open, workspaceId])
+  async function loadLines(invoiceId: string) {
+    if (!invoiceId) {
+      setLines([])
+      setImportedItems([])
+      setDirty(false)
+      return
+    }
+    const { data, error } = await supabase
+      .from('acquisition_invoice_lines')
+      .select('id,line_number,lot_number,raw_text,proposed_title,proposed_type,proposed_purpose,quantity,unit_price,line_total,unit_price_aud,line_total_aud,confidence,include_on_import,review_note,created_item_id')
+      .eq('workspace_id', workspaceId)
+      .eq('invoice_id', invoiceId)
+      .order('line_number', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+    if (error) {
+      setMessage(`Invoice lines failed to load: ${error.message}`)
+      return
+    }
+    const rows = (data ?? []) as DraftLine[]
+    setLines(rows)
+    setDirty(false)
+    if (queue === 'completed') await loadImportedItems(rows.map((line) => line.created_item_id ?? ''))
+    else setImportedItems([])
+  }
 
   useEffect(() => {
-    if (open && selectedId) void loadLines(selectedId)
-  }, [open, selectedId])
+    setSelectedId('')
+    setLines([])
+    setImportedItems([])
+    setDirty(false)
+    setMessage('')
+    if (visible && workspaceId) void loadInvoices()
+  }, [visible, workspaceId, queue])
+
+  useEffect(() => {
+    if (visible && selectedId) void loadLines(selectedId)
+  }, [visible, selectedId, queue])
 
   async function uploadInvoice(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
-    if (!file || !workspaceId) return
+    if (!file || !workspaceId || queue !== 'inbox') return
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     const isImage = file.type.startsWith('image/')
     if (!isPdf && !isImage) {
@@ -207,8 +256,9 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       if (fileRef.current) fileRef.current.value = ''
       setUploading(false)
       const label = [duplicateResult.data.vendor_name, duplicateResult.data.invoice_number ? `invoice ${duplicateResult.data.invoice_number}` : ''].filter(Boolean).join(' · ')
-      setMessage(`This exact invoice file is already in Calibre${label ? ` (${label})` : ''}. The existing record has been kept; no duplicate was uploaded.`)
-      await loadInvoices(duplicateResult.data.id)
+      const location = duplicateResult.data.extraction_status === 'imported' ? 'Completed' : duplicateResult.data.extraction_status === 'needs_review' ? 'Ready to Review' : 'Inbox'
+      setMessage(`This exact invoice file is already in Calibre${label ? ` (${label})` : ''}. The existing record is in ${location}; no duplicate was uploaded.`)
+      if (duplicateResult.data.extraction_status === 'uploaded') await loadInvoices(duplicateResult.data.id)
       return
     }
 
@@ -251,7 +301,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
   }
 
   async function readInvoice() {
-    if (!selected || reading) return
+    if (!selected || reading || queue !== 'inbox') return
     setImportedItems([])
     setReading(true)
     setMessage('Reading invoice…')
@@ -283,18 +333,18 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
       ? ` Converted to AUD at ${fx.toFixed(5)}${data?.aud_rate_date ? ` (${data.aud_rate_date})` : ''}.`
       : ''
     const warning = data?.aud_warning ? ` ${data.aud_warning}` : ''
-    setMessage(`Invoice read successfully and moved out of the intake queue. ${count} draft line${count === 1 ? '' : 's'} ready for review.${fxText}${warning} The original document remains in Files and will be linked to each Item when imported.`)
-    await loadInvoices(selected.id)
-    await loadLines(selected.id)
+    setMessage(`Invoice read successfully. ${count} draft line${count === 1 ? '' : 's'} ${count === 1 ? 'is' : 'are'} now in Ready to Review.${fxText}${warning} The original document remains in Files.`)
+    await loadInvoices()
   }
 
   function patchLine(id: string, patch: Partial<DraftLine>) {
+    if (queue !== 'review') return
     setLines((current) => current.map((line) => line.id === id ? { ...line, ...patch } : line))
     setDirty(true)
   }
 
   async function saveDrafts(showSuccess = true) {
-    if (!selected || saving) return false
+    if (!selected || saving || queue !== 'review') return false
     const editable = lines.filter((line) => !line.created_item_id)
     if (editable.some((line) => line.include_on_import && !line.proposed_title.trim())) {
       setMessage('Every included line needs a title before it can be saved/imported.')
@@ -337,7 +387,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
   }
 
   async function importReviewed() {
-    if (!selected || importing || includedCount === 0) return
+    if (!selected || importing || includedCount === 0 || queue !== 'review') return
     if (dirty) {
       const saved = await saveDrafts(false)
       if (!saved) return
@@ -360,13 +410,12 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     const row = Array.isArray(data) ? data[0] : data
     const count = Number(row?.created_count ?? 0)
     const ids = Array.isArray(row?.created_item_ids) ? row.created_item_ids.filter(Boolean).map(String) : []
-    setMessage(`${count} Item${count === 1 ? '' : 's'} created. The source invoice is linked to each Item under Photos & Media → Invoice, while the original remains in Files.`)
+    setMessage(`${count} Item${count === 1 ? '' : 's'} created. This invoice is now in Completed; the original remains in Files and linked to each imported Item.`)
     await loadImportedItems(ids)
-    await loadInvoices(selected.id)
-    await loadLines(selected.id)
+    await loadInvoices()
   }
 
-  if (!open) {
+  if (!visible) {
     return <button type="button" className="secondary" onClick={() => setOpen(true)}>Import invoice</button>
   }
 
@@ -374,17 +423,17 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
     <section className="invoice-intake-card">
       <div className="invoice-intake-heading">
         <div>
-          <p className="eyebrow">BULK INTAKE</p>
-          <h2>Invoice intake</h2>
-          <p className="muted">Upload → read → review → import. Read invoices leave this queue and remain permanently available in Files.</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h2>{copy.title}</h2>
+          <p className="muted">{copy.description}</p>
         </div>
-        <button type="button" className="secondary small" onClick={() => setOpen(false)}>Close</button>
+        {queue === 'inbox' && <button type="button" className="secondary small" onClick={() => setOpen(false)}>Close</button>}
       </div>
 
-      <label className="invoice-upload-button">
+      {queue === 'inbox' && <label className="invoice-upload-button">
         <span>{uploading ? 'Uploading…' : 'Upload PDF or photo'}</span>
         <input ref={fileRef} type="file" accept="application/pdf,image/*" disabled={uploading} onChange={uploadInvoice} />
-      </label>
+      </label>}
       {message && <p className="invoice-message">{message}</p>}
       {importedItems.length > 0 && (
         <div className="invoice-review-actions">
@@ -399,19 +448,19 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
 
       <div className="invoice-intake-grid">
         <aside className="invoice-list-panel">
-          <strong>Pending invoices</strong>
+          <strong>{copy.listTitle}</strong>
           {loading && <p className="muted">Loading…</p>}
-          {!loading && pendingInvoices.length === 0 && <p className="muted">No unread invoices. Read documents are kept in Files.</p>}
-          {pendingInvoices.map((invoice) => (
+          {!loading && invoices.length === 0 && <p className="muted">{copy.empty}</p>}
+          {invoices.map((invoice) => (
             <button type="button" key={invoice.id} className={selectedId === invoice.id ? 'active' : ''} onClick={() => setSelectedId(invoice.id)}>
               <span>{invoice.vendor_name || invoice.original_filename}</span>
-              <small>{invoice.invoice_number || invoice.extraction_status}</small>
+              <small>{invoice.invoice_number || titleCase(invoice.extraction_status)}</small>
             </button>
           ))}
         </aside>
 
         <div className="invoice-review-panel">
-          {!selected ? <p className="muted">Choose or upload an invoice.</p> : <>
+          {!selected ? <p className="muted">{queue === 'inbox' ? 'Choose or upload an invoice.' : queue === 'review' ? 'Choose an invoice to review.' : 'Choose a completed invoice.'}</p> : <>
             <div className="invoice-summary">
               <div><span>File</span><strong>{selected.original_filename}</strong></div>
               <div><span>Vendor</span><strong>{selected.vendor_name || 'Unresolved'}</strong></div>
@@ -430,26 +479,26 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
             </div>}
 
             <div className="invoice-extraction-actions">
-              {selected.extraction_status === 'uploaded'
-                ? <button type="button" onClick={readInvoice} disabled={reading || importing}>{reading ? 'Reading invoice…' : 'Read invoice'}</button>
-                : <span>Read complete. This document now lives in Files; finish reviewing the draft lines below.</span>}
-              {selected.extraction_status === 'uploaded' && <span>The private stored file is read server-side. Once read, it leaves the pending queue.</span>}
+              {queue === 'inbox' && <button type="button" onClick={readInvoice} disabled={reading || importing}>{reading ? 'Reading invoice…' : 'Read invoice'}</button>}
+              {queue === 'inbox' && <span>The private stored file is read server-side. Successful extraction moves it to Ready to Review.</span>}
+              {queue === 'review' && <span>Review the extracted lines below, save any corrections, then import the approved Items.</span>}
+              {queue === 'completed' && <span>Import complete. This is read-only intake history; the original source document remains preserved in Files.</span>}
             </div>
 
             <div className="invoice-draft-lines">
               <div className="invoice-lines-heading">
-                <strong>Draft lines</strong>
+                <strong>{queue === 'completed' ? 'Imported lines' : 'Draft lines'}</strong>
                 <span>{lines.length} total · {includedCount} to import · {importedCount} imported</span>
               </div>
-              {lines.length === 0 && <p className="muted">No extracted lines yet. Tap Read invoice.</p>}
+              {lines.length === 0 && <p className="muted">{queue === 'inbox' ? 'No extracted lines yet. Tap Read invoice.' : 'No line records found for this invoice.'}</p>}
               {lines.map((line) => {
-                const locked = Boolean(line.created_item_id)
+                const locked = queue !== 'review' || Boolean(line.created_item_id)
                 return (
-                  <article key={line.id} className={locked ? 'invoice-line imported' : 'invoice-line'}>
+                  <article key={line.id} className={locked && line.created_item_id ? 'invoice-line imported' : 'invoice-line'}>
                     <div className="invoice-line-topline">
                       <label className="invoice-include">
-                        <input type="checkbox" checked={locked || line.include_on_import} disabled={locked} onChange={(event) => patchLine(line.id, { include_on_import: event.target.checked })} />
-                        <span>{locked ? 'Imported' : 'Include'}</span>
+                        <input type="checkbox" checked={Boolean(line.created_item_id) || line.include_on_import} disabled={locked} onChange={(event) => patchLine(line.id, { include_on_import: event.target.checked })} />
+                        <span>{line.created_item_id ? 'Imported' : line.include_on_import ? 'Include' : 'Excluded'}</span>
                       </label>
                       <span>{line.lot_number ? `Lot ${line.lot_number}` : `Line ${line.line_number ?? '—'}`}</span>
                       <span>{line.confidence == null ? 'Confidence unknown' : `${Math.round(Number(line.confidence) * 100)}% confidence`}</span>
@@ -493,7 +542,7 @@ export default function InvoiceIntakeServer({ workspaceId }: { workspaceId: stri
               })}
             </div>
 
-            {lines.length > 0 && <div className="invoice-review-actions">
+            {queue === 'review' && lines.length > 0 && <div className="invoice-review-actions">
               <button type="button" className="secondary" disabled={saving || importing || !dirty} onClick={() => void saveDrafts()}>{saving ? 'Saving…' : dirty ? 'Save review' : 'Review saved'}</button>
               <button type="button" disabled={saving || importing || includedCount === 0} onClick={importReviewed}>{importing ? 'Importing…' : `Import ${includedCount} reviewed item${includedCount === 1 ? '' : 's'}`}</button>
             </div>}
