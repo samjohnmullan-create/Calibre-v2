@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuditHistoryPanel from './AuditHistoryPanel'
+import { exportWorkspaceStorageArchive } from './storageArchive'
 
 type ExportTable = {
   name: string
@@ -69,9 +70,12 @@ export default function SettingsRoute() {
   const [workspaceId, setWorkspaceId] = useState('')
   const [workspaceName, setWorkspaceName] = useState('Calibre workspace')
   const [exporting, setExporting] = useState(false)
+  const [archivingStorage, setArchivingStorage] = useState(false)
   const [progress, setProgress] = useState('')
+  const [storageProgress, setStorageProgress] = useState('')
   const [message, setMessage] = useState('')
   const [lastExport, setLastExport] = useState(() => localStorage.getItem('calibre:last-structured-export') ?? '')
+  const [lastStorageExport, setLastStorageExport] = useState(() => localStorage.getItem('calibre:last-storage-export') ?? '')
 
   const exportScopeLabel = useMemo(() => `${exportTables.length} structured data domains`, [])
 
@@ -185,6 +189,29 @@ export default function SettingsRoute() {
     }
   }
 
+  async function exportStorageArchive() {
+    if (!workspaceId || archivingStorage) return
+    setArchivingStorage(true)
+    setStorageProgress('')
+    setMessage('')
+    try {
+      const result = await exportWorkspaceStorageArchive({
+        workspaceId,
+        workspaceName,
+        onProgress: setStorageProgress,
+      })
+      localStorage.setItem('calibre:last-storage-export', result.exportedAt)
+      setLastStorageExport(result.exportedAt)
+      setStorageProgress('')
+      setMessage(`Storage archive created successfully. ${result.fileCount.toLocaleString()} files and ${(result.totalBytes / 1024 / 1024).toFixed(1)} MB of source data were archived with per-file SHA-256 checksums.`)
+    } catch (error) {
+      setStorageProgress('')
+      setMessage(`Storage archive failed: ${error instanceof Error ? error.message : 'Unknown error.'}`)
+    } finally {
+      setArchivingStorage(false)
+    }
+  }
+
   if (!active) return null
 
   return (
@@ -202,37 +229,40 @@ export default function SettingsRoute() {
           <div>
             <p className="eyebrow">DATA & RECOVERY</p>
             <h2>Portable workspace backup</h2>
-            <p>Export the structured Calibre records you own into one versioned JSON file. The export is paginated, includes an integrity checksum and records per-table counts.</p>
+            <p>Create two owner-controlled files: a versioned JSON export of structured records and a TAR archive containing the private Storage binaries referenced by those records.</p>
           </div>
 
           <div className="settings-v2-backup-facts">
             <div><span>Workspace</span><strong>{workspaceName}</strong></div>
-            <div><span>Scope</span><strong>{exportScopeLabel}</strong></div>
-            <div><span>Batch size</span><strong>{exportBatchSize} rows</strong></div>
-            <div><span>Last export on this device</span><strong>{lastExport ? new Date(lastExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
+            <div><span>Structured scope</span><strong>{exportScopeLabel}</strong></div>
+            <div><span>Last structured export</span><strong>{lastExport ? new Date(lastExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
+            <div><span>Last Storage export</span><strong>{lastStorageExport ? new Date(lastStorageExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
           </div>
 
           <div className="settings-v2-actions">
-            <button type="button" disabled={!workspaceId || exporting} onClick={() => void exportStructuredBackup()}>{exporting ? 'Exporting…' : 'Export structured backup'}</button>
+            <button type="button" disabled={!workspaceId || exporting || archivingStorage} onClick={() => void exportStructuredBackup()}>{exporting ? 'Exporting…' : 'Export structured backup'}</button>
+            <button type="button" className="secondary" disabled={!workspaceId || exporting || archivingStorage} onClick={() => void exportStorageArchive()}>{archivingStorage ? 'Archiving Storage…' : 'Export Storage archive'}</button>
             {progress && <span>{progress}</span>}
+            {storageProgress && <span>{storageProgress}</span>}
           </div>
           {message && <p className="settings-v2-message">{message}</p>}
         </article>
 
         <article className="settings-v2-card">
           <p className="eyebrow">WHAT THIS BACKS UP</p>
-          <h2>Business records and file manifest</h2>
-          <p className="muted">Items, Passport data, research, invoices, finance, Work, QC, measurements, timing, parts, tools, storage locations and audit events are included. Media metadata and Storage paths are included as a manifest.</p>
-          <div className="settings-v2-status good"><strong>Structured records</strong><span>Included</span></div>
-          <div className="settings-v2-status good"><strong>Integrity checksum</strong><span>Included</span></div>
-          <div className="settings-v2-status pending"><strong>Actual image/PDF binary files</strong><span>Storage archive still to build</span></div>
+          <h2>Records plus the real files</h2>
+          <p className="muted">The JSON contains business records and the Storage manifest. The separate TAR archive downloads referenced private images and documents from <code>calibre-media</code>, preserves their bucket-relative paths and writes a SHA-256 checksum for every file into the archive manifest.</p>
+          <div className="settings-v2-status good"><strong>Structured records</strong><span>JSON export available</span></div>
+          <div className="settings-v2-status good"><strong>Structured integrity checksum</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Image/PDF binary files</strong><span>Separate TAR archive available</span></div>
+          <div className="settings-v2-status good"><strong>Per-file binary checksums</strong><span>Included in TAR manifest</span></div>
           <div className="settings-v2-status pending"><strong>Auth credentials</strong><span>Intentionally excluded</span></div>
         </article>
 
         <article className="settings-v2-card">
           <p className="eyebrow">RESTORE</p>
           <h2>Restore stays locked for now.</h2>
-          <p className="muted">Creating a backup is safe. Importing one can overwrite or duplicate real business records, so Calibre will not expose a Restore button until we have tested the restore path against a disposable environment and documented the rollback procedure.</p>
+          <p className="muted">Creating backups is safe. Importing them can overwrite or duplicate real business records, so Calibre will not expose a Restore button until we have tested the restore path against a disposable environment and documented the rollback procedure.</p>
           <div className="settings-v2-status pending"><strong>Restore importer</strong><span>Planned</span></div>
           <div className="settings-v2-status pending"><strong>Disposable restore drill</strong><span>Required before release gate</span></div>
         </article>
@@ -240,7 +270,7 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">RECOVERY MODEL</p>
           <h2>One backup is not enough.</h2>
-          <p className="muted">The release target is layered recovery: versioned database migrations, managed database backups where available, Calibre portable exports, and a separate archive of private Storage files. We will test the whole chain before the main URL cutover.</p>
+          <p className="muted">The release target is layered recovery: versioned database migrations, managed database backups where available, Calibre portable exports, and an owner-controlled archive of private Storage files. The restore drill is still the test that decides whether recovery is actually proven.</p>
         </article>
 
         {workspaceId && <AuditHistoryPanel workspaceId={workspaceId} />}
