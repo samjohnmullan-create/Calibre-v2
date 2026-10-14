@@ -30,6 +30,22 @@
 .purchase-received-item-action { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .7rem .8rem; border: 1px solid var(--accent, rgba(127,127,127,.3)); border-radius: .7rem; }
 .purchase-received-item-action span { display: grid; gap: .1rem; min-width: 0; }
 .purchase-received-item-action small { color: var(--text-muted, #777); }
+.purchase-reconciliation { display: grid; gap: .9rem; overflow: hidden; }
+.purchase-reconciliation.is-reconciled { border-color: color-mix(in srgb, #4b8b63 45%, var(--border, rgba(127,127,127,.2))); }
+.purchase-reconciliation.has-gap { border-color: color-mix(in srgb, #b35b45 50%, var(--border, rgba(127,127,127,.2))); }
+.purchase-reconciliation-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.purchase-reconciliation-head h3 { margin: .15rem 0 .25rem; }
+.purchase-reconciliation-state { flex: 0 0 auto; padding: .42rem .62rem; border-radius: 999px; font-size: .8rem; font-weight: 700; border: 1px solid currentColor; }
+.purchase-reconciliation.is-reconciled .purchase-reconciliation-state { color: #4b8b63; }
+.purchase-reconciliation.has-gap .purchase-reconciliation-state { color: #b35b45; }
+.purchase-reconciliation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; }
+.purchase-reconciliation-grid > div { display: grid; gap: .14rem; min-width: 0; padding: .72rem .76rem; border: 1px solid var(--border, rgba(127,127,127,.2)); border-radius: .68rem; }
+.purchase-reconciliation-grid small, .purchase-reconciliation-grid span, .purchase-reconciliation-note small { color: var(--text-muted, #777); }
+.purchase-reconciliation-grid strong { font-size: 1.02rem; }
+.purchase-reconciliation-grid span { font-size: .75rem; }
+.purchase-reconciliation-note { display: grid; gap: .28rem; padding: .78rem .82rem; border-radius: .68rem; background: color-mix(in srgb, var(--accent, #b58a55) 8%, transparent); }
+.purchase-reconciliation-note p { margin: 0; line-height: 1.45; }
+.purchase-reconciliation-note small { line-height: 1.35; }
 .purchase-lot-head > div:last-child { display: grid; gap: .2rem; text-align: right; }
 .purchase-linked-items { display: flex; flex-wrap: wrap; gap: .45rem; margin: .7rem 0; }
 .purchase-stock-chip { display: inline-flex; align-items: center; gap: .25rem; padding: .4rem .6rem; border: 1px solid var(--border, rgba(127,127,127,.2)); border-radius: 999px; font-size: .78rem; }
@@ -60,6 +76,7 @@
   .purchase-materialize { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .purchase-materialize .purchase-materialize-note { grid-column: span 2; }
   .purchase-materialize button { grid-column: 1 / -1; justify-self: start; }
+  .purchase-reconciliation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 980px) {
@@ -76,9 +93,9 @@
 }
 
 @media (max-width: 640px) {
-  .purchase-intake-toolbar, .purchase-summary-head, .purchase-lot-head, .purchase-section-head { align-items: stretch; flex-direction: column; }
+  .purchase-intake-toolbar, .purchase-summary-head, .purchase-lot-head, .purchase-section-head, .purchase-reconciliation-head { align-items: stretch; flex-direction: column; }
   .purchase-intake-toolbar > button { width: 100%; }
-  .purchase-form-grid, .purchase-materialize, .purchase-stock-grid, .purchase-exception-form, .purchase-receiving-summary, .purchase-list-controls { grid-template-columns: 1fr; }
+  .purchase-form-grid, .purchase-materialize, .purchase-stock-grid, .purchase-exception-form, .purchase-receiving-summary, .purchase-list-controls, .purchase-reconciliation-grid { grid-template-columns: 1fr; }
   .purchase-list-pagination { grid-template-columns: 1fr 1fr; }
   .purchase-list-pagination span { grid-column: 1 / -1; grid-row: 1; }
   .purchase-row { grid-template-columns: minmax(0, 1fr); }
@@ -95,4 +112,5 @@
   .purchase-exception-actions { justify-content: stretch; }
   .purchase-exception-actions button, .purchase-exception-form button { width: 100%; }
   .purchase-exception-form .exception-note, .purchase-exception-form button { grid-column: auto; }
+  .purchase-reconciliation-state { align-self: flex-start; }
 }
