@@ -1,0 +1,3 @@
+.bench-mode-focus > .bench-quick-capture {
+  grid-column: 1 / -1;
+}

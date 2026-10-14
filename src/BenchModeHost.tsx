@@ -44,6 +44,7 @@ export default function BenchModeHost() {
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null)
   const [selectedWorkId, setSelectedWorkId] = useState('')
   const [steps, setSteps] = useState<StepRow[]>([])
+  const [stepRefresh, setStepRefresh] = useState(0)
   const [chooserOpen, setChooserOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -134,6 +135,11 @@ export default function BenchModeHost() {
     setMessage('')
   }
 
+  async function refreshBenchContext() {
+    await loadHost()
+    setStepRefresh((value) => value + 1)
+  }
+
   useEffect(() => { void loadHost() }, [workspaceId, userId])
 
   const selectedWork = useMemo(() => candidates.find((record) => record.id === selectedWorkId) ?? null, [candidates, selectedWorkId])
@@ -159,7 +165,7 @@ export default function BenchModeHost() {
       setSteps((result.data ?? []) as StepRow[])
     })()
     return () => { cancelled = true }
-  }, [workspaceId, selectedWorkId])
+  }, [workspaceId, selectedWorkId, stepRefresh])
 
   const openSteps = useMemo(() => steps.filter((step) => step.status !== 'done' && step.status !== 'na'), [steps])
   const currentStep = useMemo(() => openSteps.find((step) => step.status === 'in_progress') ?? openSteps.find((step) => step.status === 'blocked') ?? openSteps[0] ?? null, [openSteps])
@@ -219,7 +225,7 @@ export default function BenchModeHost() {
                   workStatus={selectedWork.status}
                   currentStep={currentStep}
                   nextStep={nextStep}
-                  onWorkChanged={loadHost}
+                  onWorkChanged={refreshBenchContext}
                 />
               </div>
             )}
