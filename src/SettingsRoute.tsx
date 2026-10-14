@@ -24,6 +24,10 @@ const exportTables: ExportTable[] = [
   { name: 'acquisition_invoices', label: 'Acquisition invoices', order: ['id'] },
   { name: 'acquisition_invoice_lines', label: 'Acquisition invoice lines', order: ['id'] },
   { name: 'purchases', label: 'Purchases', order: ['id'] },
+  { name: 'purchase_lots', label: 'Purchase lots', order: ['purchase_id', 'id'] },
+  { name: 'purchase_item_links', label: 'Purchase Item links', order: ['purchase_id', 'purchase_lot_id', 'id'] },
+  { name: 'purchase_stock_links', label: 'Purchase stock links', order: ['purchase_id', 'purchase_lot_id', 'id'] },
+  { name: 'purchase_receiving_exceptions', label: 'Purchase receiving exceptions', order: ['purchase_id', 'purchase_lot_id', 'id'] },
   { name: 'cost_entries', label: 'Item costs', order: ['id'] },
   { name: 'valuations', label: 'Valuations', order: ['id'] },
   { name: 'offers', label: 'Offers', order: ['id'] },
@@ -46,6 +50,7 @@ const exportTables: ExportTable[] = [
   { name: 'tools', label: 'Tools', order: ['id'] },
   { name: 'consumables', label: 'Consumables', order: ['id'] },
   { name: 'storage_locations', label: 'Storage locations', order: ['id'] },
+  { name: 'storage_location_events', label: 'Storage movement history', order: ['moved_at', 'id'] },
   { name: 'audit_events', label: 'Audit events', order: ['id'] },
 ]
 
@@ -251,8 +256,10 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">WHAT THIS BACKS UP</p>
           <h2>Records plus the real files</h2>
-          <p className="muted">The JSON contains business records and the Storage manifest. The separate TAR archive downloads referenced private images and documents from <code>calibre-media</code>, preserves their bucket-relative paths and writes a SHA-256 checksum for every file into the archive manifest.</p>
+          <p className="muted">The JSON contains business records, acquisition lineage, physical-storage history and the Storage manifest. The separate TAR archive downloads referenced private images and documents from <code>calibre-media</code>, preserves their bucket-relative paths and writes a SHA-256 checksum for every file into the archive manifest.</p>
           <div className="settings-v2-status good"><strong>Structured records</strong><span>JSON export available</span></div>
+          <div className="settings-v2-status good"><strong>Acquisition & receiving lineage</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Physical-storage move history</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Structured integrity checksum</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Image/PDF binary files</strong><span>Separate TAR archive available</span></div>
           <div className="settings-v2-status good"><strong>Per-file binary checksums</strong><span>Included in TAR manifest</span></div>
