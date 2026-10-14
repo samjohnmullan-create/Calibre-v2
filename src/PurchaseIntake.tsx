@@ -19,6 +19,7 @@ type Purchase = {
   discrepancy_note: string
   notes: string
   created_at: string
+  invoice_id: string | null
 }
 
 type PurchaseLot = {
@@ -83,6 +84,17 @@ type StorageLocation = {
   sort_order: number
 }
 
+type InvoiceSummary = {
+  id: string
+  invoice_number: string
+  invoice_date: string | null
+  subtotal_aud: number | null
+  fees_aud: number | null
+  postage_aud: number | null
+  total_aud: number | null
+  original_filename: string
+}
+
 type ReceivedItem = { id: string; item_number: number; title: string; storage_location_id?: string | null }
 type PurchaseLoadOptions = { page?: number; query?: string; status?: string }
 
@@ -105,6 +117,11 @@ function money(value: number | null | undefined, currency = 'AUD') {
   return new Intl.NumberFormat('en-AU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 }
 
+function signedMoney(value: number) {
+  if (Math.abs(value) < 0.005) return money(0)
+  return `${value > 0 ? '+' : '−'}${money(Math.abs(value))}`
+}
+
 function today() { return new Date().toISOString().slice(0, 10) }
 
 export default function PurchaseIntake({ workspaceId }: { workspaceId: string }) {
@@ -115,6 +132,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
   const [stockLinks, setStockLinks] = useState<StockLink[]>([])
   const [exceptions, setExceptions] = useState<ReceivingException[]>([])
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([])
+  const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -163,6 +181,21 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     return { expected, received, closedShort, openExceptions, remaining: Math.max(0, expected - received - closedShort) }
   }, [lots, exceptions])
 
+  const reconciliation = useMemo(() => {
+    if (!selected?.invoice_id || !invoiceSummary) return null
+    const sourceTotal = Number(invoiceSummary.total_aud || 0)
+    const componentValues = [invoiceSummary.subtotal_aud, invoiceSummary.fees_aud, invoiceSummary.postage_aud].filter((value) => value != null)
+    const capturedComponents = componentValues.reduce((sum, value) => sum + Number(value || 0), 0)
+    const purchaseTotal = Number(selected.amount_aud ?? selected.amount ?? 0)
+    const lotAllocation = lots.reduce((sum, lot) => sum + Number(lot.amount_aud ?? 0), 0)
+    const sourceGap = capturedComponents - sourceTotal
+    const purchaseGap = purchaseTotal - sourceTotal
+    const lotGap = lotAllocation - sourceTotal
+    const threshold = 0.005
+    const reconciled = Math.abs(sourceGap) < threshold && Math.abs(purchaseGap) < threshold && Math.abs(lotGap) < threshold
+    return { sourceTotal, capturedComponents, purchaseTotal, lotAllocation, sourceGap, purchaseGap, lotGap, reconciled }
+  }, [selected, invoiceSummary, lots])
+
   async function loadPurchases(selectId?: string, options: PurchaseLoadOptions = {}) {
     const page = options.page ?? purchasePage
     const query = options.query ?? debouncedPurchaseQuery
@@ -170,7 +203,7 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     setLoading(true)
     let request = supabase
       .from('purchases')
-      .select('id,vendor_name,channel,external_order_id,description,category,amount,currency,amount_aud,status,ordered_at,tracking_number,eta,received_at,discrepancy_note,notes,created_at', { count: 'exact' })
+      .select('id,vendor_name,channel,external_order_id,description,category,amount,currency,amount_aud,status,ordered_at,tracking_number,eta,received_at,discrepancy_note,notes,created_at,invoice_id', { count: 'exact' })
       .eq('workspace_id', workspaceId)
     if (status) request = request.eq('status', status)
     if (query.trim()) request = request.ilike('search_text', `%${query.trim()}%`)
@@ -204,6 +237,18 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
       .limit(500)
     if (error) { setMessage(`Storage locations failed to load: ${error.message}`); return }
     setStorageLocations((data ?? []) as StorageLocation[])
+  }
+
+  async function loadInvoiceSummary(invoiceId: string | null) {
+    if (!invoiceId) { setInvoiceSummary(null); return }
+    const { data, error } = await supabase
+      .from('acquisition_invoices')
+      .select('id,invoice_number,invoice_date,subtotal_aud,fees_aud,postage_aud,total_aud,original_filename')
+      .eq('workspace_id', workspaceId)
+      .eq('id', invoiceId)
+      .maybeSingle()
+    if (error) { setInvoiceSummary(null); setMessage(`Invoice reconciliation failed to load: ${error.message}`); return }
+    setInvoiceSummary((data as InvoiceSummary | null) ?? null)
   }
 
   async function loadPurchaseDetail(purchaseId: string) {
@@ -249,7 +294,15 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
     void loadPurchases()
   }, [workspaceId, purchasePage, debouncedPurchaseQuery, purchaseStatusFilter])
 
-  useEffect(() => { if (selectedId) { setLastReceivedItem(null); void loadPurchaseDetail(selectedId) } }, [selectedId])
+  useEffect(() => {
+    if (!selectedId) return
+    setLastReceivedItem(null)
+    void loadPurchaseDetail(selectedId)
+  }, [selectedId])
+
+  useEffect(() => {
+    void loadInvoiceSummary(selected?.invoice_id ?? null)
+  }, [selected?.invoice_id, workspaceId])
 
   async function createPurchase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -523,8 +576,38 @@ export default function PurchaseIntake({ workspaceId }: { workspaceId: string })
                   <span className="purchase-status-auto">Partial, discrepancy and received states are automatic.</span>
                 </div>
                 {selected.tracking_number && <p><strong>Tracking:</strong> {selected.tracking_number}</p>}
-                {selected.discrepancy_note && <p className="purchase-discrepancy"><strong>Legacy discrepancy note:</strong> {selected.discrepancy_note}</p>}
               </section>
+
+              {reconciliation && (
+                <section className={`panel purchase-reconciliation ${reconciliation.reconciled ? 'is-reconciled' : 'has-gap'}`}>
+                  <div className="purchase-reconciliation-head">
+                    <div>
+                      <p className="eyebrow">SOURCE RECONCILIATION</p>
+                      <h3>{reconciliation.reconciled ? 'Reconciled' : 'Source discrepancy'}</h3>
+                      <p className="muted">Invoice {invoiceSummary?.invoice_number || selected.external_order_id || 'source document'}{invoiceSummary?.invoice_date ? ` · ${invoiceSummary.invoice_date}` : ''}</p>
+                    </div>
+                    <span className="purchase-reconciliation-state">{reconciliation.reconciled ? 'Balanced' : signedMoney(reconciliation.sourceGap)}</span>
+                  </div>
+                  <div className="purchase-reconciliation-grid">
+                    <div><small>Stated invoice total</small><strong>{money(reconciliation.sourceTotal)}</strong><span>Source truth</span></div>
+                    <div><small>Captured components</small><strong>{money(reconciliation.capturedComponents)}</strong><span>{signedMoney(reconciliation.sourceGap)} vs source</span></div>
+                    <div><small>Purchase total</small><strong>{money(reconciliation.purchaseTotal)}</strong><span>{signedMoney(reconciliation.purchaseGap)} vs source</span></div>
+                    <div><small>Lot allocation</small><strong>{money(reconciliation.lotAllocation)}</strong><span>{signedMoney(reconciliation.lotGap)} vs source</span></div>
+                  </div>
+                  <div className="purchase-reconciliation-note">
+                    <strong>{reconciliation.reconciled ? 'What this means' : 'Why Calibre is showing this'}</strong>
+                    <p>{selected.discrepancy_note || (reconciliation.reconciled ? 'The source document, Purchase total and lot allocation agree to the cent.' : 'The source document does not reconcile exactly. Calibre preserves the original values rather than silently changing them.')}</p>
+                    <small>Document values are preserved separately from Calibre's Purchase and allocation records.</small>
+                  </div>
+                </section>
+              )}
+
+              {!reconciliation && selected.discrepancy_note && (
+                <section className="panel purchase-reconciliation has-gap">
+                  <div className="purchase-reconciliation-head"><div><p className="eyebrow">SOURCE / PURCHASE NOTE</p><h3>Discrepancy recorded</h3></div></div>
+                  <div className="purchase-reconciliation-note"><p>{selected.discrepancy_note}</p></div>
+                </section>
+              )}
 
               <section className="panel">
                 <div className="purchase-section-head"><div><h3>Lots / bundle split</h3><p className="muted">Use one lot for a single item, or split a bundle into as many components as needed.</p></div></div>
