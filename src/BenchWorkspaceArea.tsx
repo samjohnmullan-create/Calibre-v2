@@ -5,6 +5,7 @@ import BenchTimegrapher from './BenchTimegrapher'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkPartsMatcher from './WorkPartsMatcher'
 import './bench-workspace-area.css'
+import './bench-research.css'
 
 type WorkspaceArea = 'research' | 'diagnosis' | 'timing' | 'parts'
 type TimingCheckpoint = 'pre_service' | 'post_reassembly' | 'regulation' | 'final_qc' | 'other'
