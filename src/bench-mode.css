@@ -210,9 +210,11 @@
 }
 
 .bench-mode-overlay-shell > footer {
+  position: relative;
+  z-index: 4;
   justify-content: flex-end;
   border-top: 1px solid var(--calibre-line);
-  background: rgba(16, 27, 33, .94);
+  background: rgba(16, 27, 33, .96);
 }
 
 .bench-mode-overlay-shell > header h2 {
@@ -243,6 +245,10 @@
 .bench-mode-focus > .bench-quick-capture {
   min-width: 0;
   align-self: start;
+}
+
+.bench-mode-focus.state-none .bench-step-controls {
+  display: none;
 }
 
 .bench-mode-current-step,
@@ -288,6 +294,30 @@
   color: var(--calibre-muted);
   font-family: "IBM Plex Mono", monospace;
   text-transform: capitalize;
+}
+
+.bench-mode-procedure-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bench-mode-procedure-actions button {
+  min-height: 42px;
+}
+
+.bench-mode-procedure-actions span,
+.bench-mode-procedure-message {
+  color: var(--calibre-muted);
+  font-size: 11px;
+}
+
+.bench-mode-procedure-message {
+  padding: 8px 10px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 9px;
+  background: rgba(13, 23, 28, .38);
 }
 
 .bench-mode-next-step {
@@ -354,8 +384,8 @@
   .bench-mode-focus {
     grid-template-columns: 1fr;
     align-content: start;
-    padding: 14px 14px calc(26px + env(safe-area-inset-bottom));
-    scroll-padding-bottom: calc(90px + env(safe-area-inset-bottom));
+    padding: 14px 14px calc(140px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom));
   }
 
   .bench-mode-current-step,
@@ -369,14 +399,39 @@
     align-content: center;
   }
 
+  .bench-mode-current-step.state-none {
+    min-height: 0;
+    align-content: start;
+    gap: 10px;
+    padding: 18px;
+  }
+
   .bench-mode-current-step h1 {
     max-width: none;
     font-size: clamp(36px, 11vw, 56px);
   }
 
-  .bench-mode-current-step.state-none h1,
+  .bench-mode-current-step.state-none h1 {
+    font-size: clamp(28px, 8vw, 38px);
+  }
+
   .bench-mode-current-step.state-complete h1 {
     font-size: clamp(32px, 9vw, 48px);
+  }
+
+  .bench-mode-current-step.state-none > p {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .bench-mode-procedure-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .bench-mode-procedure-actions button {
+    width: 100%;
+    min-height: 48px;
   }
 
   .bench-mode-next-step {
@@ -405,6 +460,14 @@
 
   .bench-mode-live-clock span {
     font-size: 8px;
+  }
+
+  .bench-mode-procedure-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .bench-mode-procedure-actions span {
+    text-align: center;
   }
 
   .bench-mode-overlay-shell > footer {

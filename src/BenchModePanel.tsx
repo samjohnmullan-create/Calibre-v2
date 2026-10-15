@@ -76,7 +76,9 @@ export default function BenchModePanel({
   const [sessions, setSessions] = useState<WorkSession[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [attachingChecklist, setAttachingChecklist] = useState(false)
   const [message, setMessage] = useState('')
+  const [procedureMessage, setProcedureMessage] = useState('')
   const [sessionNote, setSessionNote] = useState('')
   const [benchOpen, setBenchOpen] = useState(false)
   const [nowMs, setNowMs] = useState(Date.now())
@@ -92,9 +94,9 @@ export default function BenchModePanel({
       return {
         eyebrow: 'WORKFLOW',
         currentLabel: 'No procedure attached',
-        currentDescription: 'This Work has no checklist yet. Bench quick actions remain available for ad-hoc work and evidence capture.',
+        currentDescription: 'Attach a procedure for guided steps, or keep working ad-hoc with the quick actions below.',
         nextLabel: 'Continue ad-hoc',
-        nextDescription: 'Capture photos, notes, measurements, parts or timing now. Return to the Job Card when you are ready to attach a procedure.',
+        nextDescription: 'Photos, notes, measurements, parts and timing still save directly to this Work.',
       }
     }
     if (checklistState === 'complete') {
@@ -151,6 +153,10 @@ export default function BenchModePanel({
     if (!activeSession) setBenchOpen(false)
   }, [activeSession?.id])
 
+  useEffect(() => {
+    if (checklistState !== 'none') setProcedureMessage('')
+  }, [checklistState])
+
   async function refreshEvidence() {
     setIntelligenceRefresh((value) => value + 1)
     await onWorkChanged()
@@ -181,6 +187,32 @@ export default function BenchModePanel({
     await onWorkChanged()
     setBenchOpen(true)
     setMessage('Bench session started. Work is now On bench.')
+  }
+
+  async function attachProcedure() {
+    if (checklistState !== 'none' || attachingChecklist) return
+    setAttachingChecklist(true)
+    setProcedureMessage('Attaching procedure…')
+    const { data, error } = await supabase.rpc('initialize_work_checklist', {
+      p_workspace_id: workspaceId,
+      p_work_id: workId,
+      p_template_id: null,
+    })
+    setAttachingChecklist(false)
+    if (error) {
+      setProcedureMessage(`Procedure could not be attached: ${error.message}`)
+      return
+    }
+
+    const added = Number(data ?? 0)
+    if (!Number.isFinite(added) || added <= 0) {
+      setProcedureMessage('No active procedure is available for this Work type yet. You can continue ad-hoc.')
+      return
+    }
+
+    setProcedureMessage(`${added} procedure steps attached. Loading the first step…`)
+    setIntelligenceRefresh((value) => value + 1)
+    await onWorkChanged()
   }
 
   async function finishSession() {
@@ -284,12 +316,19 @@ export default function BenchModePanel({
               <div className="bench-mode-live-clock"><span>LIVE</span><strong>{formatClock(activeSeconds)}</strong></div>
             </header>
 
-            <main className="bench-mode-focus">
+            <main className={`bench-mode-focus state-${checklistState}`}>
               <section className={`bench-mode-current-step state-${checklistState}`}>
                 <span>{benchState.eyebrow}</span>
                 <h1>{benchState.currentLabel}</h1>
                 <p>{benchState.currentDescription}</p>
                 {currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}
+                {checklistState === 'none' && (
+                  <div className="bench-mode-procedure-actions">
+                    <button type="button" onClick={() => void attachProcedure()} disabled={attachingChecklist}>{attachingChecklist ? 'Attaching…' : 'Attach procedure'}</button>
+                    <span>or keep working ad-hoc</span>
+                  </div>
+                )}
+                {checklistState === 'none' && procedureMessage && <p className="bench-mode-procedure-message">{procedureMessage}</p>}
               </section>
 
               <BenchQuickCapture
@@ -301,11 +340,13 @@ export default function BenchModePanel({
                 onSaved={refreshEvidence}
               />
 
-              <section className="bench-mode-next-step">
-                <span>NEXT</span>
-                <strong>{benchState.nextLabel}</strong>
-                <p>{benchState.nextDescription}</p>
-              </section>
+              {checklistState !== 'none' && (
+                <section className="bench-mode-next-step">
+                  <span>NEXT</span>
+                  <strong>{benchState.nextLabel}</strong>
+                  <p>{benchState.nextDescription}</p>
+                </section>
+              )}
 
               <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />
             </main>
