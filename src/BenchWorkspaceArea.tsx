@@ -4,6 +4,7 @@ import BenchKnowledgePanel from './BenchKnowledgePanel'
 import BenchTimegrapher from './BenchTimegrapher'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkPartsMatcher from './WorkPartsMatcher'
+import './bench-workspace-area.css'
 
 type WorkspaceArea = 'research' | 'diagnosis' | 'timing' | 'parts'
 
