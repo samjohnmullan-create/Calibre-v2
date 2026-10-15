@@ -1,7 +1,7 @@
 # Calibre & Co. v2 — Master Roadmap
 
 **Status:** Canonical product and engineering roadmap  
-**Last updated:** 14 October 2026  
+**Last updated:** 15 October 2026  
 **Repository:** `samjohnmullan-create/Calibre-v2`  
 **Rule:** This document is the source of truth for what Calibre is, what has been accepted, what is partial, what is deferred, and what must be tested before a phase is considered complete.
 
@@ -97,26 +97,26 @@ The UI should feel like a modern precision instrument with vintage horological t
 
 ---
 
-## 4. Current state snapshot — 14 October 2026
+## 4. Current state snapshot — 15 October 2026
 
 Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepted · ⬜ planned · 💤 deliberately deferred · 🧪 exploratory
 
 | Phase | State | Approx. implementation progress | Current reading |
 |---|---:|---:|---|
-| A — Foundation, resilience & safe removal | 🟡 | ~80% | core scale/audit/backup discipline exists; restore, RLS tests and archive/trash policy remain |
+| A — Foundation, resilience & safe removal | 🟡→✅ | ~92% | Archive/Trash/Restore and dependency-aware permanent delete are live; RLS, backup/restore and broader acceptance remain |
 | B — Acquisition | 🟡→✅ | ~96% | invoice → Purchase → Lot → receiving → Item/stock is connected; real acceptance remains |
-| C — Workbench 2.0 / workshop | 🟡→✅ | ~84% | Job Card, templates, signed QC, hardened parts evidence and storage are live; Bench Mode and real acceptance remain |
-| D — Parts, donors & storage | 🟡 | ~80% | stock, fit evidence and physical storage are live; donor economics/intelligence and lineage remain |
+| C — Workbench 2.0 / workshop | 🟡→✅ | ~95% | Bench Mode, lifecycle controls, smart exceptions, sourced Bench Knowledge, signed QC and parts evidence are live; real watch acceptance remains |
+| D — Parts, donors & storage | 🟡 | ~82% | stock, fit evidence and physical storage are live; donor economics/intelligence and lineage remain |
 | E — Commerce, ledger & cashflow | 🟡 | ~66% | Item economics and Ledger are meaningful; broader money-in, reversals and cashflow semantics remain |
 | F — Reports & Business Brain | 🟡 early | ~22% | summary foundations exist; monthly reports, graphs and recommendations remain |
 | G — Listings & sales engine | 🟡 early | ~18% | sale foundation exists; multi-channel generation/publishing remains |
 | H — Visual system & brand assets | 🟡 | ~45% | Calibre Classic exists in code but newer surfaces have drifted; consolidation required |
-| I — Workshop tools & utilities | 🟡 | ~50% | Tool/Consumable registries exist; calculators, timers and calibration workflows remain |
-| J — Timing / Timegrapher | 🟡 | ~35% | sample-clock timing foundation exists; workflow integration and hardware validation now active |
+| I — Workshop tools & utilities | 🟡 | ~55% | Tool/Consumable registries and native Timegrapher entry exist; broader calculators/timers/calibration workflows remain |
+| J — Timing / Timegrapher | 🟡→✅ | ~85% | checkpointed timing and native microphone Timegrapher are live; physical mic/phone/DeX validation and tuning remain |
 | K — OpenAI intelligence layer | 🟡 early | ~12% | research handoff exists; contextual copilot/tool use/voice/structured agents remain |
 | L — Printing / QR / physical outputs | 🧪 | exploratory | after core acceptance; browser/PDF + desktop bridge preferred |
-| M — Device modes / Smart Capture | 🟡 early | ~35% | phone/DeX foundations exist; Bench/Capture Station workflows remain |
-| N — Search / command / attention layer | 🟡 | ~68% | unified search and universal New exist; command actions and attention centre remain |
+| M — Device modes / Smart Capture | 🟡 | ~50% | Bench phone/DeX foundations exist; broader Capture Station workflows and acceptance remain |
+| N — Search / command / attention layer | 🟡 | ~70% | unified search and universal New exist; command actions and attention centre remain |
 | O — Customer / public / Club | 💤 | later | after internal truth and commerce are stable |
 | P — Automation / learning loop | 💤 | later | manual workflows and AI controls first |
 
@@ -145,12 +145,17 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - dedicated Work Job Card;
 - versioned Work Templates/checklists;
 - diagnosis, priority, next action and blocker;
-- measurements and timing-run linkage;
+- measurements and checkpointed timing-run linkage;
+- native microphone Timegrapher with standalone and Work-linked modes;
 - part requirements and matching;
 - reserve → fit evidence → consume → fulfil workflow;
 - database-level protection against faking reserved/fulfilled part states;
 - stock consumption requires confirmed/conditional fit evidence;
 - Waiting-on-parts classification and resume only when all unresolved needs clear;
+- Bench Mode with session timing, quick capture, session history and phone-focused layout;
+- Work lifecycle controls: Pause, Resume, Remove from Bench, Cancel QC and Cancel Work;
+- evidence-driven Bench smart exceptions/readiness;
+- sourced Bench Knowledge suggestions with provenance/evidence grade retained;
 - QC checklist and completion gate;
 - QC sign-off stamped to authenticated user;
 - signed required QC required for completion;
@@ -164,7 +169,9 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 - permanent location movement history;
 - Needs put-away queue;
 - phone-friendly inline moves;
-- Item passport/media/research/work/sale/history surfaces.
+- Item passport/media/research/work/sale/history surfaces;
+- Archive/Trash/Restore for physical inventory;
+- dependency-aware permanent delete restricted to empty accidental archived records.
 
 ### Business
 
@@ -182,7 +189,7 @@ Legend: ✅ accepted/working · 🟡 implemented or active but not fully accepte
 
 The next implementation order is deliberately dependency-driven:
 
-`Foundation safety + visual-system consolidation → Workbench 2.0 + Timing integration → Donor/removal/inventory integrity → Reports/Cashflow → Tools/Command layer → OpenAI contextual intelligence → Release acceptance → Listings/Public/Automation`
+`Real workshop/device acceptance → Donor economics/lineage → Reports/Cashflow → Visual consolidation → Tools/Command layer → OpenAI contextual intelligence → Release acceptance → Listings/Public/Automation`
 
 The real-world acceptance path continues in parallel and must not be replaced by feature work.
 
@@ -190,7 +197,7 @@ The real-world acceptance path continues in parallel and must not be replaced by
 
 ## Phase A — Foundation, resilience and safe removal
 
-**Status: 🟡 active and mandatory**
+**Status: 🟡→✅ implementation strong; acceptance still mandatory**
 
 ### Engineering
 
@@ -206,14 +213,14 @@ The real-world acceptance path continues in parallel and must not be replaced by
 
 Every Item, Part, Tool, Consumable and material business record needs a deliberate removal path.
 
-- [ ] add consistent **Remove** action on relevant surfaces;
-- [ ] default material records to Archive/Trash rather than hard delete;
-- [ ] Trash view with Restore;
-- [ ] dependency-aware permanent-delete rules;
-- [ ] prevent permanent deletion where purchase cost, Work, fit evidence, stock consumption, sale, media, audit or donor history would be damaged;
-- [ ] allow true accidental empty records to be permanently removed;
+- [x] add consistent **Remove** action on relevant physical-inventory surfaces;
+- [x] default material physical-inventory records to Archive/Trash rather than hard delete;
+- [x] Trash view with Restore;
+- [x] dependency-aware permanent-delete rules;
+- [x] prevent permanent deletion where cost, Work, fit evidence, stock consumption, sale, media, storage or donor history would be damaged;
+- [x] allow true accidental empty archived records to be permanently removed;
 - [ ] recent-actions/undo where technically safe;
-- [ ] audit every destructive or restoration action.
+- [ ] extend destructive/restoration audit acceptance across every material business record.
 
 **Exit gate:** destructive operations must be predictable, recoverable and incapable of silently rewriting business history.
 
@@ -237,17 +244,18 @@ Remaining:
 
 ## Phase C — Workbench 2.0 and workshop operations
 
-**Status: 🟡 advanced implementation; now the highest-value product phase**
+**Status: 🟡→✅ advanced implementation; real-world acceptance is now the blocker**
 
 ### Workbench Command Centre
 
 Replace the mental model of “list of Work records” with a working bench dashboard.
 
-- [ ] **On My Bench** primary area with large active cards;
-- [ ] Ready Next / Waiting / QC / Queue secondary areas;
-- [ ] stronger next-action prominence;
-- [ ] progress from copied checklist steps;
-- [ ] smart exceptions: missing evidence, worse timing, unresolved blocker, part arrived, missing photo, ready for QC;
+- [x] **On My Bench** primary area with active Work presentation;
+- [x] Ready / Waiting / QC / Queue workflow views;
+- [x] stronger next-action/current-step prominence in Bench Mode;
+- [x] progress from copied checklist steps;
+- [x] smart exceptions for blocker, unresolved parts, failed QC, timing regression, missing final timing and ready-for-QC/complete states;
+- [ ] part-arrived and missing-photo exception prompts;
 - [ ] Work priority recommendations based on blocker state, expected return, age, remaining effort and readiness;
 - [ ] optional “I have 30/60/90 minutes” prioritisation;
 - [ ] Attention Centre handoff for workshop issues.
@@ -256,24 +264,37 @@ Replace the mental model of “list of Work records” with a working bench dash
 
 A stripped-back mode for actual hands-on work.
 
-- [ ] Start Bench Session / Finish Bench Session;
-- [ ] large current-step and next-step presentation;
-- [ ] one-tap Photo / Note / Measurement / Part Needed / Timing / Blocked actions;
-- [ ] session labour duration capture;
-- [ ] step-level microscope/photo capture;
-- [ ] work session history;
-- [ ] minimal-navigation phone layout;
-- [ ] DeX expanded bench view.
+- [x] Start Bench Session / Finish Bench Session;
+- [x] large current-step and next-step presentation;
+- [x] one-tap Photo / Note / Measurement / Part Needed / Timing / Blocked actions;
+- [x] session labour duration capture;
+- [x] step-level photo capture;
+- [x] work session history;
+- [x] Pause / Resume / Remove from Bench / Cancel QC / Cancel Work lifecycle controls;
+- [x] minimal-navigation phone layout implementation;
+- [x] expanded DeX/desktop Bench presentation implementation;
+- [ ] physical phone acceptance;
+- [ ] physical DeX acceptance.
+
+### Workshop intelligence
+
+- [x] evidence-driven Bench smart exceptions;
+- [x] exact Passport-linked Knowledge movement match as strongest source;
+- [x] exact maker + calibre fallback matching;
+- [x] source/evidence grade/provenance retained in Bench Knowledge;
+- [x] technical documents surfaced only when tied to the exact movement;
+- [x] Part Need references surfaced only from movement-linked part applications;
+- [ ] broader workshop-memory learning from successful/failed historical repairs and fits.
 
 ### Workshop evidence
 
 - [x] signed QC identity;
 - [x] evidence-backed parts consumption;
 - [x] completion gate;
+- [x] structured bench measurements;
 - [ ] printable/generated Job Card;
 - [ ] customer-safe service summary;
 - [ ] repair decision log: Repair / Replace / Donor / Leave / Write off;
-- [ ] structured bench measurements;
 - [ ] photo-completeness prompts;
 - [ ] before/after media comparison;
 - [ ] service-consumable methodology notes where useful;
@@ -285,14 +306,14 @@ A stripped-back mode for actual hands-on work.
 
 ## Phase D — Parts, donors and physical storage
 
-**Status: 🟡 ~80% implemented**
+**Status: 🟡 ~82% implemented**
 
 ### Parts
 
 - [x] stock inventory and physical locations;
 - [x] needs, reservation, fit, consumption and fulfilment;
 - [x] confirmed bench-fit evidence;
-- [ ] consistent Remove/Archive/Trash actions;
+- [x] consistent Remove/Archive/Trash on core physical inventory;
 - [ ] failed-fit/returned presentation;
 - [ ] richer stock transaction history;
 - [ ] quick measurement capture on parts.
@@ -484,7 +505,7 @@ Build tools that are specific to this business rather than duplicating a phone c
 
 ## Phase J — Timing and Timegrapher in the Work lifecycle
 
-**Status: 🟡 active foundation; no longer treated as an isolated deferred tool**
+**Status: 🟡→✅ implementation strong; physical hardware acceptance remains**
 
 ### Principle
 
@@ -498,11 +519,11 @@ Timing belongs in three contexts:
 
 For appropriate mechanical templates:
 
-- [ ] Intake / pre-service timing;
-- [ ] first stable run after reassembly;
-- [ ] regulation runs;
-- [ ] final QC timing;
-- [ ] optional positional sequence.
+- [x] Intake / pre-service timing;
+- [x] first stable run after reassembly;
+- [x] regulation runs;
+- [x] final QC timing;
+- [ ] optional automated positional sequence.
 
 ### Data
 
@@ -511,22 +532,24 @@ Persist:
 - [x] BPH;
 - [x] rate;
 - [x] beat error;
-- [ ] position;
-- [ ] sample duration;
-- [ ] signal confidence;
-- [ ] microphone/device identity;
-- [ ] lift angle when explicitly known/entered;
+- [x] position;
+- [x] sample duration;
+- [x] signal confidence;
+- [x] microphone/device identity;
+- [x] lift angle when explicitly known/entered;
 - [ ] amplitude only after defensible hardware validation.
 
 ### UX
 
-- [ ] launch Timegrapher directly from current Work step with Item/Work/stage preselected;
-- [ ] no manual refiling after capture;
+- [x] launch Timegrapher directly from current Work context;
+- [x] standalone Timegrapher route when no Work is active;
+- [x] Work-linked save writes directly to canonical timing history;
+- [x] signal-quality / clipping / handling / weak-signal diagnostics;
+- [x] detector sensitivity calibration guidance;
+- [x] permanent timing history on Item/Work;
 - [ ] Before → Reassembly → Regulation → Final comparison graph;
 - [ ] positional spread summary;
-- [ ] signal-quality warnings;
-- [ ] final timing requirement configurable by Work Template;
-- [ ] permanent timing history on Item.
+- [ ] final timing requirement configurable by Work Template.
 
 ### Interpretation
 
@@ -621,7 +644,7 @@ No silent canonical rewrites.
 
 ## Phase M — Device modes and Smart Capture
 
-**Status: 🟡 early foundation**
+**Status: 🟡 foundation implemented; acceptance still required**
 
 ### Phone
 
@@ -669,7 +692,7 @@ DeX/desktop keyboard and phone search entry should support actions such as:
 - [ ] find donor;
 - [ ] start named Work Template;
 - [ ] auction calculator;
-- [ ] timing;
+- [x] timing / Timegrapher navigation;
 - [ ] open source invoice/document;
 - [ ] start Bench Session.
 
@@ -736,7 +759,7 @@ Required before cutover:
 4. [ ] DeX/desktop acceptance pass;
 5. [ ] physical storage acceptance;
 6. [ ] finance reconciliation acceptance;
-7. [ ] safe Remove/Archive/Trash behaviour on Items and Parts;
+7. [x] safe Remove/Archive/Trash and dependency-aware permanent-delete behaviour implemented for physical inventory;
 8. [ ] core high-volume routes remain bounded/fast;
 9. [ ] structured backup + private media archive exist and real restore drill succeeds;
 10. [ ] remaining active legacy-route leakage removed;
@@ -750,38 +773,22 @@ Visual-system restoration can land before this gate. Deep OpenAI automation and 
 
 # IMMEDIATE EXECUTION PLAN
 
-### 1. Real workshop acceptance
+### 1. Real workshop + device acceptance
 
 - [ ] run the Waltham through the current real workflow;
 - [ ] record friction rather than inventing synthetic evidence;
-- [ ] validate checklist → parts → timing → QC → completion.
+- [ ] validate checklist → parts → timing → QC → completion;
+- [ ] validate USB timing mic on Samsung phone;
+- [ ] validate the same timing path on DeX/desktop where applicable.
 
-### 2. Calibre Classic restoration
+### 2. Donor economics and lineage
 
-- [ ] consolidate theme tokens;
-- [ ] sunburst background everywhere appropriate;
-- [ ] frosted glass cards;
-- [ ] floating navigation;
-- [ ] restore classic typography consistently;
-- [ ] eliminate route-specific visual drift.
-
-### 3. Workbench 2.0 + Bench Mode
-
-- [ ] On My Bench command centre;
-- [ ] quick capture actions;
-- [ ] bench-session labour timing;
-- [ ] smarter exception surfacing;
-- [ ] timing checkpoints integrated into Work Templates.
-
-### 4. Safe removal + donor economics
-
-- [ ] Remove/Trash/Restore for Items/Parts;
-- [ ] dependency-aware hard delete;
 - [ ] donor cost retention;
 - [ ] donor lineage/depletion;
-- [ ] donor-to-recipient part history.
+- [ ] donor-to-recipient part history;
+- [ ] donor economics in Item/Business views.
 
-### 5. Business reporting and cashflow
+### 3. Business reporting and cashflow
 
 - [ ] Money In workflow;
 - [ ] owner capital vs revenue separation;
@@ -790,15 +797,24 @@ Visual-system restoration can land before this gate. Deep OpenAI automation and 
 - [ ] cash-position semantics;
 - [ ] reversal-based corrections.
 
-### 6. Tools + command layer
+### 4. Calibre Classic restoration
+
+- [ ] consolidate theme tokens;
+- [ ] sunburst background everywhere appropriate;
+- [ ] frosted glass cards;
+- [ ] floating navigation;
+- [ ] restore classic typography consistently;
+- [ ] eliminate route-specific visual drift.
+
+### 5. Tools + command layer
 
 - [ ] auction/profit calculators;
-- [ ] measurement/timing tools;
+- [ ] measurement/timing comparison tools;
 - [ ] Attention Centre;
 - [ ] command palette actions;
 - [ ] maker brand assets beside titles.
 
-### 7. OpenAI Phase K1
+### 6. OpenAI Phase K1
 
 After the above functions expose clean, auditable application actions:
 
@@ -809,7 +825,7 @@ After the above functions expose clean, auditable application actions:
 - [ ] proposed-action confirmation pattern;
 - [ ] trusted backend API integration and usage/cost logging.
 
-### 8. Foundation acceptance in parallel
+### 7. Foundation acceptance in parallel
 
 - [ ] DB types;
 - [ ] migration audit;
