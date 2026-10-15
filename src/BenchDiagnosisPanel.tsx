@@ -1,4 +1,5 @@
 import BenchDiagnosisCore from './BenchDiagnosisCore'
+import DiagnosticGraphPanel from './DiagnosticGraphPanel'
 import CalibreReasoningPanel from './CalibreReasoningPanel'
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 export default function BenchDiagnosisPanel(props: Props) {
   return <>
     <BenchDiagnosisCore {...props} />
+    <DiagnosticGraphPanel workspaceId={props.workspaceId} workId={props.workId} refreshKey={props.refreshKey} />
     <CalibreReasoningPanel {...props} />
   </>
 }
