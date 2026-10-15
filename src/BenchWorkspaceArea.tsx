@@ -7,6 +7,7 @@ import WorkPartsMatcher from './WorkPartsMatcher'
 import './bench-workspace-area.css'
 
 type WorkspaceArea = 'research' | 'diagnosis' | 'timing' | 'parts'
+type TimingCheckpoint = 'pre_service' | 'post_reassembly' | 'regulation' | 'final_qc' | 'other'
 
 export default function BenchWorkspaceArea({
   area,
@@ -23,7 +24,7 @@ export default function BenchWorkspaceArea({
   itemId: string
   workId: string
   refreshKey: number
-  timingCheckpoint: string
+  timingCheckpoint: TimingCheckpoint
   onChanged: () => void | Promise<void>
   onBack: () => void
 }) {
