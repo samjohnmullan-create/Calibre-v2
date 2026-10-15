@@ -309,6 +309,24 @@ export default function WorkbenchRoute() {
 
   useEffect(() => { if (active && workspaceId) void loadPage() }, [active, workspaceId, view, page, debouncedQuery])
 
+  useEffect(() => {
+    if (!active || !workspaceId) return
+    let timer: number | undefined
+    const refreshWorkbench = () => {
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        void loadSummary()
+        void loadCommandCentre()
+        void loadPage()
+      }, 80)
+    }
+    window.addEventListener('calibre:work-changed', refreshWorkbench)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener('calibre:work-changed', refreshWorkbench)
+    }
+  }, [active, workspaceId, view, page, debouncedQuery])
+
   function openJob(record: WorkRow) {
     setSelectedWorkId(record.id)
   }

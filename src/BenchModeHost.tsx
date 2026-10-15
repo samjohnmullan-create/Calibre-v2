@@ -151,6 +151,7 @@ export default function BenchModeHost() {
   async function refreshBenchContext() {
     await loadHost()
     setStepRefresh((value) => value + 1)
+    window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId: selectedWorkId } }))
   }
 
   useEffect(() => { void loadHost() }, [workspaceId, userId])
