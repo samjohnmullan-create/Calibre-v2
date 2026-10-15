@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import BenchKnowledgePanel from './BenchKnowledgePanel'
 import './bench-exceptions-v2.css'
 
 type Severity = 'critical' | 'warning' | 'success' | 'info'
@@ -100,9 +101,11 @@ export default function BenchExceptionsPanel({ workspaceId, itemId, workId, refr
   }, [workspaceId, itemId, workId, refreshKey])
 
   const exceptions = useMemo(() => deriveExceptions(work, item, steps, needs, qc, timing), [work, item, steps, needs, qc, timing])
-  if (loading) return <section className="bench-exceptions-card"><span>Checking workshop evidence…</span></section>
-  if (message) return <section className="bench-exceptions-card"><span>{message}</span></section>
-  if (!exceptions.length) return <section className="bench-exceptions-card clear"><div><span className="bench-exception-icon">✓</span><div><strong>No active workshop exceptions</strong><p>Current Work evidence does not expose a blocker, unresolved part, failed QC or timing warning.</p></div></div></section>
+  let exceptionContent
+  if (loading) exceptionContent = <section className="bench-exceptions-card"><span>Checking workshop evidence…</span></section>
+  else if (message) exceptionContent = <section className="bench-exceptions-card"><span>{message}</span></section>
+  else if (!exceptions.length) exceptionContent = <section className="bench-exceptions-card clear"><div><span className="bench-exception-icon">✓</span><div><strong>No active workshop exceptions</strong><p>Current Work evidence does not expose a blocker, unresolved part, failed QC or timing warning.</p></div></div></section>
+  else exceptionContent = <section className="bench-exceptions-card"><div className="bench-exceptions-heading"><div><p className="eyebrow">SMART CHECK</p><h3>Bench exceptions</h3></div><span>{exceptions.length}</span></div><div className="bench-exceptions-list">{exceptions.map((exception) => <article key={exception.code} className={`bench-exception ${exception.severity}`}><span className="bench-exception-icon">{exception.severity === 'critical' ? '!' : exception.severity === 'warning' ? '△' : '✓'}</span><div><strong>{exception.title}</strong><p>{exception.detail}</p>{exception.action === 'timing' && <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/timegrapher/${encodeURIComponent(workId)}` }}>Open Timegrapher</button>}</div></article>)}</div></section>
 
-  return <section className="bench-exceptions-card"><div className="bench-exceptions-heading"><div><p className="eyebrow">SMART CHECK</p><h3>Bench exceptions</h3></div><span>{exceptions.length}</span></div><div className="bench-exceptions-list">{exceptions.map((exception) => <article key={exception.code} className={`bench-exception ${exception.severity}`}><span className="bench-exception-icon">{exception.severity === 'critical' ? '!' : exception.severity === 'warning' ? '△' : '✓'}</span><div><strong>{exception.title}</strong><p>{exception.detail}</p>{exception.action === 'timing' && <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/timegrapher/${encodeURIComponent(workId)}` }}>Open Timegrapher</button>}</div></article>)}</div></section>
+  return <div className="bench-intelligence-stack">{exceptionContent}<BenchKnowledgePanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} /></div>
 }
