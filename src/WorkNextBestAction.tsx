@@ -17,6 +17,21 @@ type NextAction = {
   timing_checkpoint: TimingCheckpoint | null
 }
 
+type QueuedDiagnostic = {
+  id: string
+  label: string
+  description: string
+  checklist_step_id: string
+  status: string
+}
+
+type ProcedureStage = {
+  id: string
+  label: string
+  sequence: number
+  status: string
+}
+
 export default function WorkNextBestAction({
   workspaceId,
   itemId,
@@ -31,6 +46,8 @@ export default function WorkNextBestAction({
   onChanged?: () => void | Promise<void>
 }) {
   const [action, setAction] = useState<NextAction | null>(null)
+  const [queuedDiagnostic, setQueuedDiagnostic] = useState<QueuedDiagnostic | null>(null)
+  const [queuedStage, setQueuedStage] = useState<ProcedureStage | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -38,19 +55,57 @@ export default function WorkNextBestAction({
   async function load() {
     if (!workspaceId || !workId) return
     setLoading(true)
-    const { data, error } = await supabase.rpc('get_work_next_best_action', {
-      p_workspace_id: workspaceId,
-      p_work_id: workId,
-    })
-    setLoading(false)
+    const [actionResult, queuedResult] = await Promise.all([
+      supabase.rpc('get_work_next_best_action', {
+        p_workspace_id: workspaceId,
+        p_work_id: workId,
+      }),
+      supabase
+        .from('work_step_checks')
+        .select('id,label,description,checklist_step_id,status')
+        .eq('workspace_id', workspaceId)
+        .eq('work_id', workId)
+        .eq('origin_kind', 'ai_reasoning')
+        .neq('status', 'complete')
+        .neq('status', 'not_applicable')
+        .order('created_at', { ascending: true })
+        .limit(1),
+    ])
+
+    const error = actionResult.error ?? queuedResult.error
     if (error) {
-      setMessage(`Next action could not be calculated: ${error.message}`)
+      setLoading(false)
+      setMessage(`Workshop state could not be calculated: ${error.message}`)
       setAction(null)
+      setQueuedDiagnostic(null)
+      setQueuedStage(null)
       return
     }
-    const row = (Array.isArray(data) ? data[0] : data) as NextAction | null
+
+    const row = (Array.isArray(actionResult.data) ? actionResult.data[0] : actionResult.data) as NextAction | null
+    const queued = ((queuedResult.data ?? [])[0] ?? null) as QueuedDiagnostic | null
     setAction(row ?? null)
-    setMessage('')
+    setQueuedDiagnostic(queued)
+
+    if (queued?.checklist_step_id) {
+      const stageResult = await supabase
+        .from('work_checklist_steps')
+        .select('id,label,sequence,status')
+        .eq('workspace_id', workspaceId)
+        .eq('id', queued.checklist_step_id)
+        .maybeSingle()
+      if (stageResult.error) {
+        setQueuedStage(null)
+        setMessage(`Queued diagnostic stage could not load: ${stageResult.error.message}`)
+      } else {
+        setQueuedStage((stageResult.data ?? null) as ProcedureStage | null)
+        setMessage('')
+      }
+    } else {
+      setQueuedStage(null)
+      setMessage('')
+    }
+    setLoading(false)
   }
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId, refreshKey])
@@ -73,15 +128,16 @@ export default function WorkNextBestAction({
     await refreshAll()
   }
 
-  if (loading) return <section className="section-card next-best-action-card"><p className="muted">Calculating next best action…</p></section>
+  if (loading) return <section className="section-card next-best-action-card"><p className="muted">Calculating workshop state…</p></section>
 
   const inlineTiming = Boolean(action && action.action_type === 'step_check' && action.tool_key === 'timing' && action.entity_id)
+  const queuedIsCurrent = Boolean(queuedDiagnostic && action?.entity_id === queuedDiagnostic.id)
 
   return <div className="next-best-action-stack">
     {action && <section className={`section-card next-best-action-card action-${action.action_type}`}>
       <div className="next-best-action-head">
         <div>
-          <p className="eyebrow">NEXT BEST ACTION</p>
+          <p className="eyebrow">NEXT WORKSHOP ACTION</p>
           <h3>{action.title}</h3>
           {action.instructions && <p>{action.instructions}</p>}
         </div>
@@ -108,8 +164,18 @@ export default function WorkNextBestAction({
 
       {action.action_type === 'diagnostic_check' && <p className="next-best-action-hint">Open Diagnosis in Bench Mode to record the result and see which hypotheses it supports or rules out.</p>}
       {action.tool_key === 'parts' && <p className="next-best-action-hint">Open Parts in Bench Mode to search stock, donors and compatibility evidence.</p>}
-      {action.action_type === 'step_check' && !inlineTiming && <p className="next-best-action-hint">This check is active in the current guided stage. Open Bench Mode for the expanding question branch and evidence capture.</p>}
+      {action.action_type === 'step_check' && !inlineTiming && <p className="next-best-action-hint">This check is active in the current guided stage. Open Bench Mode for its structured result and evidence capture.</p>}
       {message && <p className="next-best-action-message">{message}</p>}
+    </section>}
+
+    {queuedDiagnostic && !queuedIsCurrent && <section className="section-card queued-diagnostic-card">
+      <div>
+        <p className="eyebrow">QUEUED DIAGNOSTIC CHECK</p>
+        <h3>{queuedDiagnostic.label}</h3>
+        {queuedDiagnostic.description && <p>{queuedDiagnostic.description}</p>}
+      </div>
+      <div className="queued-diagnostic-stage"><span>Scheduled for</span><strong>{queuedStage?.label ?? 'Procedure stage'}</strong></div>
+      <small>Calibre will surface this as a required guided question when its procedure stage is reached. It does not replace the current workshop action.</small>
     </section>}
 
     <CalibreReasoningPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} onChanged={refreshAll} />
