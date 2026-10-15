@@ -3,16 +3,21 @@ import { supabase } from './lib/supabase'
 import BenchQuickCapture from './BenchQuickCapture'
 import BenchLifecycleControls from './BenchLifecycleControls'
 import BenchExceptionsPanel from './BenchExceptionsPanel'
+import WorkInductionPlan from './WorkInductionPlan'
 import './bench-mode.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type ChecklistState = 'none' | 'active' | 'complete'
+type InductionStatus = 'pending' | 'in_progress' | 'complete' | 'legacy_skipped'
+type JobPlanStatus = 'pending' | 'ready' | 'applied'
+
 type StepSummary = {
   id: string
   label: string
   description: string
   status: string
 }
+
 type WorkSession = {
   id: string
   work_id: string
@@ -53,6 +58,8 @@ export default function BenchModePanel({
   workNumber,
   workTitle,
   workStatus,
+  inductionStatus,
+  jobPlanStatus,
   checklistState,
   checklistTotal,
   checklistCompleteCount,
@@ -66,6 +73,8 @@ export default function BenchModePanel({
   workNumber: number
   workTitle: string
   workStatus: WorkStatus
+  inductionStatus: InductionStatus
+  jobPlanStatus: JobPlanStatus
   checklistState: ChecklistState
   checklistTotal: number
   checklistCompleteCount: number
@@ -76,27 +85,44 @@ export default function BenchModePanel({
   const [sessions, setSessions] = useState<WorkSession[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [attachingChecklist, setAttachingChecklist] = useState(false)
   const [message, setMessage] = useState('')
-  const [procedureMessage, setProcedureMessage] = useState('')
   const [sessionNote, setSessionNote] = useState('')
   const [benchOpen, setBenchOpen] = useState(false)
   const [nowMs, setNowMs] = useState(Date.now())
   const [intelligenceRefresh, setIntelligenceRefresh] = useState(0)
 
   const activeSession = sessions.find((session) => !session.ended_at) ?? null
-
   const totalRecordedSeconds = useMemo(() => sessions.reduce((sum, session) => sum + secondsBetween(session.started_at, session.ended_at, nowMs), 0), [sessions, nowMs])
   const activeSeconds = activeSession ? secondsBetween(activeSession.started_at, null, nowMs) : 0
+  const inductionFlow = inductionStatus !== 'legacy_skipped' && (inductionStatus !== 'complete' || jobPlanStatus !== 'applied')
+  const workshopReady = inductionStatus === 'legacy_skipped' || jobPlanStatus === 'applied'
 
   const benchState = useMemo(() => {
-    if (checklistState === 'none') {
+    if (inductionStatus === 'pending') {
       return {
-        eyebrow: 'WORKFLOW',
-        currentLabel: 'No procedure attached',
-        currentDescription: 'Attach a procedure for guided steps, or keep working ad-hoc with the quick actions below.',
-        nextLabel: 'Continue ad-hoc',
-        nextDescription: 'Photos, notes, measurements, parts and timing still save directly to this Work.',
+        eyebrow: 'WORKSHOP INDUCTION',
+        currentLabel: 'Induction required',
+        currentDescription: 'Assess how the watch arrived before choosing any repair or service procedure.',
+        nextLabel: 'Start induction',
+        nextDescription: 'Check function, condition and baseline performance, then build the job plan from what you find.',
+      }
+    }
+    if (inductionStatus === 'in_progress') {
+      return {
+        eyebrow: 'WORKSHOP INDUCTION',
+        currentLabel: 'Induction in progress',
+        currentDescription: 'Work through the incoming condition and function checks. Problems become findings for the job plan.',
+        nextLabel: 'Finish assessment',
+        nextDescription: 'Complete the required induction checks before selecting planned workshop work.',
+      }
+    }
+    if (inductionStatus === 'complete' && jobPlanStatus !== 'applied') {
+      return {
+        eyebrow: 'INDUCTION COMPLETE',
+        currentLabel: 'Plan the job',
+        currentDescription: 'The incoming condition is recorded. Choose what you intend to do and Calibre will build the working checklist.',
+        nextLabel: 'Create job plan',
+        nextDescription: 'Select one or more planned actions based on the induction findings.',
       }
     }
     if (checklistState === 'complete') {
@@ -106,8 +132,17 @@ export default function BenchModePanel({
         currentDescription: `${checklistCompleteCount} of ${checklistTotal} checklist steps are complete or not applicable.`,
         nextLabel: workStatus === 'qc' ? 'Complete Final QC' : 'Review readiness',
         nextDescription: workStatus === 'qc'
-          ? 'Review the readiness checks below and capture any final evidence before closing Work.'
-          : 'Review exceptions below. Use Timing if required, then return to the Job Card when this Work is ready for Final QC.',
+          ? 'Review readiness and capture final evidence before closing Work.'
+          : 'Review exceptions and timing, then move this Work to Final QC when ready.',
+      }
+    }
+    if (checklistState === 'none') {
+      return {
+        eyebrow: 'JOB PLAN',
+        currentLabel: 'Plan recorded',
+        currentDescription: 'No guided procedure steps were generated for this plan. Bench capture remains available for documented ad-hoc work.',
+        nextLabel: 'Document the work',
+        nextDescription: 'Capture evidence and complete the planned action before Final QC.',
       }
     }
     return {
@@ -117,7 +152,7 @@ export default function BenchModePanel({
       nextLabel: nextStep?.label ?? 'No next step',
       nextDescription: nextStep?.description || (nextStep ? `Status: ${nextStep.status.replaceAll('_', ' ')}` : 'Finish or update the current step to advance.'),
     }
-  }, [checklistState, checklistCompleteCount, checklistTotal, workStatus, currentStep, nextStep])
+  }, [inductionStatus, jobPlanStatus, checklistState, checklistCompleteCount, checklistTotal, workStatus, currentStep, nextStep])
 
   async function loadSessions() {
     if (!workspaceId || !workId) return
@@ -138,9 +173,7 @@ export default function BenchModePanel({
     setMessage('')
   }
 
-  useEffect(() => {
-    void loadSessions()
-  }, [workspaceId, workId])
+  useEffect(() => { void loadSessions() }, [workspaceId, workId])
 
   useEffect(() => {
     if (!activeSession) return
@@ -152,10 +185,6 @@ export default function BenchModePanel({
   useEffect(() => {
     if (!activeSession) setBenchOpen(false)
   }, [activeSession?.id])
-
-  useEffect(() => {
-    if (checklistState !== 'none') setProcedureMessage('')
-  }, [checklistState])
 
   async function refreshEvidence() {
     setIntelligenceRefresh((value) => value + 1)
@@ -189,32 +218,6 @@ export default function BenchModePanel({
     setMessage('Bench session started. Work is now On bench.')
   }
 
-  async function attachProcedure() {
-    if (checklistState !== 'none' || attachingChecklist) return
-    setAttachingChecklist(true)
-    setProcedureMessage('Attaching procedure…')
-    const { data, error } = await supabase.rpc('initialize_work_checklist', {
-      p_workspace_id: workspaceId,
-      p_work_id: workId,
-      p_template_id: null,
-    })
-    setAttachingChecklist(false)
-    if (error) {
-      setProcedureMessage(`Procedure could not be attached: ${error.message}`)
-      return
-    }
-
-    const added = Number(data ?? 0)
-    if (!Number.isFinite(added) || added <= 0) {
-      setProcedureMessage('No active procedure is available for this Work type yet. You can continue ad-hoc.')
-      return
-    }
-
-    setProcedureMessage(`${added} procedure steps attached. Loading the first step…`)
-    setIntelligenceRefresh((value) => value + 1)
-    await onWorkChanged()
-  }
-
   async function finishSession() {
     if (!activeSession || saving) return
     setSaving(true)
@@ -246,7 +249,7 @@ export default function BenchModePanel({
           <div>
             <p className="eyebrow">BENCH MODE</p>
             <h3>{activeSession ? 'Session running' : 'Hands-on workshop session'}</h3>
-            <p className="muted">Bench time is recorded against this Work. Starting a session moves the Work to On bench; ending it does not choose the next workflow state for you.</p>
+            <p className="muted">Bench time belongs to this Work. New jobs begin with induction, then the job plan determines the procedure steps.</p>
           </div>
           <div className={`bench-mode-session-state ${activeSession ? 'active' : ''}`}>
             <span>{activeSession ? 'LIVE' : 'RECORDED'}</span>
@@ -267,7 +270,7 @@ export default function BenchModePanel({
           </div>
         </div>
 
-        {!benchOpen && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
+        {!benchOpen && workshopReady && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
 
         {activeSession && (
           <label className="bench-mode-note">Session note
@@ -316,31 +319,34 @@ export default function BenchModePanel({
               <div className="bench-mode-live-clock"><span>LIVE</span><strong>{formatClock(activeSeconds)}</strong></div>
             </header>
 
-            <main className={`bench-mode-focus state-${checklistState}`}>
-              <section className={`bench-mode-current-step state-${checklistState}`}>
-                <span>{benchState.eyebrow}</span>
-                <h1>{benchState.currentLabel}</h1>
-                <p>{benchState.currentDescription}</p>
-                {currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}
-                {checklistState === 'none' && (
-                  <div className="bench-mode-procedure-actions">
-                    <button type="button" onClick={() => void attachProcedure()} disabled={attachingChecklist}>{attachingChecklist ? 'Attaching…' : 'Attach procedure'}</button>
-                    <span>or keep working ad-hoc</span>
-                  </div>
-                )}
-                {checklistState === 'none' && procedureMessage && <p className="bench-mode-procedure-message">{procedureMessage}</p>}
-              </section>
+            <main className={`bench-mode-focus ${inductionFlow ? 'induction-flow' : ''}`}>
+              {inductionFlow ? (
+                <WorkInductionPlan
+                  workspaceId={workspaceId}
+                  itemId={itemId}
+                  workId={workId}
+                  compact
+                  onChanged={refreshEvidence}
+                />
+              ) : (
+                <section className={`bench-mode-current-step state-${checklistState}`}>
+                  <span>{benchState.eyebrow}</span>
+                  <h1>{benchState.currentLabel}</h1>
+                  <p>{benchState.currentDescription}</p>
+                  {currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}
+                </section>
+              )}
 
               <BenchQuickCapture
                 workspaceId={workspaceId}
                 itemId={itemId}
                 workId={workId}
                 workNumber={workNumber}
-                currentStep={currentStep}
+                currentStep={inductionFlow ? null : currentStep}
                 onSaved={refreshEvidence}
               />
 
-              {checklistState !== 'none' && (
+              {!inductionFlow && checklistState !== 'none' && (
                 <section className="bench-mode-next-step">
                   <span>NEXT</span>
                   <strong>{benchState.nextLabel}</strong>
@@ -348,7 +354,7 @@ export default function BenchModePanel({
                 </section>
               )}
 
-              <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />
+              {!inductionFlow && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
             </main>
 
             <footer>

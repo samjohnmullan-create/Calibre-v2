@@ -4,6 +4,9 @@ import BenchModePanel from './BenchModePanel'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type ChecklistState = 'none' | 'active' | 'complete'
+type InductionStatus = 'pending' | 'in_progress' | 'complete' | 'legacy_skipped'
+type JobPlanStatus = 'pending' | 'ready' | 'applied'
+
 type CandidateWork = {
   id: string
   item_id: string
@@ -15,6 +18,7 @@ type CandidateWork = {
   item_number: number
   item_title: string
 }
+
 type StepRow = {
   id: string
   label: string
@@ -22,11 +26,17 @@ type StepRow = {
   status: string
   sequence: number
 }
+
 type ActiveSession = {
   id: string
   work_id: string
   item_id: string
   started_at: string
+}
+
+type WorkLifecycle = {
+  induction_status: InductionStatus
+  job_plan_status: JobPlanStatus
 }
 
 function titleCase(value: string) {
@@ -45,6 +55,7 @@ export default function BenchModeHost() {
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null)
   const [selectedWorkId, setSelectedWorkId] = useState('')
   const [steps, setSteps] = useState<StepRow[]>([])
+  const [lifecycle, setLifecycle] = useState<WorkLifecycle | null>(null)
   const [stepRefresh, setStepRefresh] = useState(0)
   const [chooserOpen, setChooserOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -70,6 +81,7 @@ export default function BenchModeHost() {
         setCandidates([])
         setActiveSession(null)
         setSelectedWorkId('')
+        setLifecycle(null)
         setChooserOpen(false)
       }
     })
@@ -148,22 +160,33 @@ export default function BenchModeHost() {
   useEffect(() => {
     if (!workspaceId || !selectedWorkId) {
       setSteps([])
+      setLifecycle(null)
       return
     }
     let cancelled = false
     ;(async () => {
-      const result = await supabase
-        .from('work_checklist_steps')
-        .select('id,label,description,status,sequence')
-        .eq('workspace_id', workspaceId)
-        .eq('work_id', selectedWorkId)
-        .order('sequence', { ascending: true })
+      const [stepResult, lifecycleResult] = await Promise.all([
+        supabase
+          .from('work_checklist_steps')
+          .select('id,label,description,status,sequence')
+          .eq('workspace_id', workspaceId)
+          .eq('work_id', selectedWorkId)
+          .order('sequence', { ascending: true }),
+        supabase
+          .from('work_records')
+          .select('induction_status,job_plan_status')
+          .eq('workspace_id', workspaceId)
+          .eq('id', selectedWorkId)
+          .maybeSingle(),
+      ])
       if (cancelled) return
-      if (result.error) {
-        setMessage(`Bench checklist could not load: ${result.error.message}`)
+      const error = stepResult.error ?? lifecycleResult.error
+      if (error) {
+        setMessage(`Bench context could not load: ${error.message}`)
         return
       }
-      setSteps((result.data ?? []) as StepRow[])
+      setSteps((stepResult.data ?? []) as StepRow[])
+      setLifecycle((lifecycleResult.data ?? null) as WorkLifecycle | null)
     })()
     return () => { cancelled = true }
   }, [workspaceId, selectedWorkId, stepRefresh])
@@ -208,7 +231,7 @@ export default function BenchModeHost() {
 
             {!selectedWork ? (
               <div className="bench-mode-chooser">
-                <div><h2>What are you working on?</h2><p className="muted">Starting a session will move that Work record to On bench and begin recording actual bench time.</p></div>
+                <div><h2>What are you working on?</h2><p className="muted">Starting a session records actual bench time. Unplanned jobs begin with Workshop Induction before any repair procedure is chosen.</p></div>
                 {loading ? <div className="loading-card">Loading Work…</div> : candidates.length === 0 ? <div className="loading-card">No active Work is available for a bench session.</div> : (
                   <div className="bench-mode-chooser-list">
                     {candidates.map((record) => (
@@ -223,20 +246,24 @@ export default function BenchModeHost() {
             ) : (
               <div className="bench-mode-host-content">
                 {!activeSession && <button type="button" className="bench-mode-change-work" onClick={() => setSelectedWorkId('')}>← Choose different Work</button>}
-                <BenchModePanel
-                  workspaceId={workspaceId}
-                  itemId={selectedWork.item_id}
-                  workId={selectedWork.id}
-                  workNumber={selectedWork.work_number}
-                  workTitle={selectedWork.item_title || selectedWork.title}
-                  workStatus={selectedWork.status}
-                  checklistState={checklistState}
-                  checklistTotal={steps.length}
-                  checklistCompleteCount={checklistCompleteCount}
-                  currentStep={currentStep}
-                  nextStep={nextStep}
-                  onWorkChanged={refreshBenchContext}
-                />
+                {lifecycle ? (
+                  <BenchModePanel
+                    workspaceId={workspaceId}
+                    itemId={selectedWork.item_id}
+                    workId={selectedWork.id}
+                    workNumber={selectedWork.work_number}
+                    workTitle={selectedWork.item_title || selectedWork.title}
+                    workStatus={selectedWork.status}
+                    inductionStatus={lifecycle.induction_status}
+                    jobPlanStatus={lifecycle.job_plan_status}
+                    checklistState={checklistState}
+                    checklistTotal={steps.length}
+                    checklistCompleteCount={checklistCompleteCount}
+                    currentStep={currentStep}
+                    nextStep={nextStep}
+                    onWorkChanged={refreshBenchContext}
+                  />
+                ) : <div className="loading-card">Loading workshop state…</div>}
               </div>
             )}
           </aside>
