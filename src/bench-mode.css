@@ -242,6 +242,26 @@
   padding: 22px;
 }
 
+/* Job Hub and opened tools are a single full-width layer above the normal
+   two-column workshop surface. Without this, DeX/desktop places the tool
+   strip beside its opened panel and stretches the buttons to the panel row. */
+.bench-mode-focus > .bench-job-hub,
+.bench-mode-focus > .bench-guided-panel,
+.bench-mode-focus > .bench-tool-stack {
+  grid-column: 1 / -1;
+  min-width: 0;
+  align-self: start;
+}
+
+.bench-mode-focus > .bench-job-hub {
+  min-height: 0;
+}
+
+.bench-mode-focus > .bench-job-hub button {
+  align-self: start;
+  min-height: 54px;
+}
+
 .bench-mode-focus > .bench-quick-capture {
   min-width: 0;
   align-self: start;
