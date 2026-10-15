@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import BenchTimegrapher from './BenchTimegrapher'
+import CalibreReasoningPanel from './CalibreReasoningPanel'
 import './work-next-best-action.css'
 
 type TimingCheckpoint = 'pre_service' | 'post_reassembly' | 'regulation' | 'final_qc' | 'other'
@@ -54,6 +55,11 @@ export default function WorkNextBestAction({
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId, refreshKey])
 
+  async function refreshAll() {
+    await load()
+    await onChanged?.()
+  }
+
   async function mutateStage(kind: 'begin' | 'complete') {
     if (!action?.checklist_step_id || saving) return
     setSaving(true)
@@ -64,17 +70,15 @@ export default function WorkNextBestAction({
       setMessage(`${kind === 'begin' ? 'Stage could not start' : 'Stage could not complete'}: ${error.message}`)
       return
     }
-    await load()
-    await onChanged?.()
+    await refreshAll()
   }
 
   if (loading) return <section className="section-card next-best-action-card"><p className="muted">Calculating next best action…</p></section>
-  if (!action) return null
 
-  const inlineTiming = action.action_type === 'step_check' && action.tool_key === 'timing' && action.entity_id
+  const inlineTiming = Boolean(action && action.action_type === 'step_check' && action.tool_key === 'timing' && action.entity_id)
 
-  return (
-    <section className={`section-card next-best-action-card action-${action.action_type}`}>
+  return <div className="next-best-action-stack">
+    {action && <section className={`section-card next-best-action-card action-${action.action_type}`}>
       <div className="next-best-action-head">
         <div>
           <p className="eyebrow">NEXT BEST ACTION</p>
@@ -89,18 +93,15 @@ export default function WorkNextBestAction({
       {action.action_type === 'begin_stage' && <button type="button" onClick={() => void mutateStage('begin')} disabled={saving}>{saving ? 'Starting…' : 'Begin stage'}</button>}
       {action.action_type === 'complete_stage' && <button type="button" onClick={() => void mutateStage('complete')} disabled={saving}>{saving ? 'Completing…' : 'Complete stage'}</button>}
 
-      {inlineTiming && (
+      {inlineTiming && action.entity_id && (
         <div className="next-best-action-inline-tool">
           <BenchTimegrapher
             workspaceId={workspaceId}
             itemId={itemId}
             workId={workId}
-            workStepCheckId={action.entity_id ?? undefined}
+            workStepCheckId={action.entity_id}
             defaultCheckpoint={action.timing_checkpoint ?? 'other'}
-            onSaved={async () => {
-              await load()
-              await onChanged?.()
-            }}
+            onSaved={refreshAll}
           />
         </div>
       )}
@@ -109,6 +110,8 @@ export default function WorkNextBestAction({
       {action.tool_key === 'parts' && <p className="next-best-action-hint">Open Parts in Bench Mode to search stock, donors and compatibility evidence.</p>}
       {action.action_type === 'step_check' && !inlineTiming && <p className="next-best-action-hint">This check is active in the current guided stage. Open Bench Mode for the expanding question branch and evidence capture.</p>}
       {message && <p className="next-best-action-message">{message}</p>}
-    </section>
-  )
+    </section>}
+
+    <CalibreReasoningPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} onChanged={refreshAll} />
+  </div>
 }
