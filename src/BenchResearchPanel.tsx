@@ -49,11 +49,12 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     if (busy) return
     setBusy(true)
     setMessage('Preparing live Work research context…')
+
     const [itemResult, identityResult, passportResult, workResult, findingsResult, planResult, partsResult, timingResult, mediaResult] = await Promise.all([
       supabase.from('items').select('item_number,type,purpose,status,title,notes').eq('workspace_id', workspaceId).eq('id', itemId).single(),
       supabase.from('item_identity').select('*').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
       supabase.from('passports').select('*').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
-      supabase.from('work_records').select('id,work_number,title,work_type,status,diagnosis,blocker,next_action,induction_status,job_plan_status').eq('workspace_id', workspaceId).eq('id', workId).single(),
+      supabase.from('work_records').select('id,work_number,title,status,diagnosis,blocker,next_action,induction_status,job_plan_status').eq('workspace_id', workspaceId).eq('id', workId).single(),
       supabase.from('work_findings').select('id,finding_type,severity,title,details,status,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: true }),
       supabase.from('work_plan_actions').select('action_key,label,status,notes,sequence').eq('workspace_id', workspaceId).eq('work_id', workId).order('sequence'),
       supabase.from('work_part_needs').select('part_type,description,status,created_at,updated_at').eq('workspace_id', workspaceId).eq('work_record_id', workId),
@@ -63,7 +64,9 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
 
     const firstError = itemResult.error ?? identityResult.error ?? passportResult.error ?? workResult.error ?? findingsResult.error ?? planResult.error ?? partsResult.error ?? timingResult.error ?? mediaResult.error
     if (firstError || !itemResult.data || !workResult.data) {
-      setBusy(false); setMessage(`Research context could not be prepared: ${firstError?.message ?? 'Work context unavailable.'}`); return
+      setBusy(false)
+      setMessage(`Research context could not be prepared: ${firstError?.message ?? 'Work context unavailable.'}`)
+      return
     }
 
     const photos = await Promise.all((mediaResult.data ?? []).map(async (photo) => {
@@ -76,6 +79,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     const sourcePriority = ['Google Drive watchmaking library', 'Calibre Knowledge database', 'live web', 'Calibre workshop history']
     const question = scopes.find((entry) => entry.key === scope)?.detail ?? scopes[0].detail
     const photoLines = photos.filter((row) => row.url).map((row, index) => `${index + 1}. ${titleCase(row.category)} — ${row.caption}\n${row.url}`).join('\n') || 'No temporary photo links available.'
+
     const handoff = [
       `CALIBRE WORK RESEARCH REQUEST ${requestId}`,
       '',
@@ -132,7 +136,11 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     const insert = await supabase.from('research_requests').insert({ workspace_id: workspaceId, item_id: itemId, work_id: workId, request_type: scope, requested_scope: requestedScope })
       .select('id,request_type,status,requested_scope,requested_at,completed_at').single()
     setBusy(false)
-    if (insert.error || !insert.data) { setMessage(`Research request could not be created: ${insert.error?.message ?? 'No request returned.'}`); return }
+    if (insert.error || !insert.data) {
+      setMessage(`Research request could not be created: ${insert.error?.message ?? 'No request returned.'}`)
+      return
+    }
+
     setRequests((current) => [insert.data as ResearchRequest, ...current])
     setMessage(`Research ${requestId} queued with the current Work context.`)
     await onChanged?.()
@@ -141,8 +149,12 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   async function copyLatest() {
     const text = handoffText(latest)
     if (!text) return
-    try { await navigator.clipboard.writeText(text); setMessage(`Research ${requestToken(latest)} copied for ChatGPT.`) }
-    catch { setMessage('Browser clipboard access was blocked. Open the Research workspace to copy the handoff manually.') }
+    try {
+      await navigator.clipboard.writeText(text)
+      setMessage(`Research ${requestToken(latest)} copied for ChatGPT.`)
+    } catch {
+      setMessage('Browser clipboard access was blocked. Open the Research workspace to copy the handoff manually.')
+    }
   }
 
   return <section className="bench-guided-panel bench-research-panel">
