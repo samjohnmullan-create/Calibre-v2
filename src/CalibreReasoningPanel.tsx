@@ -53,9 +53,33 @@ type ScheduledCheck = {
   label: string
   status: string
 }
+type ReasoningFreshness = {
+  latest_run_id: string | null
+  reasoning_at: string | null
+  latest_evidence_at: string | null
+  is_stale: boolean
+  stale_sources: string[]
+  source_timestamps: Record<string, string>
+}
 
 function label(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function evidenceSourceLabel(value: string) {
+  const names: Record<string, string> = {
+    finding: 'Finding',
+    guided_answer: 'Guided answer',
+    timing: 'Timing run',
+    measurement: 'Measurement',
+    movement_identity: 'Movement identity',
+    research: 'Research',
+    part_fit: 'Part-fit result',
+    diagnostic_state: 'Diagnostic state',
+    diagnostic_evidence: 'Diagnostic evidence',
+    job_plan: 'Job plan',
+  }
+  return names[value] ?? label(value)
 }
 
 export default function CalibreReasoningPanel({
@@ -74,6 +98,7 @@ export default function CalibreReasoningPanel({
   const [runs, setRuns] = useState<ReasoningRun[]>([])
   const [steps, setSteps] = useState<ProcedureStep[]>([])
   const [scheduledChecks, setScheduledChecks] = useState<ScheduledCheck[]>([])
+  const [freshness, setFreshness] = useState<ReasoningFreshness | null>(null)
   const [targetStepId, setTargetStepId] = useState('')
   const [loading, setLoading] = useState(true)
   const [analysing, setAnalysing] = useState(false)
@@ -83,7 +108,7 @@ export default function CalibreReasoningPanel({
   async function load() {
     if (!workspaceId || !workId) return
     setLoading(true)
-    const [runsResult, stepsResult, scheduledResult] = await Promise.all([
+    const [runsResult, stepsResult, scheduledResult, freshnessResult] = await Promise.all([
       supabase
         .from('work_reasoning_runs')
         .select('id,model,status,response_payload,summary,created_at')
@@ -104,9 +129,10 @@ export default function CalibreReasoningPanel({
         .eq('work_id', workId)
         .not('source_reasoning_run_id', 'is', null)
         .order('created_at', { ascending: false }),
+      supabase.rpc('get_work_reasoning_freshness', { p_workspace_id: workspaceId, p_work_id: workId }),
     ])
     setLoading(false)
-    const error = runsResult.error ?? stepsResult.error ?? scheduledResult.error
+    const error = runsResult.error ?? stepsResult.error ?? scheduledResult.error ?? freshnessResult.error
     if (error) {
       setMessage(`Calibre Reasoning could not load: ${error.message}`)
       return
@@ -115,9 +141,11 @@ export default function CalibreReasoningPanel({
     const nextRuns = (runsResult.data ?? []) as ReasoningRun[]
     const nextSteps = (stepsResult.data ?? []) as ProcedureStep[]
     const nextScheduled = (scheduledResult.data ?? []) as ScheduledCheck[]
+    const freshnessRows = (freshnessResult.data ?? []) as ReasoningFreshness[]
     setRuns(nextRuns)
     setSteps(nextSteps)
     setScheduledChecks(nextScheduled)
+    setFreshness(freshnessRows[0] ?? null)
 
     const latestRun = nextRuns[0]
     const placement = latestRun?.response_payload?.next_check?.placement
@@ -143,6 +171,8 @@ export default function CalibreReasoningPanel({
   const scheduledForLatest = useMemo(() => latest ? scheduledChecks.find((row) => row.source_reasoning_run_id === latest.id) ?? null : null, [latest, scheduledChecks])
   const scheduledStage = scheduledForLatest ? steps.find((step) => step.id === scheduledForLatest.checklist_step_id) ?? null : null
   const selectedStage = steps.find((step) => step.id === targetStepId) ?? null
+  const reasoningStale = Boolean(latest && freshness?.latest_run_id === latest.id && freshness.is_stale)
+  const staleSourceText = freshness?.stale_sources.map(evidenceSourceLabel).join(' · ') ?? ''
 
   async function analyse() {
     if (analysing) return
@@ -191,13 +221,18 @@ export default function CalibreReasoningPanel({
   return <section className="bench-guided-panel calibre-reasoning-panel">
     <div className="bench-guided-heading calibre-reasoning-heading">
       <div><p className="eyebrow">CALIBRE REASONING</p><strong>Evidence → likely cause → best next check</strong></div>
-      <span>AI suggestion · not confirmed</span>
+      <span>{reasoningStale ? 'OUT OF DATE' : 'AI suggestion · not confirmed'}</span>
     </div>
 
     <div className="calibre-reasoning-intro">
       <p>Calibre uses the live job record as evidence. It should narrow possibilities and choose the check that removes the most uncertainty, not simply produce a longer fault list.</p>
-      <button type="button" onClick={() => void analyse()} disabled={analysing}>{analysing ? 'Analysing…' : latest ? 'Re-analyse current evidence' : 'Analyse current evidence'}</button>
+      <button type="button" onClick={() => void analyse()} disabled={analysing}>{analysing ? 'Analysing…' : reasoningStale ? 'Update reasoning' : latest ? 'Re-analyse current evidence' : 'Analyse current evidence'}</button>
     </div>
+
+    {reasoningStale && <div className="calibre-evidence-warning">
+      <strong>Reasoning out of date — new evidence recorded.</strong><br />
+      <span>The conclusion below is preserved as history, but it no longer represents all current evidence{staleSourceText ? `: ${staleSourceText}.` : '.'}</span>
+    </div>}
 
     {loading && <p className="muted">Loading reasoning history…</p>}
     {message && <p className="calibre-reasoning-message">{message}</p>}
@@ -206,7 +241,7 @@ export default function CalibreReasoningPanel({
 
     {reasoning && <div className="calibre-reasoning-body">
       <div className="calibre-reasoning-lead">
-        <div className="calibre-reasoning-lead-title"><span>Current leading conclusion</span><em className={`support-${reasoning.leading_conclusion.support_state}`}>{label(reasoning.leading_conclusion.support_state)}</em></div>
+        <div className="calibre-reasoning-lead-title"><span>{reasoningStale ? 'Previous leading conclusion' : 'Current leading conclusion'}</span><em className={`support-${reasoning.leading_conclusion.support_state}`}>{label(reasoning.leading_conclusion.support_state)}</em></div>
         <h4>{reasoning.leading_conclusion.title}</h4>
         <p>{reasoning.leading_conclusion.explanation}</p>
         <small>{reasoning.summary}</small>
@@ -214,7 +249,7 @@ export default function CalibreReasoningPanel({
       </div>
 
       <div className="calibre-next-check">
-        <div><p className="eyebrow">BEST NEXT DIAGNOSTIC CHECK</p><strong>{reasoning.next_check.title}</strong></div>
+        <div><p className="eyebrow">{reasoningStale ? 'PREVIOUS BEST DIAGNOSTIC CHECK' : 'BEST NEXT DIAGNOSTIC CHECK'}</p><strong>{reasoning.next_check.title}</strong></div>
         <p>{reasoning.next_check.instructions}</p>
         <details open><summary>Why this check?</summary><p>{reasoning.next_check.why}</p></details>
         {reasoning.next_check.expected_outcomes.length > 0 && <div className="calibre-outcomes">{reasoning.next_check.expected_outcomes.map((outcome, index) => <div key={`${outcome.result}-${index}`}><strong>If: {outcome.result}</strong><span>{outcome.implication}</span></div>)}</div>}
@@ -222,7 +257,7 @@ export default function CalibreReasoningPanel({
         {scheduledForLatest ? <div className="calibre-check-scheduled">
           <div><span>Added to job</span><strong>{scheduledStage?.label ?? 'Procedure stage'}</strong></div>
           <small>This becomes a required guided check when that stage is reached. Its answer is saved as diagnostic evidence.</small>
-        </div> : <div className="calibre-check-placement">
+        </div> : !reasoningStale ? <div className="calibre-check-placement">
           <div>
             <span>Schedule this check</span>
             {reasoning.next_check.placement?.reason && <small>{reasoning.next_check.placement.reason}</small>}
@@ -236,7 +271,7 @@ export default function CalibreReasoningPanel({
           </label>
           <button type="button" onClick={() => void addCheckToJob()} disabled={!targetStepId || scheduling}>{scheduling ? 'Adding…' : 'Add to job'}</button>
           {!reasoning.next_check.placement?.checklist_step_key && <small>Calibre could not safely choose a procedure stage for this older/manual recommendation. Choose where the prerequisite will actually be satisfied.</small>}
-        </div>}
+        </div> : <div className="calibre-check-placement"><div><span>Update before scheduling</span><small>New evidence may change the best diagnostic check. Update reasoning before adding this recommendation to the live Job Plan.</small></div></div>}
       </div>
 
       {activeHypotheses.length > 0 && <details className="calibre-hypotheses" open><summary>Remaining hypotheses · {activeHypotheses.length}</summary><div>{activeHypotheses.map((row, index) => <article key={`${row.title}-${index}`}>
@@ -255,7 +290,7 @@ export default function CalibreReasoningPanel({
 
       {reasoning.warnings.length > 0 && <details className="calibre-reasoning-warnings"><summary>Warnings / limits · {reasoning.warnings.length}</summary>{reasoning.warnings.map((warning, index) => <p key={index}>{warning}</p>)}</details>}
 
-      <div className="calibre-reasoning-meta"><span>{new Date(latest!.created_at).toLocaleString('en-AU')}</span><span>{latest!.model}</span><span>Run {latest!.id.slice(0, 8)}</span></div>
+      <div className="calibre-reasoning-meta"><span>{new Date(latest!.created_at).toLocaleString('en-AU')}</span><span>{latest!.model}</span><span>Run {latest!.id.slice(0, 8)}</span>{reasoningStale && freshness?.latest_evidence_at && <span>New evidence {new Date(freshness.latest_evidence_at).toLocaleString('en-AU')}</span>}</div>
       {runs.length > 1 && <details className="calibre-reasoning-history"><summary>Previous reasoning runs · {runs.length - 1}</summary>{runs.slice(1).map((run) => <div key={run.id}><strong>{run.summary || 'Reasoning run'}</strong><span>{new Date(run.created_at).toLocaleString('en-AU')} · {run.model}</span></div>)}</details>}
     </div>}
   </section>
