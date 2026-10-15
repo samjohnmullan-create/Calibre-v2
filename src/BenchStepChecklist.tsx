@@ -9,6 +9,8 @@ type StepSummary = {
   status: string
 }
 
+type AnswerOption = { value: string; label: string }
+
 type StepCheck = {
   id: string
   check_key: string
@@ -23,15 +25,24 @@ type StepCheck = {
   status: 'not_started' | 'in_progress' | 'complete' | 'not_applicable' | 'problem'
   result_text: string
   problem_finding_id: string | null
+  answer_kind: 'status' | 'yes_no' | 'choice' | 'text' | 'number' | 'tool_result'
+  answer_options: AnswerOption[]
+  activation_rule: Record<string, unknown>
+  problem_values: string[]
+  answer_value: string
+  is_active: boolean
+  parent_check_id: string | null
+  state_reason: string
 }
 
 type BenchToolTarget = 'research' | 'diagnosis' | 'timing' | 'parts' | 'knowledge'
 
-function statusLabel(status: StepCheck['status']) {
-  if (status === 'not_applicable') return 'N/A'
-  if (status === 'complete') return 'Done'
-  if (status === 'problem') return 'Problem'
-  if (status === 'in_progress') return 'In progress'
+function statusLabel(check: StepCheck) {
+  if (!check.is_active) return 'Inactive'
+  if (check.status === 'not_applicable') return 'N/A'
+  if (check.status === 'complete') return check.answer_value ? 'Answered' : 'Done'
+  if (check.status === 'problem') return 'Problem'
+  if (check.status === 'in_progress') return 'In progress'
   return 'Open'
 }
 
@@ -70,6 +81,7 @@ export default function BenchStepChecklist({
   const [editingId, setEditingId] = useState('')
   const [problemId, setProblemId] = useState('')
   const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [answers, setAnswers] = useState<Record<string, string>>({})
   const [severity, setSeverity] = useState<'info' | 'minor' | 'moderate' | 'major' | 'critical'>('moderate')
 
   async function load() {
@@ -77,7 +89,7 @@ export default function BenchStepChecklist({
     setLoading(true)
     const { data, error } = await supabase
       .from('work_step_checks')
-      .select('id,check_key,label,description,sequence,required,check_type,tool_key,knowledge_scope,evidence_required,status,result_text,problem_finding_id')
+      .select('id,check_key,label,description,sequence,required,check_type,tool_key,knowledge_scope,evidence_required,status,result_text,problem_finding_id,answer_kind,answer_options,activation_rule,problem_values,answer_value,is_active,parent_check_id,state_reason')
       .eq('workspace_id', workspaceId)
       .eq('work_id', workId)
       .eq('checklist_step_id', step.id)
@@ -90,21 +102,37 @@ export default function BenchStepChecklist({
     const rows = (data ?? []) as StepCheck[]
     setChecks(rows)
     setDrafts(Object.fromEntries(rows.map((row) => [row.id, row.result_text || ''])))
+    setAnswers(Object.fromEntries(rows.map((row) => [row.id, row.answer_value || ''])))
     setMessage('')
   }
 
   useEffect(() => { void load() }, [workspaceId, workId, step.id, refreshKey])
 
-  const completedCount = useMemo(() => checks.filter((check) => check.status === 'complete' || check.status === 'not_applicable').length, [checks])
-  const requiredOpen = useMemo(() => checks.filter((check) => check.required && check.status !== 'complete' && check.status !== 'not_applicable'), [checks])
-  const readyToComplete = checks.length > 0 && requiredOpen.length === 0
+  const activeChecks = useMemo(() => checks.filter((check) => check.is_active), [checks])
+  const completedCount = useMemo(() => activeChecks.filter((check) => check.status === 'complete' || check.status === 'not_applicable').length, [activeChecks])
+  const requiredOpen = useMemo(() => activeChecks.filter((check) => check.required && check.status !== 'complete' && check.status !== 'not_applicable'), [activeChecks])
+  const inactiveChecks = useMemo(() => checks.filter((check) => !check.is_active), [checks])
+  const readyToComplete = activeChecks.length > 0 && requiredOpen.length === 0
+
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, StepCheck[]>()
+    for (const check of checks) {
+      if (!check.parent_check_id) continue
+      const list = map.get(check.parent_check_id) ?? []
+      list.push(check)
+      map.set(check.parent_check_id, list.sort((a, b) => a.sequence - b.sequence))
+    }
+    return map
+  }, [checks])
+
+  const roots = useMemo(() => checks.filter((check) => !check.parent_check_id && check.is_active).sort((a, b) => a.sequence - b.sequence), [checks])
 
   async function beginStep() {
     setSavingId('main')
     const { error } = await supabase.rpc('begin_work_checklist_step', { p_workspace_id: workspaceId, p_step_id: step.id })
     setSavingId('')
     if (error) { setMessage(`Step could not start: ${error.message}`); return }
-    setMessage('Step started. Work through the checks below.')
+    setMessage('Step started. Calibre will reveal only the checks that remain relevant.')
     await onChanged()
   }
 
@@ -120,17 +148,22 @@ export default function BenchStepChecklist({
   async function updateCheck(check: StepCheck, status: 'complete' | 'not_applicable') {
     setSavingId(check.id)
     const user = await supabase.auth.getUser()
+    const patch: Record<string, unknown> = {
+      status,
+      result_text: drafts[check.id]?.trim() ?? '',
+      started_at: check.status === 'not_started' ? new Date().toISOString() : undefined,
+      completed_at: new Date().toISOString(),
+      completed_by: user.data.user?.id ?? null,
+    }
+    if (status === 'not_applicable' && check.answer_kind !== 'status') patch.answer_value = ''
     const { error } = await supabase
       .from('work_step_checks')
-      .update({
-        status,
-        result_text: drafts[check.id]?.trim() ?? '',
-        started_at: check.status === 'not_started' ? new Date().toISOString() : undefined,
-        completed_at: new Date().toISOString(),
-        completed_by: user.data.user?.id ?? null,
-      })
+      .update(patch)
       .eq('workspace_id', workspaceId)
       .eq('id', check.id)
+    if (!error && status === 'not_applicable') {
+      await supabase.rpc('recompute_work_step_check_branches', { p_workspace_id: workspaceId, p_checklist_step_id: step.id })
+    }
     setSavingId('')
     if (error) { setMessage(`Check could not update: ${error.message}`); return }
     setEditingId('')
@@ -154,6 +187,25 @@ export default function BenchStepChecklist({
     if (error) { setMessage(`Observation could not save: ${error.message}`); return }
     setMessage('Observation saved to this step.')
     setEditingId('')
+    await load()
+    await onChanged()
+  }
+
+  async function answerCheck(check: StepCheck, value?: string) {
+    const answer = (value ?? answers[check.id] ?? '').trim()
+    if (!answer) { setMessage('Choose or enter an answer first.'); return }
+    setSavingId(check.id)
+    const { data, error } = await supabase.rpc('set_work_step_check_answer', {
+      p_workspace_id: workspaceId,
+      p_check_id: check.id,
+      p_answer: answer,
+      p_note: drafts[check.id]?.trim() ?? '',
+    })
+    setSavingId('')
+    if (error) { setMessage(`Answer could not be saved: ${error.message}`); return }
+    setEditingId('')
+    setProblemId('')
+    setMessage(data ? 'Answer saved. A Finding was created and the next relevant branch has been recalculated.' : 'Answer saved. The next relevant branch has been recalculated.')
     await load()
     await onChanged()
   }
@@ -189,57 +241,88 @@ export default function BenchStepChecklist({
     else if (check.tool_key === 'diagnosis') onOpenTool('diagnosis')
   }
 
+  function renderAnswerControl(check: StepCheck) {
+    if (check.answer_kind === 'choice' || check.answer_kind === 'yes_no') {
+      return <div className="bench-step-answer-options" role="group" aria-label={`${check.label} answer`}>
+        {(check.answer_options ?? []).map((option) => {
+          const selected = check.answer_value === option.value
+          const problem = check.problem_values?.includes(option.value)
+          return <button key={option.value} type="button" className={`${selected ? 'selected' : ''} ${problem ? 'problem-choice' : ''}`} disabled={savingId === check.id} onClick={() => void answerCheck(check, option.value)}>{option.label}</button>
+        })}
+      </div>
+    }
+    if (check.answer_kind === 'text' || check.answer_kind === 'number') {
+      return <div className="bench-step-answer-entry">
+        {check.answer_kind === 'text'
+          ? <textarea rows={2} value={answers[check.id] ?? ''} onChange={(event) => setAnswers((current) => ({ ...current, [check.id]: event.target.value }))} placeholder="Record the finding that narrows this branch…" />
+          : <input inputMode="decimal" value={answers[check.id] ?? ''} onChange={(event) => setAnswers((current) => ({ ...current, [check.id]: event.target.value }))} placeholder="Enter result" />}
+        <button type="button" disabled={savingId === check.id || !(answers[check.id] ?? '').trim()} onClick={() => void answerCheck(check)}>{savingId === check.id ? 'Saving…' : check.answer_value ? 'Update answer' : 'Save answer'}</button>
+      </div>
+    }
+    return null
+  }
+
+  function renderCheck(check: StepCheck, depth = 0): React.ReactNode {
+    if (!check.is_active) return null
+    const done = check.status === 'complete' || check.status === 'not_applicable'
+    const editing = editingId === check.id || Boolean(check.result_text)
+    const recordingProblem = problemId === check.id
+    const structured = check.answer_kind !== 'status' && check.answer_kind !== 'tool_result'
+    const children = (childrenByParent.get(check.id) ?? []).filter((child) => child.is_active)
+    return <div key={check.id} className={`bench-step-branch ${depth ? 'is-child' : 'is-root'}`} style={{ marginLeft: `${Math.min(depth, 4) * 18}px` }}>
+      <article className={`bench-step-check status-${check.status}`}>
+        <div className="bench-step-check-state" aria-hidden="true">{check.status === 'complete' ? '✓' : check.status === 'not_applicable' ? '–' : check.status === 'problem' ? '!' : depth ? '↳' : '○'}</div>
+        <div className="bench-step-check-body">
+          <div className="bench-step-check-title">
+            <div><strong>{check.label}</strong><span>{check.required ? 'Required' : 'Optional'} · {check.check_type.replaceAll('_', ' ')}{depth ? ` · branch ${depth}` : ''}</span></div>
+            <em>{statusLabel(check)}</em>
+          </div>
+          {check.description && <p>{check.description}</p>}
+          {check.evidence_required && <small className="bench-step-evidence">Evidence expected</small>}
+          {check.knowledge_scope && <small className="bench-step-context">Calibre context: {check.knowledge_scope.replaceAll('_', ' ')}</small>}
+          {structured && renderAnswerControl(check)}
+          {check.answer_value && <div className="bench-step-answer-saved"><span>Result</span><strong>{check.answer_options?.find((option) => option.value === check.answer_value)?.label ?? check.answer_value}</strong></div>}
+
+          {(editing || recordingProblem) && !['text','number'].includes(check.answer_kind) && <textarea rows={2} value={drafts[check.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [check.id]: event.target.value }))} placeholder={recordingProblem ? 'Describe exactly what you found…' : 'Observation / result (optional)…'} />}
+
+          {recordingProblem && <div className="bench-step-problem-controls"><label>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value as typeof severity)}><option value="info">Info</option><option value="minor">Minor</option><option value="moderate">Moderate</option><option value="major">Major</option><option value="critical">Critical</option></select></label><button type="button" onClick={() => void recordProblem(check)} disabled={savingId === check.id}>{savingId === check.id ? 'Recording…' : 'Create Finding & diagnose'}</button><button type="button" className="secondary" onClick={() => setProblemId('')}>Cancel</button></div>}
+
+          {!recordingProblem && <div className="bench-step-check-actions">
+            {!structured && check.answer_kind !== 'tool_result' && !done && <button type="button" onClick={() => void updateCheck(check, 'complete')} disabled={savingId === check.id}>Done</button>}
+            {!structured && check.answer_kind !== 'tool_result' && !done && <button type="button" className="secondary warning" onClick={() => { setProblemId(check.id); setEditingId(check.id) }}>Problem</button>}
+            {!done && <button type="button" className="secondary" onClick={() => void updateCheck(check, 'not_applicable')} disabled={savingId === check.id}>N/A</button>}
+            {check.tool_key && <button type="button" className="secondary" onClick={() => openTool(check)}>{toolLabel(check.tool_key)}</button>}
+            {editingId !== check.id && !['text','number'].includes(check.answer_kind) && <button type="button" className="secondary quiet" onClick={() => setEditingId(check.id)}>{check.result_text ? 'Edit note' : 'Add note'}</button>}
+            {editingId === check.id && !done && !structured && <button type="button" className="secondary" onClick={() => void saveObservation(check)} disabled={savingId === check.id}>Save note</button>}
+            {check.status === 'problem' && <button type="button" className="secondary" onClick={() => onOpenTool('diagnosis')}>Open Diagnosis</button>}
+          </div>}
+        </div>
+      </article>
+      {children.length > 0 && <div className="bench-step-children">{children.map((child) => renderCheck(child, depth + 1))}</div>}
+    </div>
+  }
+
   return (
     <section className="bench-step-checklist">
       <div className="bench-step-checklist-head">
         <div>
-          <p className="eyebrow">STEP CHECKLIST</p>
+          <p className="eyebrow">GUIDED STEP</p>
           <strong>{step.label}</strong>
-          <small>{completedCount}/{checks.length} checked · {requiredOpen.length} required remaining</small>
+          <small>{completedCount}/{activeChecks.length} active checks cleared · {requiredOpen.length} required remaining</small>
         </div>
         {step.status === 'not_started' && <button type="button" onClick={() => void beginStep()} disabled={savingId === 'main'}>{savingId === 'main' ? 'Starting…' : 'Begin step'}</button>}
       </div>
 
-      {loading ? <p className="muted">Loading step checks…</p> : checks.length === 0 ? <p className="bench-step-checklist-empty">No detailed checklist is defined for this procedure step yet. The main step can still be documented with Bench quick capture.</p> : (
-        <div className="bench-step-check-list">
-          {checks.map((check) => {
-            const done = check.status === 'complete' || check.status === 'not_applicable'
-            const editing = editingId === check.id || Boolean(check.result_text)
-            const recordingProblem = problemId === check.id
-            return (
-              <article key={check.id} className={`bench-step-check status-${check.status}`}>
-                <div className="bench-step-check-state" aria-hidden="true">{check.status === 'complete' ? '✓' : check.status === 'not_applicable' ? '–' : check.status === 'problem' ? '!' : '○'}</div>
-                <div className="bench-step-check-body">
-                  <div className="bench-step-check-title">
-                    <div><strong>{check.label}</strong><span>{check.required ? 'Required' : 'Optional'} · {check.check_type.replaceAll('_', ' ')}</span></div>
-                    <em>{statusLabel(check.status)}</em>
-                  </div>
-                  {check.description && <p>{check.description}</p>}
-                  {check.evidence_required && <small className="bench-step-evidence">Evidence expected</small>}
-                  {check.knowledge_scope && <small className="bench-step-context">Calibre context: {check.knowledge_scope.replaceAll('_', ' ')}</small>}
+      <div className="bench-step-flow-note"><strong>Follow the active branch.</strong><span>Your answers reveal the next useful check and suppress questions that no longer matter.</span></div>
 
-                  {(editing || recordingProblem) && <textarea rows={2} value={drafts[check.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [check.id]: event.target.value }))} placeholder={recordingProblem ? 'Describe exactly what you found…' : 'Observation / result (optional)…'} />}
-
-                  {recordingProblem && <div className="bench-step-problem-controls"><label>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value as typeof severity)}><option value="info">Info</option><option value="minor">Minor</option><option value="moderate">Moderate</option><option value="major">Major</option><option value="critical">Critical</option></select></label><button type="button" onClick={() => void recordProblem(check)} disabled={savingId === check.id}>{savingId === check.id ? 'Recording…' : 'Create Finding & diagnose'}</button><button type="button" className="secondary" onClick={() => setProblemId('')}>Cancel</button></div>}
-
-                  {!recordingProblem && <div className="bench-step-check-actions">
-                    {!done && <button type="button" onClick={() => void updateCheck(check, 'complete')} disabled={savingId === check.id}>Done</button>}
-                    {!done && <button type="button" className="secondary warning" onClick={() => { setProblemId(check.id); setEditingId(check.id) }}>Problem</button>}
-                    {!done && <button type="button" className="secondary" onClick={() => void updateCheck(check, 'not_applicable')} disabled={savingId === check.id}>N/A</button>}
-                    {check.tool_key && <button type="button" className="secondary" onClick={() => openTool(check)}>{toolLabel(check.tool_key)}</button>}
-                    {editingId !== check.id && <button type="button" className="secondary quiet" onClick={() => setEditingId(check.id)}>{check.result_text ? 'Edit note' : 'Add note'}</button>}
-                    {editingId === check.id && !done && <button type="button" className="secondary" onClick={() => void saveObservation(check)} disabled={savingId === check.id}>Save note</button>}
-                    {check.status === 'problem' && <button type="button" className="secondary" onClick={() => onOpenTool('diagnosis')}>Open Diagnosis</button>}
-                  </div>}
-                </div>
-              </article>
-            )
-          })}
-        </div>
+      {loading ? <p className="muted">Loading guided checks…</p> : checks.length === 0 ? <p className="bench-step-checklist-empty">No detailed checklist is defined for this procedure step yet. The main step can still be documented with Bench quick capture.</p> : (
+        <div className="bench-step-check-list">{roots.map((check) => renderCheck(check))}</div>
       )}
 
+      {inactiveChecks.length > 0 && <details className="bench-step-inactive"><summary>Ruled out / not needed · {inactiveChecks.length}</summary><div>{inactiveChecks.map((check) => <div key={check.id}><strong>{check.label}</strong><span>{check.state_reason || 'Inactive branch'}</span></div>)}</div></details>}
+
       {checks.length > 0 && <div className="bench-step-checklist-foot">
-        <div><strong>{readyToComplete ? 'Stage ready' : `${requiredOpen.length} required check${requiredOpen.length === 1 ? '' : 's'} remaining`}</strong><span>{readyToComplete ? 'All required checks are complete or explicitly N/A.' : 'Problems remain open until the check is later completed or marked N/A.'}</span></div>
+        <div><strong>{readyToComplete ? 'Stage ready' : `${requiredOpen.length} required check${requiredOpen.length === 1 ? '' : 's'} remaining`}</strong><span>{readyToComplete ? 'All active required checks are complete or explicitly N/A.' : 'Inactive branches do not block progress. Active problems continue through their revealed branch.'}</span></div>
         <button type="button" onClick={() => void completeStep()} disabled={!readyToComplete || savingId === 'main' || step.status === 'done'}>{savingId === 'main' ? 'Completing…' : 'Complete stage'}</button>
       </div>}
       {message && <p className="bench-step-checklist-message">{message}</p>}
