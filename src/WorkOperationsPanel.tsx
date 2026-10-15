@@ -2,11 +2,11 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import WorkPartsMatcher from './WorkPartsMatcher'
 import WorkQcPanel from './WorkQcPanel'
+import WorkTimingWorkflow from './WorkTimingWorkflow'
 import './work-operations-panel.css'
 
 type WorkEvent = { id: string; event_type: string; summary: string; details: Record<string, unknown>; actor_type: string; created_at: string }
 type Measurement = { id: string; measurement_type: string; value: number; unit: string; method: string; notes: string; measured_at: string }
-type TimingRun = { id: string; bph: number; rate_seconds_per_day: number; beat_error_ms: number | null; position: string; confidence: string; device: string; notes: string; recorded_at: string }
 type PartNeed = { id: string; part_type: string; description: string; status: string; created_at: string }
 type Allocation = { id: string; part_id: string; quantity: number; status: string; note: string; used_at: string | null }
 type Part = { id: string; part_type: string; manufacturer: string; reference: string; description: string }
@@ -22,7 +22,6 @@ function when(value: string) {
 export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { workspaceId: string; itemId: string; workId: string }) {
   const [events, setEvents] = useState<WorkEvent[]>([])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
-  const [timing, setTiming] = useState<TimingRun[]>([])
   const [needs, setNeeds] = useState<PartNeed[]>([])
   const [allocations, setAllocations] = useState<Allocation[]>([])
   const [partsById, setPartsById] = useState<Map<string, Part>>(new Map())
@@ -35,12 +34,6 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
   const [measurementUnit, setMeasurementUnit] = useState('mm')
   const [measurementNotes, setMeasurementNotes] = useState('')
 
-  const [bph, setBph] = useState('18000')
-  const [rate, setRate] = useState('')
-  const [beatError, setBeatError] = useState('')
-  const [position, setPosition] = useState('dial_up')
-  const [timingNotes, setTimingNotes] = useState('')
-
   const [partType, setPartType] = useState('')
   const [partDescription, setPartDescription] = useState('')
   const [historyNote, setHistoryNote] = useState('')
@@ -48,22 +41,20 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
   async function load() {
     if (!workId) return
     setLoading(true)
-    const [eventResult, measurementResult, timingResult, needsResult, allocationResult] = await Promise.all([
+    const [eventResult, measurementResult, needsResult, allocationResult] = await Promise.all([
       supabase.from('work_events').select('id,event_type,summary,details,actor_type,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: false }).limit(50),
       supabase.from('measurements').select('id,measurement_type,value,unit,method,notes,measured_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('measured_at', { ascending: false }).limit(50),
-      supabase.from('timing_runs').select('id,bph,rate_seconds_per_day,beat_error_ms,position,confidence,device,notes,recorded_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('recorded_at', { ascending: false }).limit(30),
       supabase.from('work_part_needs').select('id,part_type,description,status,created_at').eq('workspace_id', workspaceId).eq('work_record_id', workId).order('created_at', { ascending: false }),
       supabase.from('part_allocations').select('id,part_id,quantity,status,note,used_at').eq('workspace_id', workspaceId).eq('work_record_id', workId).order('created_at', { ascending: false }),
     ])
     setLoading(false)
-    const error = eventResult.error ?? measurementResult.error ?? timingResult.error ?? needsResult.error ?? allocationResult.error
+    const error = eventResult.error ?? measurementResult.error ?? needsResult.error ?? allocationResult.error
     if (error) {
       setMessage(`Workshop details could not be loaded: ${error.message}`)
       return
     }
     setEvents((eventResult.data ?? []) as WorkEvent[])
     setMeasurements((measurementResult.data ?? []) as Measurement[])
-    setTiming((timingResult.data ?? []) as TimingRun[])
     setNeeds((needsResult.data ?? []) as PartNeed[])
     const nextAllocations = (allocationResult.data ?? []) as Allocation[]
     setAllocations(nextAllocations)
@@ -107,39 +98,6 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
     setMeasurementValue('')
     setMeasurementNotes('')
     setMessage('Measurement saved.')
-    await load()
-  }
-
-  async function addTiming(event: FormEvent) {
-    event.preventDefault()
-    const parsedBph = Number(bph)
-    const parsedRate = Number(rate)
-    const parsedBeat = beatError.trim() ? Number(beatError) : null
-    if (!Number.isFinite(parsedBph) || !Number.isFinite(parsedRate) || (parsedBeat != null && !Number.isFinite(parsedBeat))) return
-    setSaving(true)
-    const { error } = await supabase.from('timing_runs').insert({
-      workspace_id: workspaceId,
-      item_id: itemId,
-      work_id: workId,
-      bph: parsedBph,
-      rate_seconds_per_day: parsedRate,
-      beat_error_ms: parsedBeat,
-      amplitude_deg: null,
-      lift_angle_deg: null,
-      position,
-      confidence: 'confirmed',
-      device: 'manual',
-      notes: timingNotes.trim(),
-    })
-    setSaving(false)
-    if (error) {
-      setMessage(`Timing run could not be saved: ${error.message}`)
-      return
-    }
-    setRate('')
-    setBeatError('')
-    setTimingNotes('')
-    setMessage('Timing run saved.')
     await load()
   }
 
@@ -218,19 +176,7 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
         <div className="work-ops-list">{measurements.length === 0 ? <p className="muted">No measurements recorded for this job.</p> : measurements.map((measurement) => <div className="work-ops-row" key={measurement.id}><div><strong>{titleCase(measurement.measurement_type)}</strong><span>{measurement.notes || 'Manual measurement'}</span></div><div className="work-ops-value">{Number(measurement.value)} {measurement.unit}<small>{when(measurement.measured_at)}</small></div></div>)}</div>
       </section>
 
-      <section className="section-card work-ops-card">
-        <div className="work-ops-heading"><div><p className="eyebrow">TIMING</p><h3>Timing runs</h3></div><span>{timing.length}</span></div>
-        <form className="work-ops-form four" onSubmit={addTiming}>
-          <label>BPH<input inputMode="numeric" value={bph} onChange={(event) => setBph(event.target.value)} /></label>
-          <label>Rate s/day<input inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} placeholder="+12" /></label>
-          <label>Beat error ms<input inputMode="decimal" value={beatError} onChange={(event) => setBeatError(event.target.value)} placeholder="0.6" /></label>
-          <label>Position<select value={position} onChange={(event) => setPosition(event.target.value)}><option value="dial_up">Dial up</option><option value="dial_down">Dial down</option><option value="crown_up">Crown up</option><option value="crown_down">Crown down</option><option value="crown_left">Crown left</option><option value="crown_right">Crown right</option><option value="other">Other</option></select></label>
-          <label className="span-3">Notes<input value={timingNotes} onChange={(event) => setTimingNotes(event.target.value)} placeholder="Pre-service, post-service, power state, observations…" /></label>
-          <button disabled={saving || !rate.trim()}>Add run</button>
-        </form>
-        <p className="work-ops-caution">Amplitude is intentionally not entered here until the measurement path is defensible.</p>
-        <div className="work-ops-list">{timing.length === 0 ? <p className="muted">No timing runs recorded for this job.</p> : timing.map((run) => <div className="work-ops-row" key={run.id}><div><strong>{titleCase(run.position || 'unspecified')} · {run.bph} BPH</strong><span>{run.notes || titleCase(run.confidence)}</span></div><div className="work-ops-value">{Number(run.rate_seconds_per_day) > 0 ? '+' : ''}{Number(run.rate_seconds_per_day)} s/d<small>{run.beat_error_ms == null ? 'Beat error —' : `${Number(run.beat_error_ms)} ms`} · {when(run.recorded_at)}</small></div></div>)}</div>
-      </section>
+      <WorkTimingWorkflow workspaceId={workspaceId} itemId={itemId} workId={workId} />
 
       <section className="section-card work-ops-card">
         <div className="work-ops-heading"><div><p className="eyebrow">PARTS</p><h3>Needed & used</h3></div><span>{needs.filter((need) => need.status === 'open').length} open</span></div>
