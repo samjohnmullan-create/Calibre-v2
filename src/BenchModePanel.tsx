@@ -8,6 +8,7 @@ import BenchResearchPanel from './BenchResearchPanel'
 import BenchDiagnosisPanel from './BenchDiagnosisPanel'
 import BenchTimegrapher from './BenchTimegrapher'
 import BenchStepChecklist from './BenchStepChecklist'
+import BenchMovementGuidance from './BenchMovementGuidance'
 import WorkPartsMatcher from './WorkPartsMatcher'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkInductionPlan from './WorkInductionPlan'
@@ -206,6 +207,7 @@ export default function BenchModePanel({
 
           {inductionFlow ? <WorkInductionPlan workspaceId={workspaceId} itemId={itemId} workId={workId} compact onChanged={refreshEvidence} /> : <section className={`bench-mode-current-step state-${checklistState}`}><span>{benchState.eyebrow}</span><h1>{benchState.currentLabel}</h1><p>{benchState.currentDescription}</p>{currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}</section>}
 
+          {!inductionFlow && checklistState === 'active' && currentStep && <BenchMovementGuidance workspaceId={workspaceId} itemId={itemId} workId={workId} checklistStepId={currentStep.id} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} />}
           {!inductionFlow && checklistState === 'active' && currentStep && <BenchStepChecklist workspaceId={workspaceId} itemId={itemId} workId={workId} step={currentStep} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} onOpenTool={openStepTool} />}
 
           <BenchQuickCapture workspaceId={workspaceId} itemId={itemId} workId={workId} workNumber={workNumber} currentStep={inductionFlow ? null : currentStep} onSaved={refreshEvidence} />
