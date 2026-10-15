@@ -7,6 +7,8 @@ import BenchKnowledgePanel from './BenchKnowledgePanel'
 import BenchResearchPanel from './BenchResearchPanel'
 import BenchDiagnosisPanel from './BenchDiagnosisPanel'
 import BenchTimegrapher from './BenchTimegrapher'
+import BenchStepChecklist from './BenchStepChecklist'
+import WorkPartsMatcher from './WorkPartsMatcher'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkInductionPlan from './WorkInductionPlan'
 import './bench-mode.css'
@@ -16,7 +18,8 @@ type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete
 type ChecklistState = 'none' | 'active' | 'complete'
 type InductionStatus = 'pending' | 'in_progress' | 'complete' | 'legacy_skipped'
 type JobPlanStatus = 'pending' | 'ready' | 'applied'
-type JobTool = 'none' | 'research' | 'diagnosis' | 'timing'
+type JobTool = 'none' | 'research' | 'diagnosis' | 'timing' | 'parts'
+type StepToolTarget = 'research' | 'diagnosis' | 'timing' | 'parts' | 'knowledge'
 
 type StepSummary = {
   id: string
@@ -171,6 +174,7 @@ export default function BenchModePanel({
 
   const canStart = !activeSession && !['complete', 'cancelled'].includes(workStatus)
   const toggleTool = (tool: Exclude<JobTool, 'none'>) => setJobTool((current) => current === tool ? 'none' : tool)
+  const openStepTool = (tool: StepToolTarget) => setJobTool(tool === 'knowledge' ? 'diagnosis' : tool)
   const timingCheckpoint = workStatus === 'qc' ? 'final_qc' : 'pre_service'
 
   return <>
@@ -198,8 +202,11 @@ export default function BenchModePanel({
           {jobTool === 'research' && <BenchResearchPanel workspaceId={workspaceId} itemId={itemId} workId={workId} onChanged={refreshEvidence} />}
           {jobTool === 'diagnosis' && <div className="bench-tool-stack"><BenchDiagnosisPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} /><BenchKnowledgePanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} /></div>}
           {jobTool === 'timing' && <div className="bench-tool-stack"><BenchTimegrapher workspaceId={workspaceId} itemId={itemId} workId={workId} defaultCheckpoint={timingCheckpoint} onSaved={refreshEvidence} /><details className="bench-timing-history"><summary>Timing comparison & recorded history</summary><WorkTimingWorkflow workspaceId={workspaceId} itemId={itemId} workId={workId} /></details></div>}
+          {jobTool === 'parts' && <div className="bench-tool-stack"><div className="bench-guided-panel"><div className="bench-guided-heading"><div><p className="eyebrow">PARTS & COMPATIBILITY</p><strong>Find stock, donors and fit evidence</strong></div><button type="button" className="secondary small" onClick={() => setJobTool('none')}>Close</button></div><WorkPartsMatcher workspaceId={workspaceId} itemId={itemId} workId={workId} /></div></div>}
 
           {inductionFlow ? <WorkInductionPlan workspaceId={workspaceId} itemId={itemId} workId={workId} compact onChanged={refreshEvidence} /> : <section className={`bench-mode-current-step state-${checklistState}`}><span>{benchState.eyebrow}</span><h1>{benchState.currentLabel}</h1><p>{benchState.currentDescription}</p>{currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}</section>}
+
+          {!inductionFlow && checklistState === 'active' && currentStep && <BenchStepChecklist workspaceId={workspaceId} itemId={itemId} workId={workId} step={currentStep} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} onOpenTool={openStepTool} />}
 
           <BenchQuickCapture workspaceId={workspaceId} itemId={itemId} workId={workId} workNumber={workNumber} currentStep={inductionFlow ? null : currentStep} onSaved={refreshEvidence} />
 
