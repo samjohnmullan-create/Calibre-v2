@@ -50,7 +50,18 @@ requireNoPattern(
   (name) => name.includes('safe_inventory_archive_trash'),
 )
 
-// 2. Workshop completion must remain evidence-backed. We require one migration to
+// 2. Permanent deletion is a narrow exception. It must always pass through the
+// dependency/provenance eligibility check and require an already-archived record.
+requireAllInOneMigration('dependency-aware permanent inventory delete contract', [
+  /inventory_delete_eligibility/,
+  /permanently_delete_inventory_entity/,
+  /referenced by/,
+  /storage_location_events/,
+  /archived_at\s+is\s+not\s+null/,
+  /permanent deletion blocked/,
+])
+
+// 3. Workshop completion must remain evidence-backed. We require one migration to
 // enforce all major blockers together so a UI-only change cannot weaken closure.
 requireAllInOneMigration('Work completion evidence gate', [
   /work_checklist_steps/,
@@ -60,7 +71,7 @@ requireAllInOneMigration('Work completion evidence gate', [
   /(raise\s+exception|cannot\s+complete|completion)/,
 ])
 
-// 3. Part consumption must require fit evidence at the database boundary.
+// 4. Part consumption must require fit evidence at the database boundary.
 requireAllInOneMigration('fit-before-consume parts contract', [
   /consume_part_allocation/,
   /part_fit_verifications/,
@@ -68,7 +79,7 @@ requireAllInOneMigration('fit-before-consume parts contract', [
   /(raise\s+exception|fit evidence|fit result)/,
 ])
 
-// 4. Receiving truth must be derived/protected after physical receiving evidence
+// 5. Receiving truth must be derived/protected after physical receiving evidence
 // exists; the status cannot safely regress to pre-receipt states.
 requireAllInOneMigration('Purchase receiving status truth contract', [
   /recalculate_purchase_receiving/,
@@ -77,13 +88,13 @@ requireAllInOneMigration('Purchase receiving status truth contract', [
   /(trigger|prevent|regress|raise\s+exception)/,
 ])
 
-// 5. Imported invoice/source evidence must be protected from later casual edits.
+// 6. Imported invoice/source evidence must be protected from later casual edits.
 requirePattern(
   'imported invoice immutability contract',
   /(immutable|lock_imported|prevent.*invoice.*update|invoice.*history.*lock|imported.*invoice.*update)/s,
 )
 
-// 6. Destructive/restoration mutations for physical stock must be auditable.
+// 7. Destructive/restoration mutations for physical stock must be auditable.
 requireAllInOneMigration('physical inventory archive audit coverage', [
   /audit_parts_mutations/,
   /audit_tools_mutations/,
@@ -91,7 +102,7 @@ requireAllInOneMigration('physical inventory archive audit coverage', [
   /log_calibre_audit_event/,
 ])
 
-// 7. Business Ledger history is accounting evidence: rows become immutable once
+// 8. Business Ledger history is accounting evidence: rows become immutable once
 // created, and corrections are equal-and-opposite linked reversal records.
 requireAllInOneMigration('append-only Business Ledger contract', [
   /business_ledger_entries_immutable/,
