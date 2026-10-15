@@ -47,8 +47,20 @@ const reasoningSchema = {
         title: { type: "string" },
         instructions: { type: "string" },
         why: { type: "string" },
+        placement: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            mode: { type: "string", enum: ["current_stage", "existing_stage", "manual"] },
+            checklist_step_key: { type: "string" },
+            reason: { type: "string" },
+          },
+          required: ["mode", "checklist_step_key", "reason"],
+        },
         expected_outcomes: {
           type: "array",
+          minItems: 2,
+          maxItems: 6,
           items: {
             type: "object",
             additionalProperties: false,
@@ -60,7 +72,7 @@ const reasoningSchema = {
           },
         },
       },
-      required: ["title", "instructions", "why", "expected_outcomes"],
+      required: ["title", "instructions", "why", "placement", "expected_outcomes"],
     },
     plan_change: {
       type: "object",
@@ -135,7 +147,7 @@ Deno.serve(async (req: Request) => {
     supabase.from("work_diagnostic_checks").select("id,hypothesis_id,label,instructions,sequence,status,result,source_ref,completed_at,created_at").eq("workspace_id", workspaceId).eq("work_id", work.id).order("created_at", { ascending: true }).limit(150),
     supabase.from("work_diagnostic_evidence").select("id,finding_id,hypothesis_id,diagnostic_check_id,work_step_check_id,timing_run_id,effect,strength,summary,source_kind,source_ref,created_at").eq("workspace_id", workspaceId).eq("work_id", work.id).order("created_at", { ascending: true }).limit(200),
     supabase.from("work_checklist_steps").select("id,step_key,label,description,sequence,required,status,blocked_reason,phase").eq("workspace_id", workspaceId).eq("work_id", work.id).order("sequence", { ascending: true }).limit(100),
-    supabase.from("work_step_checks").select("id,checklist_step_id,check_key,label,description,sequence,required,check_type,tool_key,knowledge_scope,status,result_text,answer_kind,answer_value,is_active,parent_check_id,state_reason,problem_finding_id").eq("workspace_id", workspaceId).eq("work_id", work.id).order("sequence", { ascending: true }).limit(250),
+    supabase.from("work_step_checks").select("id,checklist_step_id,check_key,label,description,sequence,required,check_type,tool_key,knowledge_scope,status,result_text,answer_kind,answer_value,is_active,parent_check_id,state_reason,problem_finding_id,origin_kind,recommendation_why,outcome_implications,source_reasoning_run_id").eq("workspace_id", workspaceId).eq("work_id", work.id).order("sequence", { ascending: true }).limit(300),
     supabase.from("work_plan_actions").select("id,action_key,label,sequence,status,notes,procedure_template_id").eq("workspace_id", workspaceId).eq("work_id", work.id).order("sequence", { ascending: true }).limit(50),
     supabase.from("timing_runs").select("id,checkpoint,bph,rate_seconds_per_day,beat_error_ms,amplitude_deg,lift_angle_deg,position,duration_seconds,stability_score,confidence,device,notes,recorded_at,work_step_check_id").eq("workspace_id", workspaceId).eq("work_id", work.id).order("recorded_at", { ascending: false }).limit(30),
     supabase.from("work_part_needs").select("id,part_type,description,status,created_at,updated_at").eq("workspace_id", workspaceId).eq("work_record_id", work.id).order("created_at", { ascending: true }).limit(50),
@@ -208,7 +220,12 @@ Deno.serve(async (req: Request) => {
     "Separate observation from inference. A Finding or measured result is evidence; a hypothesis is not a fact.",
     "Do not call a diagnosis confirmed unless the supplied bench evidence directly confirms it. Otherwise use strongly_supported, supported, possible, weak, or ruled_out.",
     "Use completed and inactive/ruled-out branches to eliminate causes. Do not keep asking checks whose parent branch has already ruled them out.",
-    "Prefer ONE next check that best separates the remaining plausible causes. It should be practical, specific and safe at the current job stage.",
+    "Prefer ONE next check that best separates the remaining plausible causes. It should be practical, specific and safe.",
+    "The best diagnostic check is not automatically the next physical workshop action. Respect the existing procedure order and prerequisites.",
+    "For next_check.placement, choose the earliest existing procedure step where the check is mechanically appropriate and prerequisites will be satisfied.",
+    "When placement.mode is current_stage or existing_stage, checklist_step_key MUST exactly match a step_key supplied in procedure_steps; never invent a step key.",
+    "Use placement.mode=manual with an empty checklist_step_key only when no existing procedure stage is a defensible fit.",
+    "Expected outcomes must be short, mutually useful bench observations that genuinely separate hypotheses. Their implications should say what each result strengthens, weakens, or rules out.",
     "Use movement-specific claims only when supported by supplied Knowledge or technical-document context. You may use general mechanical-watch reasoning, but do not invent calibre specifications or part references.",
     "Timing data is diagnostic evidence: consider checkpoint, position, rate, beat error and stability, but do not infer amplitude when it is absent.",
     "If evidence indicates the current Job Plan is materially incomplete, recommend a plan change, but do not imply it has already been applied.",
@@ -238,6 +255,14 @@ Deno.serve(async (req: Request) => {
 
   let reasoning: any;
   try { reasoning = JSON.parse(text); } catch { return jsonResponse({ error: "Calibre Reasoning returned invalid JSON" }, 502); }
+
+  const validStepKeys = new Set((checklistStepsRes.data ?? []).map((step: any) => String(step.step_key ?? "")));
+  const placement = reasoning?.next_check?.placement;
+  if (placement && placement.mode !== "manual" && !validStepKeys.has(String(placement.checklist_step_key ?? ""))) {
+    placement.mode = "manual";
+    placement.reason = `Suggested placement could not be matched to this Work's procedure. ${String(placement.reason ?? "")}`.trim();
+    placement.checklist_step_key = "";
+  }
 
   const { data: run, error: runError } = await supabase.from("work_reasoning_runs").insert({
     workspace_id: workspaceId,
