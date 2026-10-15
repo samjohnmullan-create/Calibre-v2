@@ -15,7 +15,8 @@
 }
 
 .calibre-os[data-shell-section="intake"] .calibre-legacy-host,
-.calibre-os[data-shell-section="business"] .calibre-legacy-host {
+.calibre-os[data-shell-section="business"] .calibre-legacy-host,
+.calibre-os[data-shell-section="timegrapher"] .calibre-legacy-host {
   display: none;
 }
 
