@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import BenchQuickCapture from './BenchQuickCapture'
 import BenchLifecycleControls from './BenchLifecycleControls'
+import BenchExceptionsPanel from './BenchExceptionsPanel'
 import './bench-mode.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -72,6 +73,7 @@ export default function BenchModePanel({
   const [sessionNote, setSessionNote] = useState('')
   const [benchOpen, setBenchOpen] = useState(false)
   const [nowMs, setNowMs] = useState(Date.now())
+  const [intelligenceRefresh, setIntelligenceRefresh] = useState(0)
 
   const activeSession = sessions.find((session) => !session.ended_at) ?? null
 
@@ -112,9 +114,15 @@ export default function BenchModePanel({
     if (!activeSession) setBenchOpen(false)
   }, [activeSession?.id])
 
+  async function refreshEvidence() {
+    setIntelligenceRefresh((value) => value + 1)
+    await onWorkChanged()
+  }
+
   async function refreshAfterLifecycle() {
     setBenchOpen(false)
     await loadSessions()
+    setIntelligenceRefresh((value) => value + 1)
     await onWorkChanged()
   }
 
@@ -132,6 +140,7 @@ export default function BenchModePanel({
       return
     }
     await loadSessions()
+    setIntelligenceRefresh((value) => value + 1)
     await onWorkChanged()
     setBenchOpen(true)
     setMessage('Bench session started. Work is now On bench.')
@@ -153,6 +162,7 @@ export default function BenchModePanel({
     }
     setSessionNote('')
     await loadSessions()
+    setIntelligenceRefresh((value) => value + 1)
     await onWorkChanged()
     setBenchOpen(false)
     setMessage('Bench time saved. Work status was left unchanged.')
@@ -187,6 +197,8 @@ export default function BenchModePanel({
             <p>{nextStep?.description || (nextStep ? `Status: ${nextStep.status.replaceAll('_', ' ')}` : 'Finish or update the current step to advance.')}</p>
           </div>
         </div>
+
+        {!benchOpen && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
 
         {activeSession && (
           <label className="bench-mode-note">Session note
@@ -249,13 +261,15 @@ export default function BenchModePanel({
                 <p>{nextStep?.description || 'The current checklist state does not expose another open step yet.'}</p>
               </section>
 
+              <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />
+
               <BenchQuickCapture
                 workspaceId={workspaceId}
                 itemId={itemId}
                 workId={workId}
                 workNumber={workNumber}
                 currentStep={currentStep}
-                onSaved={onWorkChanged}
+                onSaved={refreshEvidence}
               />
             </main>
 
