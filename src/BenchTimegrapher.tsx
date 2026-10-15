@@ -15,7 +15,21 @@ const checkpoints: { value: TimingCheckpoint; label: string }[] = [
 const positions = [['dial_up','Dial up'],['dial_down','Dial down'],['crown_up','Crown up'],['crown_down','Crown down'],['crown_left','Crown left'],['crown_right','Crown right'],['other','Other']]
 function signed(value?: number) { return Number.isFinite(value) ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)}` : '—' }
 
-export default function BenchTimegrapher({ workspaceId, itemId, workId, defaultCheckpoint = 'pre_service', onSaved }: { workspaceId: string; itemId: string; workId: string; defaultCheckpoint?: TimingCheckpoint; onSaved?: () => void | Promise<void> }) {
+export default function BenchTimegrapher({
+  workspaceId,
+  itemId,
+  workId,
+  workStepCheckId,
+  defaultCheckpoint = 'pre_service',
+  onSaved,
+}: {
+  workspaceId: string
+  itemId: string
+  workId: string
+  workStepCheckId?: string
+  defaultCheckpoint?: TimingCheckpoint
+  onSaved?: () => void | Promise<void>
+}) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
   const [running, setRunning] = useState(false)
@@ -53,6 +67,7 @@ export default function BenchTimegrapher({ workspaceId, itemId, workId, defaultC
     if (movement.data?.lift_angle_deg != null) { setLiftAngle(String(Number(movement.data.lift_angle_deg))); setLiftSource('documented') }
   }
 
+  useEffect(() => { setCheckpoint(defaultCheckpoint) }, [defaultCheckpoint, workStepCheckId])
   useEffect(() => { void enumerate(); void loadLiftAngle(); return () => { void stopAudio() } }, [workspaceId, itemId, workId])
   useEffect(() => { nodeRef.current?.port.postMessage({ sensitivity }); if (beatsRef.current.length) setResult(analyseTiming(beatsRef.current, manualBph)) }, [sensitivity, manualBph])
 
@@ -103,22 +118,61 @@ export default function BenchTimegrapher({ workspaceId, itemId, workId, defaultC
     setSaving(true)
     const track = streamRef.current?.getAudioTracks()[0], settings = track?.getSettings(), duration = Math.max(1, Math.round((performance.now() - startedAt) / 1000))
     const confidence = (result.confidence ?? 0) >= .8 ? 'strong' : 'probable'
+    const noteText = [`Bench Timegrapher · ${Math.round((result.confidence ?? 0) * 100)}% confidence · ${result.samples ?? 0} samples · ${result.stabilityLabel ?? 'unknown'} stability · ${settings?.sampleRate ?? audioRef.current?.sampleRate ?? 'unknown'} Hz`, lift != null ? `lift angle ${lift}° (${liftSource})` : 'lift angle unknown', notes.trim()].filter(Boolean).join(' · ')
     const saved = await supabase.from('timing_runs').insert({
-      workspace_id: workspaceId, item_id: itemId, work_id: workId, checkpoint,
+      workspace_id: workspaceId, item_id: itemId, work_id: workId, work_step_check_id: workStepCheckId ?? null, checkpoint,
       bph: result.bph, rate_seconds_per_day: result.rateSecondsPerDay, beat_error_ms: result.beatErrorMs ?? null,
       amplitude_deg: null, lift_angle_deg: lift, position, duration_seconds: duration,
       stability_score: result.confidence ?? null, confidence, device: track?.label || 'browser microphone',
-      notes: [`Bench Timegrapher · ${Math.round((result.confidence ?? 0) * 100)}% confidence · ${result.samples ?? 0} samples · ${result.stabilityLabel ?? 'unknown'} stability · ${settings?.sampleRate ?? audioRef.current?.sampleRate ?? 'unknown'} Hz`, lift != null ? `lift angle ${lift}° (${liftSource})` : 'lift angle unknown', notes.trim()].filter(Boolean).join(' · '),
-    })
+      notes: noteText,
+    }).select('id').single()
+    if (saved.error || !saved.data) {
+      setSaving(false)
+      return setMessage(`Timing run could not be saved: ${saved.error?.message ?? 'No saved timing run returned.'}`)
+    }
+
+    const resultSummary = `${checkpoints.find((row) => row.value === checkpoint)?.label ?? 'Timing'} · ${signed(result.rateSecondsPerDay)} s/day · ${result.beatErrorMs == null ? 'beat error unknown' : `${result.beatErrorMs.toFixed(2)} ms`} · ${result.bph} BPH · ${position.replaceAll('_', ' ')}`
+    let linkedCheckError = ''
+
+    if (workStepCheckId) {
+      const userId = (await supabase.auth.getUser()).data.user?.id ?? null
+      const checkUpdate = await supabase.from('work_step_checks').update({
+        status: 'complete',
+        answer_value: 'timing_saved',
+        result_text: resultSummary,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        completed_by: userId,
+        updated_at: new Date().toISOString(),
+      }).eq('workspace_id', workspaceId).eq('id', workStepCheckId)
+      if (checkUpdate.error) linkedCheckError = checkUpdate.error.message
+
+      if (!checkUpdate.error) {
+        await supabase.from('work_diagnostic_evidence').insert({
+          workspace_id: workspaceId,
+          work_id: workId,
+          item_id: itemId,
+          work_step_check_id: workStepCheckId,
+          timing_run_id: saved.data.id,
+          effect: 'neutral',
+          strength: confidence === 'strong' ? 'strong' : 'moderate',
+          summary: resultSummary,
+          source_kind: 'timing',
+          source_ref: `Timing checkpoint: ${checkpoint}`,
+        })
+      }
+    }
+
     setSaving(false)
-    if (saved.error) return setMessage(`Timing run could not be saved: ${saved.error.message}`)
-    setMessage(`${checkpoints.find((row) => row.value === checkpoint)?.label ?? 'Timing'} run saved to this Work.`); setNotes(''); await onSaved?.()
+    setNotes('')
+    setMessage(linkedCheckError ? `Timing results saved, but the guided check could not be cleared: ${linkedCheckError}` : `${resultSummary} · Saved to this Work${workStepCheckId ? ' and cleared the timing check' : ''}.`)
+    await onSaved?.()
   }
 
   const lock = lockState(result, running)
   const canSave = result.reliable === true
   return <section className="bench-guided-panel bench-timegrapher-panel">
-    <div className="bench-guided-heading"><div><p className="eyebrow">LIVE TIMEGRAPHER</p><strong>Timing belongs to this Work</strong></div><span>{lock.label}</span></div>
+    <div className="bench-guided-heading"><div><p className="eyebrow">LIVE TIMEGRAPHER</p><strong>{workStepCheckId ? 'Timing required by the current job step' : 'Timing belongs to this Work'}</strong></div><span>{lock.label}</span></div>
     <div className="bench-timing-live"><div><span>RATE</span><strong>{signed(result.rateSecondsPerDay)} <small>s/day</small></strong><em>{result.stabilityLabel ?? result.stage}</em></div><div><span>BPH</span><strong>{result.bph ?? '—'}</strong></div><div><span>BEAT ERROR</span><strong>{result.beatErrorMs == null ? '—' : `${result.beatErrorMs.toFixed(2)} ms`}</strong></div><div><span>CONFIDENCE</span><strong>{result.confidence == null ? '—' : `${Math.round(result.confidence * 100)}%`}</strong></div></div>
     <div className="bench-timing-level"><span>Signal</span><div><i style={{ width: `${Math.min(100, Math.max(2, Number(level.strength ?? 0) * 8))}%` }} /></div><small>{beats.length} events</small></div>
     <div className="bench-timing-controls">
@@ -130,7 +184,7 @@ export default function BenchTimegrapher({ workspaceId, itemId, workId, defaultC
       <label>Sensitivity<select value={sensitivity} onChange={(event) => setSensitivity(Number(event.target.value))}><option value={1.6}>Sensitive</option><option value={2}>Normal</option><option value={2.6}>Conservative</option></select></label>
       <label className="span-all">Timing note<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Power state, position note, observation…" /></label>
     </div>
-    <div className="bench-guided-actions">{!running ? <button type="button" onClick={() => void startAudio()}>Start Timegrapher</button> : <button type="button" className="secondary" onClick={() => void stopAudio()}>Stop</button>}<button type="button" disabled={!canSave || saving} onClick={() => void saveRun()}>{saving ? 'Saving…' : 'Save run'}</button><button type="button" className="secondary" onClick={() => void enumerate()}>Refresh mics</button></div>
+    <div className="bench-guided-actions">{!running ? <button type="button" onClick={() => void startAudio()}>Start Timegrapher</button> : <button type="button" className="secondary" onClick={() => void stopAudio()}>Stop</button>}<button type="button" disabled={!canSave || saving} onClick={() => void saveRun()}>{saving ? 'Saving…' : 'Save results'}</button><button type="button" className="secondary" onClick={() => void enumerate()}>Refresh mics</button></div>
     <p className="bench-guided-message">{message}</p>
   </section>
 }
