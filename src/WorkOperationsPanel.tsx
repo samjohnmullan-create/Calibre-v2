@@ -4,6 +4,7 @@ import WorkPartsMatcher from './WorkPartsMatcher'
 import WorkQcPanel from './WorkQcPanel'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkNextBestAction from './WorkNextBestAction'
+import WorkIdentityIntelligence from './WorkIdentityIntelligence'
 import './work-operations-panel.css'
 
 type WorkEvent = { id: string; event_type: string; summary: string; details: Record<string, unknown>; actor_type: string; created_at: string }
@@ -170,6 +171,7 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
   return (
     <div className="work-ops-shell">
       <WorkNextBestAction workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} onChanged={refreshWorkState} />
+      <WorkIdentityIntelligence workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} onChanged={refreshWorkState} />
 
       {message && <p className="work-ops-message">{message}</p>}
 
