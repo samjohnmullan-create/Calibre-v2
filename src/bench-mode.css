@@ -212,6 +212,7 @@
 .bench-mode-overlay-shell > footer {
   justify-content: flex-end;
   border-top: 1px solid var(--calibre-line);
+  background: rgba(16, 27, 33, .94);
 }
 
 .bench-mode-overlay-shell > header h2 {
@@ -239,6 +240,11 @@
   padding: 22px;
 }
 
+.bench-mode-focus > .bench-quick-capture {
+  min-width: 0;
+  align-self: start;
+}
+
 .bench-mode-current-step,
 .bench-mode-next-step {
   min-width: 0;
@@ -259,6 +265,12 @@
   font-size: clamp(42px, 7vw, 84px);
   line-height: .92;
   overflow-wrap: anywhere;
+}
+
+.bench-mode-current-step.state-none h1,
+.bench-mode-current-step.state-complete h1 {
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 1;
 }
 
 .bench-mode-current-step p,
@@ -342,7 +354,8 @@
   .bench-mode-focus {
     grid-template-columns: 1fr;
     align-content: start;
-    padding: 14px;
+    padding: 14px 14px calc(26px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(90px + env(safe-area-inset-bottom));
   }
 
   .bench-mode-current-step,
@@ -352,17 +365,22 @@
   }
 
   .bench-mode-current-step {
-    min-height: 52vh;
+    min-height: 210px;
     align-content: center;
   }
 
   .bench-mode-current-step h1 {
     max-width: none;
-    font-size: clamp(42px, 13vw, 64px);
+    font-size: clamp(36px, 11vw, 56px);
+  }
+
+  .bench-mode-current-step.state-none h1,
+  .bench-mode-current-step.state-complete h1 {
+    font-size: clamp(32px, 9vw, 48px);
   }
 
   .bench-mode-next-step {
-    min-height: 150px;
+    min-height: 120px;
     align-content: center;
   }
 
@@ -381,7 +399,8 @@
   }
 
   .bench-mode-overlay-shell > header h2 {
-    max-width: 12ch;
+    max-width: 14ch;
+    font-size: 22px;
   }
 
   .bench-mode-live-clock span {

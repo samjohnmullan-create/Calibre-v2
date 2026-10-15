@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import BenchModePanel from './BenchModePanel'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
+type ChecklistState = 'none' | 'active' | 'complete'
 type CandidateWork = {
   id: string
   item_id: string
@@ -168,6 +169,12 @@ export default function BenchModeHost() {
   }, [workspaceId, selectedWorkId, stepRefresh])
 
   const openSteps = useMemo(() => steps.filter((step) => step.status !== 'done' && step.status !== 'na'), [steps])
+  const checklistState = useMemo<ChecklistState>(() => {
+    if (steps.length === 0) return 'none'
+    if (openSteps.length === 0) return 'complete'
+    return 'active'
+  }, [steps, openSteps])
+  const checklistCompleteCount = useMemo(() => steps.filter((step) => step.status === 'done' || step.status === 'na').length, [steps])
   const currentStep = useMemo(() => openSteps.find((step) => step.status === 'in_progress') ?? openSteps.find((step) => step.status === 'blocked') ?? openSteps[0] ?? null, [openSteps])
   const nextStep = useMemo(() => {
     if (!currentStep) return null
@@ -223,6 +230,9 @@ export default function BenchModeHost() {
                   workNumber={selectedWork.work_number}
                   workTitle={selectedWork.item_title || selectedWork.title}
                   workStatus={selectedWork.status}
+                  checklistState={checklistState}
+                  checklistTotal={steps.length}
+                  checklistCompleteCount={checklistCompleteCount}
                   currentStep={currentStep}
                   nextStep={nextStep}
                   onWorkChanged={refreshBenchContext}

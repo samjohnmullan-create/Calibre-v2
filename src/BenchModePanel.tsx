@@ -6,6 +6,7 @@ import BenchExceptionsPanel from './BenchExceptionsPanel'
 import './bench-mode.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
+type ChecklistState = 'none' | 'active' | 'complete'
 type StepSummary = {
   id: string
   label: string
@@ -52,6 +53,9 @@ export default function BenchModePanel({
   workNumber,
   workTitle,
   workStatus,
+  checklistState,
+  checklistTotal,
+  checklistCompleteCount,
   currentStep,
   nextStep,
   onWorkChanged,
@@ -62,6 +66,9 @@ export default function BenchModePanel({
   workNumber: number
   workTitle: string
   workStatus: WorkStatus
+  checklistState: ChecklistState
+  checklistTotal: number
+  checklistCompleteCount: number
   currentStep: StepSummary | null
   nextStep: StepSummary | null
   onWorkChanged: () => Promise<void> | void
@@ -79,6 +86,36 @@ export default function BenchModePanel({
 
   const totalRecordedSeconds = useMemo(() => sessions.reduce((sum, session) => sum + secondsBetween(session.started_at, session.ended_at, nowMs), 0), [sessions, nowMs])
   const activeSeconds = activeSession ? secondsBetween(activeSession.started_at, null, nowMs) : 0
+
+  const benchState = useMemo(() => {
+    if (checklistState === 'none') {
+      return {
+        eyebrow: 'WORKFLOW',
+        currentLabel: 'No procedure attached',
+        currentDescription: 'This Work has no checklist yet. Bench quick actions remain available for ad-hoc work and evidence capture.',
+        nextLabel: 'Continue ad-hoc',
+        nextDescription: 'Capture photos, notes, measurements, parts or timing now. Return to the Job Card when you are ready to attach a procedure.',
+      }
+    }
+    if (checklistState === 'complete') {
+      return {
+        eyebrow: 'CHECKLIST',
+        currentLabel: 'Checklist complete',
+        currentDescription: `${checklistCompleteCount} of ${checklistTotal} checklist steps are complete or not applicable.`,
+        nextLabel: workStatus === 'qc' ? 'Complete Final QC' : 'Review readiness',
+        nextDescription: workStatus === 'qc'
+          ? 'Review the readiness checks below and capture any final evidence before closing Work.'
+          : 'Review exceptions below. Use Timing if required, then return to the Job Card when this Work is ready for Final QC.',
+      }
+    }
+    return {
+      eyebrow: 'CURRENT STEP',
+      currentLabel: currentStep?.label ?? 'No open checklist step',
+      currentDescription: currentStep?.description || (currentStep ? `Status: ${currentStep.status.replaceAll('_', ' ')}` : 'No actionable checklist step is currently available.'),
+      nextLabel: nextStep?.label ?? 'No next step',
+      nextDescription: nextStep?.description || (nextStep ? `Status: ${nextStep.status.replaceAll('_', ' ')}` : 'Finish or update the current step to advance.'),
+    }
+  }, [checklistState, checklistCompleteCount, checklistTotal, workStatus, currentStep, nextStep])
 
   async function loadSessions() {
     if (!workspaceId || !workId) return
@@ -149,7 +186,7 @@ export default function BenchModePanel({
   async function finishSession() {
     if (!activeSession || saving) return
     setSaving(true)
-    setMessage('Finishing bench session…')
+    setMessage('Ending bench session…')
     const result = await supabase.rpc('finish_work_session', {
       p_workspace_id: workspaceId,
       p_session_id: activeSession.id,
@@ -157,7 +194,7 @@ export default function BenchModePanel({
     })
     setSaving(false)
     if (result.error) {
-      setMessage(`Bench session could not finish: ${result.error.message}`)
+      setMessage(`Bench session could not end: ${result.error.message}`)
       return
     }
     setSessionNote('')
@@ -165,7 +202,7 @@ export default function BenchModePanel({
     setIntelligenceRefresh((value) => value + 1)
     await onWorkChanged()
     setBenchOpen(false)
-    setMessage('Bench time saved. Work status was left unchanged.')
+    setMessage('Bench session ended and time saved. Work status was left unchanged.')
   }
 
   const canStart = !activeSession && !['complete', 'cancelled'].includes(workStatus)
@@ -177,7 +214,7 @@ export default function BenchModePanel({
           <div>
             <p className="eyebrow">BENCH MODE</p>
             <h3>{activeSession ? 'Session running' : 'Hands-on workshop session'}</h3>
-            <p className="muted">Bench time is recorded against this Work. Starting a session moves the Work to On bench; finishing it does not choose the next workflow state for you.</p>
+            <p className="muted">Bench time is recorded against this Work. Starting a session moves the Work to On bench; ending it does not choose the next workflow state for you.</p>
           </div>
           <div className={`bench-mode-session-state ${activeSession ? 'active' : ''}`}>
             <span>{activeSession ? 'LIVE' : 'RECORDED'}</span>
@@ -187,14 +224,14 @@ export default function BenchModePanel({
 
         <div className="bench-mode-step-preview">
           <div>
-            <span>Current</span>
-            <strong>{currentStep?.label ?? 'No open checklist step'}</strong>
-            <p>{currentStep?.description || (currentStep ? `Status: ${currentStep.status.replaceAll('_', ' ')}` : 'The checklist has no remaining open step.')}</p>
+            <span>{benchState.eyebrow}</span>
+            <strong>{benchState.currentLabel}</strong>
+            <p>{benchState.currentDescription}</p>
           </div>
           <div>
-            <span>Next</span>
-            <strong>{nextStep?.label ?? 'No next step'}</strong>
-            <p>{nextStep?.description || (nextStep ? `Status: ${nextStep.status.replaceAll('_', ' ')}` : 'Finish or update the current step to advance.')}</p>
+            <span>NEXT</span>
+            <strong>{benchState.nextLabel}</strong>
+            <p>{benchState.nextDescription}</p>
           </div>
         </div>
 
@@ -209,7 +246,7 @@ export default function BenchModePanel({
         <div className="bench-mode-actions">
           {canStart && <button type="button" onClick={() => void startSession()} disabled={saving}>{saving ? 'Starting…' : 'Start Bench Session'}</button>}
           {activeSession && <button type="button" onClick={() => setBenchOpen(true)} disabled={saving}>Open Bench Mode</button>}
-          {activeSession && <button type="button" className="secondary" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Finishing…' : 'Finish Session'}</button>}
+          {activeSession && <button type="button" className="secondary" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Ending…' : 'End Bench Session'}</button>}
           {!canStart && !activeSession && <span className="muted">Bench sessions are closed for {workStatus.replaceAll('_', ' ')} Work.</span>}
         </div>
 
@@ -248,20 +285,12 @@ export default function BenchModePanel({
             </header>
 
             <main className="bench-mode-focus">
-              <section className="bench-mode-current-step">
-                <span>CURRENT STEP</span>
-                <h1>{currentStep?.label ?? 'No open checklist step'}</h1>
-                <p>{currentStep?.description || 'The current Work checklist has no remaining open step.'}</p>
-                {currentStep && <small>{currentStep.status.replaceAll('_', ' ')}</small>}
+              <section className={`bench-mode-current-step state-${checklistState}`}>
+                <span>{benchState.eyebrow}</span>
+                <h1>{benchState.currentLabel}</h1>
+                <p>{benchState.currentDescription}</p>
+                {currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}
               </section>
-
-              <section className="bench-mode-next-step">
-                <span>NEXT</span>
-                <strong>{nextStep?.label ?? 'No next step'}</strong>
-                <p>{nextStep?.description || 'The current checklist state does not expose another open step yet.'}</p>
-              </section>
-
-              <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />
 
               <BenchQuickCapture
                 workspaceId={workspaceId}
@@ -271,11 +300,19 @@ export default function BenchModePanel({
                 currentStep={currentStep}
                 onSaved={refreshEvidence}
               />
+
+              <section className="bench-mode-next-step">
+                <span>NEXT</span>
+                <strong>{benchState.nextLabel}</strong>
+                <p>{benchState.nextDescription}</p>
+              </section>
+
+              <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />
             </main>
 
             <footer>
               <button type="button" className="secondary" onClick={() => setBenchOpen(false)}>Back to Job Card</button>
-              <button type="button" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Finishing…' : 'Finish Session'}</button>
+              <button type="button" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Ending…' : 'End Bench Session'}</button>
             </footer>
           </div>
         </div>
