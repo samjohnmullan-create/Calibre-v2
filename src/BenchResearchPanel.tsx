@@ -56,7 +56,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       supabase.from('work_records').select('id,work_number,title,work_type,status,diagnosis,blocker,next_action,induction_status,job_plan_status').eq('workspace_id', workspaceId).eq('id', workId).single(),
       supabase.from('work_findings').select('id,finding_type,severity,title,details,status,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: true }),
       supabase.from('work_plan_actions').select('action_key,label,status,notes,sequence').eq('workspace_id', workspaceId).eq('work_id', workId).order('sequence'),
-      supabase.from('work_part_needs').select('part_type,description,status,quantity_required,notes').eq('workspace_id', workspaceId).eq('work_record_id', workId),
+      supabase.from('work_part_needs').select('part_type,description,status,created_at,updated_at').eq('workspace_id', workspaceId).eq('work_record_id', workId),
       supabase.from('timing_runs').select('checkpoint,bph,rate_seconds_per_day,beat_error_ms,lift_angle_deg,position,duration_seconds,confidence,device,notes,recorded_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('recorded_at', { ascending: false }).limit(40),
       supabase.from('media_assets').select('category,caption,original_filename,storage_path,is_cover').eq('workspace_id', workspaceId).eq('item_id', itemId).order('is_cover', { ascending: false }).order('created_at', { ascending: true }).limit(24),
     ])
