@@ -10,11 +10,10 @@ type ChecklistStep = { id: string; required: boolean; status: string }
 
 type Props = { workspaceId: string; itemId: string; workId: string }
 
-const statuses: { value: QcStatus; label: string }[] = [
+const releaseStatuses: { value: Exclude<QcStatus, 'na'>; label: string }[] = [
   { value: 'pending', label: 'Pending' },
-  { value: 'passed', label: 'Passed' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'na', label: 'N/A' },
+  { value: 'passed', label: 'Release approved' },
+  { value: 'failed', label: 'Hold / not ready' },
 ]
 
 export default function WorkQcPanel({ workspaceId, itemId, workId }: Props) {
@@ -41,7 +40,7 @@ export default function WorkQcPanel({ workspaceId, itemId, workId }: Props) {
     setLoading(false)
     const error = checksResult.error ?? workResult.error ?? needsResult.error ?? checklistResult.error ?? timingResult.error
     if (error) {
-      setMessage(`QC could not be loaded: ${error.message}`)
+      setMessage(`Release state could not be loaded: ${error.message}`)
       return
     }
     const nextWork = workResult.data as WorkState
@@ -56,43 +55,45 @@ export default function WorkQcPanel({ workspaceId, itemId, workId }: Props) {
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId])
 
+  const releaseCheck = useMemo(() => checks.find((check) => check.check_key === 'release_signoff') ?? null, [checks])
+  const legacyChecks = useMemo(() => checks.filter((check) => check.check_key !== 'release_signoff'), [checks])
+
   const readiness = useMemo(() => {
     const checklistOpen = checklist.filter((step) => step.required && !['done', 'na'].includes(step.status)).length
-    const qcRemaining = checks.filter((check) => check.required && !['passed', 'na'].includes(check.status)).length
-    const failed = checks.filter((check) => check.status === 'failed').length
     const partsOpen = needs.filter((need) => ['open', 'reserved'].includes(need.status)).length
     const summaryMissing = !completionSummary.trim()
+    const releaseApproved = releaseCheck?.status === 'passed' && Boolean(releaseCheck.checked_at)
     return {
       checklistOpen,
-      qcRemaining,
-      failed,
       partsOpen,
       summaryMissing,
-      ready: checks.length > 0 && checklistOpen === 0 && qcRemaining === 0 && partsOpen === 0 && !summaryMissing,
+      releaseApproved,
+      ready: checklistOpen === 0 && partsOpen === 0 && !summaryMissing && releaseApproved,
     }
-  }, [checks, needs, checklist, completionSummary])
+  }, [releaseCheck, needs, checklist, completionSummary])
 
-  async function prepareQc() {
+  async function prepareRelease() {
     setSaving(true)
     const { data, error } = await supabase.rpc('initialize_work_qc', { p_workspace_id: workspaceId, p_work_id: workId })
     setSaving(false)
     if (error) {
-      setMessage(`QC could not be prepared: ${error.message}`)
+      setMessage(`Release sign-off could not be prepared: ${error.message}`)
       return
     }
-    setMessage(`${Number(data ?? 0)} QC check${Number(data ?? 0) === 1 ? '' : 's'} added.`)
+    setMessage(Number(data ?? 0) > 0 ? 'Release sign-off prepared.' : 'Release sign-off is already prepared.')
     await load()
   }
 
-  async function updateCheck(check: QcCheck, patch: Partial<Pick<QcCheck, 'status' | 'result_text' | 'evidence_note'>>) {
+  async function updateRelease(patch: Partial<Pick<QcCheck, 'status' | 'result_text' | 'evidence_note'>>) {
+    if (!releaseCheck) return
     setSaving(true)
     const { error } = await supabase.from('work_qc_checks').update({
       ...patch,
       updated_at: new Date().toISOString(),
-    }).eq('workspace_id', workspaceId).eq('id', check.id)
+    }).eq('workspace_id', workspaceId).eq('id', releaseCheck.id)
     setSaving(false)
     if (error) {
-      setMessage(`QC check could not be updated: ${error.message}`)
+      setMessage(`Release sign-off could not be updated: ${error.message}`)
       return
     }
     await load()
@@ -110,7 +111,7 @@ export default function WorkQcPanel({ workspaceId, itemId, workId }: Props) {
       setMessage(`Completion summary could not be saved: ${error.message}`)
       return
     }
-    setMessage('Completion summary saved.')
+    setMessage('Completion record saved.')
     await load()
   }
 
@@ -128,37 +129,42 @@ export default function WorkQcPanel({ workspaceId, itemId, workId }: Props) {
       setMessage(`Work could not be completed: ${error.message}`)
       return
     }
-    setMessage('Work completed. Required workshop evidence and signed QC were accepted.')
+    setMessage('Work completed. Final Verification and Release sign-off were accepted.')
     await load()
   }
 
-  if (loading) return <section className="section-card qc-card">Loading QC…</section>
+  if (loading) return <section className="section-card qc-card">Loading release state…</section>
 
   return (
     <section className="section-card qc-card">
       <div className="qc-heading">
-        <div><p className="eyebrow">QC & COMPLETION</p><h3>Final evidence and sign-off</h3><p className="muted">Completion is blocked until required checklist steps, QC, open parts and the completion summary are resolved. QC decisions are stamped to the authenticated user.</p></div>
-        <span className={readiness.ready ? 'qc-ready' : 'qc-not-ready'}>{work?.status === 'complete' ? 'Completed' : readiness.ready ? 'Ready' : 'Not ready'}</span>
+        <div><p className="eyebrow">RELEASE</p><h3>Final sign-off</h3><p className="muted">Final Verification contains the actual function, timing, presentation and evidence checks. Release is deliberately short: review that work, record the outcome, then approve the watch to leave the workshop.</p></div>
+        <span className={readiness.ready ? 'qc-ready' : 'qc-not-ready'}>{work?.status === 'complete' ? 'Completed' : readiness.ready ? 'Ready to close' : 'Not ready'}</span>
       </div>
 
       {message && <p className="qc-message">{message}</p>}
 
       <div className="qc-readiness">
-        <div><span>Checklist</span><strong>{readiness.checklistOpen ? `${readiness.checklistOpen} required` : 'Clear'}</strong></div>
-        <div><span>Required QC</span><strong>{checks.length ? `${readiness.qcRemaining} remaining` : 'Not prepared'}</strong></div>
+        <div><span>Final Verification</span><strong>{readiness.checklistOpen ? `${readiness.checklistOpen} required` : 'Clear'}</strong></div>
         <div><span>Parts</span><strong>{readiness.partsOpen ? `${readiness.partsOpen} unresolved` : 'Clear'}</strong></div>
         <div><span>Timing evidence</span><strong>{timingCount ? `${timingCount} run${timingCount === 1 ? '' : 's'}` : 'None'}</strong></div>
-        <div><span>Summary</span><strong>{readiness.summaryMissing ? 'Missing' : 'Ready'}</strong></div>
+        <div><span>Completion summary</span><strong>{readiness.summaryMissing ? 'Missing' : 'Ready'}</strong></div>
+        <div><span>Release</span><strong>{releaseCheck ? releaseCheck.status === 'passed' ? 'Approved' : releaseCheck.status === 'failed' ? 'On hold' : 'Pending' : 'Not prepared'}</strong></div>
       </div>
 
-      {checks.length === 0 ? (
-        <div className="qc-empty"><p className="muted">Prepare QC to create the permanent checks for this Work type. Moving a workshop job into QC also creates them automatically.</p><button type="button" disabled={saving} onClick={() => void prepareQc()}>{saving ? 'Preparing…' : 'Prepare QC'}</button></div>
+      {!releaseCheck ? (
+        <div className="qc-empty"><p className="muted">Prepare the final Release sign-off. Workshop tests are not duplicated here; they remain in Final Verification.</p><button type="button" disabled={saving} onClick={() => void prepareRelease()}>{saving ? 'Preparing…' : 'Prepare Release'}</button></div>
       ) : (
-        <div className="qc-list">{checks.map((check) => <article className={`qc-check qc-${check.status}`} key={check.id}>
-          <div className="qc-check-top"><div><strong>{check.label}{check.required ? <span title="Required"> •</span> : null}</strong><small>{check.check_key === 'final_timing' && !timingCount ? 'No timing run is currently recorded.' : check.checked_at ? `Signed ${new Date(check.checked_at).toLocaleString('en-AU')}` : 'Awaiting check'}</small></div><select value={check.status} disabled={saving || work?.status === 'complete'} onChange={(event) => void updateCheck(check, { status: event.target.value as QcStatus })}>{statuses.map((status) => <option value={status.value} key={status.value}>{status.label}</option>)}</select></div>
-          <div className="qc-check-fields"><label>Result<input disabled={work?.status === 'complete'} defaultValue={check.result_text} onBlur={(event) => { if (event.target.value !== check.result_text) void updateCheck(check, { result_text: event.target.value.trim() }) }} placeholder="What was observed or tested?" /></label><label>Evidence note<input disabled={work?.status === 'complete'} defaultValue={check.evidence_note} onBlur={(event) => { if (event.target.value !== check.evidence_note) void updateCheck(check, { evidence_note: event.target.value.trim() }) }} placeholder="Measurement, photo reference, exception or reason for N/A…" /></label></div>
-        </article>)}</div>
+        <article className={`qc-check qc-${releaseCheck.status}`}>
+          <div className="qc-check-top"><div><strong>Release approval</strong><small>{releaseCheck.checked_at ? `Signed ${new Date(releaseCheck.checked_at).toLocaleString('en-AU')}` : 'Review Final Verification before approval'}</small></div><select value={releaseCheck.status === 'na' ? 'pending' : releaseCheck.status} disabled={saving || work?.status === 'complete'} onChange={(event) => void updateRelease({ status: event.target.value as Exclude<QcStatus, 'na'> })}>{releaseStatuses.map((status) => <option value={status.value} key={status.value}>{status.label}</option>)}</select></div>
+          <div className="qc-check-fields">
+            <label>Release result<input disabled={work?.status === 'complete'} defaultValue={releaseCheck.result_text} onBlur={(event) => { if (event.target.value !== releaseCheck.result_text) void updateRelease({ result_text: event.target.value.trim() }) }} placeholder="Released, held, returned to bench…" /></label>
+            <label>Release note / caveats<input disabled={work?.status === 'complete'} defaultValue={releaseCheck.evidence_note} onBlur={(event) => { if (event.target.value !== releaseCheck.evidence_note) void updateRelease({ evidence_note: event.target.value.trim() }) }} placeholder="Any caveat the final record should retain…" /></label>
+          </div>
+        </article>
       )}
+
+      {legacyChecks.length > 0 && <details className="qc-empty"><summary>Previous QC records · {legacyChecks.length}</summary><div className="qc-list">{legacyChecks.map((check) => <article className={`qc-check qc-${check.status}`} key={check.id}><div className="qc-check-top"><div><strong>{check.label}</strong><small>Legacy QC record · preserved for history</small></div><span>{check.status.replaceAll('_', ' ')}</span></div></article>)}</div></details>}
 
       <div className="qc-completion-fields">
         <label>Work performed<textarea disabled={work?.status === 'complete'} rows={3} value={repairPerformed} onChange={(event) => setRepairPerformed(event.target.value)} placeholder="What was actually repaired, serviced, replaced or adjusted?" /></label>
@@ -168,7 +174,7 @@ export default function WorkQcPanel({ workspaceId, itemId, workId }: Props) {
         <button type="button" disabled={saving || work?.status === 'complete'} onClick={() => void saveCompletion()}>{saving ? 'Saving…' : 'Save completion record'}</button>
         <button type="button" className="primary" disabled={saving || !readiness.ready || work?.status === 'complete'} onClick={() => void completeWork()}>{work?.status === 'complete' ? 'Work completed' : saving ? 'Completing…' : 'Complete Work'}</button>
       </div>
-      {!readiness.ready && work?.status !== 'complete' && <p className="muted">Complete Work unlocks only when the checklist, required QC, parts and completion summary are clear. The database re-checks the same evidence before accepting completion.</p>}
+      {!readiness.ready && work?.status !== 'complete' && <p className="muted">Complete Work unlocks when required procedure/Final Verification stages are clear, parts are resolved, the completion summary is saved and Release is approved. The database independently enforces the same gate.</p>}
     </section>
   )
 }
