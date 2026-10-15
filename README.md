@@ -1,8 +1,16 @@
-# Calibre v2
+# Calibre & Co.
 
-Clean rebuild of Calibre & Co.
+**Canonical Calibre application.**
 
 > **Product direction:** Calibre is the operating system for the workshop, inventory, research and resale business.
+
+The original `CalibreOI` repository is retired. All active product development and production releases now originate from this repository.
+
+## Production
+
+Target production URL: `https://app.calibreco.com.au`
+
+GitHub Pages deployment is built from `main` through `.github/workflows/deploy-pages.yml`.
 
 ## Source of truth
 
@@ -19,6 +27,7 @@ Update that roadmap when a phase is accepted, deferred, reordered or materially 
 - Supabase is authoritative.
 - No legacy `jobs`, `currentId`, or browser-owned master state.
 - Internal data remains private; future public/customer pages use a sanitised projection.
+- Evidence, confidence and history are preserved rather than replaced by guessed certainty.
 
 ## Backend
 
@@ -35,14 +44,24 @@ Calibre currently uses email OTP sign-in:
 3. Enter the **8-digit** code from the email.
 4. The Supabase session is restored on subsequent visits until signed out/expired.
 
-## Current product state — 12 October 2026
+## Current product state — 15 October 2026
+
+Current `main` includes:
 
 - responsive phone + DeX/desktop shell;
 - live Items workspace and Item editing;
-- Workbench trays with persistent status/priority/next-action/blockers;
-- real Oris acceptance Item/Work record;
-- Photos/Media implementation in acceptance testing;
-- Passport, Research, Knowledge Engine, donor/parts intelligence, deeper commerce and Timegrapher v2 remain on the roadmap.
+- Workbench command-centre foundations;
+- Bench Mode with session timing and quick capture;
+- Pause / Resume / Remove from Bench lifecycle controls;
+- structured measurements, Part Needs and workshop evidence;
+- smart Bench exceptions and readiness checks;
+- sourced Bench Knowledge tied to Passport movement data;
+- native AudioWorklet Timegrapher with Work-linked timing checkpoints;
+- Parts reservation, fit evidence, consumption and fulfilment;
+- storage/location history and Needs Put-away;
+- Item economics, Stock, Listings, Sales, Costs and Business Ledger;
+- Archive / Trash / Restore and guarded permanent deletion;
+- unified search across core domains.
 
 ## Local development
 
