@@ -1,0 +1,17 @@
+.bench-exceptions-card{display:grid;gap:12px;padding:14px;border:1px solid rgba(135,151,156,.2);border-radius:12px;background:rgba(14,21,25,.44)}
+.bench-exceptions-card.clear>div,.bench-exception{display:grid;grid-template-columns:32px minmax(0,1fr);align-items:start;gap:10px}
+.bench-exceptions-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bench-exceptions-heading h3,.bench-exceptions-heading p,.bench-exception p,.bench-exceptions-card.clear p{margin:0}
+.bench-exceptions-heading>span{min-width:28px;height:28px;display:grid;place-items:center;border-radius:999px;background:rgba(255,255,255,.055);color:var(--calibre-muted,#9aa7ab);font-size:12px;font-weight:700}
+.bench-exceptions-list{display:grid;gap:8px}
+.bench-exception{padding:11px 12px;border:1px solid rgba(135,151,156,.18);border-radius:10px;background:rgba(255,255,255,.025)}
+.bench-exception.critical{border-color:rgba(198,91,80,.42);background:rgba(198,91,80,.07)}
+.bench-exception.warning{border-color:rgba(214,167,95,.38);background:rgba(214,167,95,.065)}
+.bench-exception.success,.bench-exceptions-card.clear{border-color:rgba(102,166,130,.34);background:rgba(102,166,130,.055)}
+.bench-exception-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.06);font-weight:800}
+.bench-exception>div,.bench-exceptions-card.clear>div>div{display:grid;gap:4px;min-width:0}
+.bench-exception strong,.bench-exceptions-card.clear strong{font-size:13px}
+.bench-exception p,.bench-exceptions-card.clear p{color:var(--calibre-muted,#9aa7ab);font-size:11px;line-height:1.45}
+.bench-exception button{justify-self:start;margin-top:4px}
+.bench-mode-focus>.bench-exceptions-card{width:100%}
+@media(max-width:820px){.bench-exceptions-card{padding:12px}.bench-exception{padding:10px}.bench-exceptions-heading h3{font-size:16px}}
