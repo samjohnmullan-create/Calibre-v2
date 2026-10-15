@@ -19,7 +19,6 @@ type WorkRecord = {
   status: WorkStatus
   waiting_reason: string | null
   priority: number
-  next_action: string
   blocker: string
   diagnosis: string
   repair_performed: string
@@ -76,14 +75,6 @@ const workStatuses: { value: WorkStatus; label: string }[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-const stepStatuses: { value: StepStatus; label: string }[] = [
-  { value: 'not_started', label: 'Not started' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'done', label: 'Done' },
-  { value: 'na', label: 'N/A' },
-  { value: 'blocked', label: 'Blocked' },
-]
-
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -96,7 +87,6 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
-  const [nextAction, setNextAction] = useState('')
   const [notes, setNotes] = useState('')
   const [locations, setLocations] = useState<StorageLocation[]>([])
   const [storageLocationId, setStorageLocationId] = useState<string | null>(null)
@@ -135,7 +125,7 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     setLoading(true)
     const { data, error } = await supabase
       .from('work_records')
-      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,repair_performed,notes,template_id,induction_status,job_plan_status,induction_started_at,induction_completed_at,opened_at,started_at,completed_at')
+      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,blocker,diagnosis,repair_performed,notes,template_id,induction_status,job_plan_status,induction_started_at,induction_completed_at,opened_at,started_at,completed_at')
       .eq('workspace_id', workspaceId)
       .eq('item_id', itemId)
       .order('work_number', { ascending: false })
@@ -200,12 +190,10 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     if (!selected) {
       setSteps([])
       setDiagnosis('')
-      setNextAction('')
       setNotes('')
       return
     }
     setDiagnosis(selected.diagnosis || '')
-    setNextAction(selected.next_action || '')
     setNotes(selected.notes || '')
     void loadSteps(selected.id)
   }, [selected?.id])
@@ -320,7 +308,6 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     setSaving(true)
     const { error } = await supabase.from('work_records').update({
       diagnosis: diagnosis.trim(),
-      next_action: nextAction.trim(),
       notes: notes.trim(),
       updated_at: new Date().toISOString(),
     }).eq('workspace_id', workspaceId).eq('id', selected.id)
@@ -329,26 +316,8 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
       setMessage(`Job notes could not be saved: ${error.message}`)
       return
     }
-    setMessage('Job notes saved.')
+    setMessage('Job notes saved. Next Workshop Action remains calculated by Calibre.')
     await loadWork(selected.id)
-  }
-
-  async function updateStep(step: ChecklistStep, status: StepStatus) {
-    if (saving) return
-    setSaving(true)
-    const now = new Date().toISOString()
-    const patch: Record<string, unknown> = { status, updated_at: now }
-    if ((status === 'in_progress' || status === 'done' || status === 'blocked') && !step.started_at) patch.started_at = now
-    if (status === 'done' || status === 'na') patch.completed_at = now
-    else patch.completed_at = null
-    if (status !== 'blocked') patch.blocked_reason = ''
-    const { error } = await supabase.from('work_checklist_steps').update(patch).eq('workspace_id', workspaceId).eq('id', step.id)
-    setSaving(false)
-    if (error) {
-      setMessage(`Checklist step could not be updated: ${error.message}`)
-      return
-    }
-    await loadSteps(step.work_id)
   }
 
   async function saveStepText(step: ChecklistStep, field: 'notes' | 'blocked_reason', value: string) {
@@ -396,7 +365,6 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
 
         <div className="work-job-fields">
           <label>Diagnosis<textarea rows={3} value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} placeholder="Diagnosis develops from induction findings and workshop evidence…" /></label>
-          <label>Next action<input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="What should happen next?" /></label>
           <label className="span-2">Job notes<textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Workshop notes that belong to this Work record…" /></label>
         </div>
         <div className="work-job-save-row"><button type="button" onClick={saveWorkNotes} disabled={saving}>{saving ? 'Saving…' : 'Save job notes'}</button></div>
@@ -410,14 +378,14 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
       {showProcedureChecklist && (
         <section className="section-card work-job-checklist-card">
           <div className="work-job-checklist-heading">
-            <div><p className="eyebrow">WORK PLAN CHECKLIST</p><h3>{steps.length ? `${progress.completed} of ${progress.total} steps cleared` : 'No procedure steps'}</h3></div>
+            <div><p className="eyebrow">JOB PLAN OVERVIEW</p><h3>{steps.length ? `${progress.completed} of ${progress.total} stages cleared` : 'No procedure stages'}</h3><p className="muted">Stage progression is controlled by the guided Bench workflow. Complete required checks there before Calibre will close a stage.</p></div>
             {steps.length > 0 && <div className="work-job-progress-meta"><strong>{progress.percent}%</strong><span>{progress.requiredOpen} required remaining</span></div>}
           </div>
 
           {steps.length > 0 && <div className="work-job-progress"><span style={{ width: `${progress.percent}%` }} /></div>}
 
           {steps.length === 0 ? (
-            <div className="work-job-no-checklist"><p className="muted">The job plan is applied but there are no generated checklist steps. Review the plan or continue with documented ad-hoc work.</p></div>
+            <div className="work-job-no-checklist"><p className="muted">The job plan is applied but there are no generated procedure stages. Review the plan or continue with documented ad-hoc work.</p></div>
           ) : (
             <div className="work-job-sections">
               {grouped.map(([section, sectionSteps]) => (
@@ -428,7 +396,7 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
                       <article className={`work-job-step step-${step.status}`} key={step.id}>
                         <div className="work-job-step-main">
                           <div className="work-job-step-copy"><strong>{step.label}{step.required ? <span className="required-dot" title="Required">•</span> : null}</strong>{step.description && <p>{step.description}</p>}</div>
-                          <select aria-label={`${step.label} status`} value={step.status} disabled={saving} onChange={(event) => void updateStep(step, event.target.value as StepStatus)}>{stepStatuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+                          <span className={`status-pill status-${step.status}`}>{titleCase(step.status)}</span>
                         </div>
                         <details className="work-job-step-notes">
                           <summary>Notes{step.notes ? ' · saved' : ''}{step.status === 'blocked' && step.blocked_reason ? ' · blocker saved' : ''}</summary>
