@@ -5,9 +5,19 @@ import './bench-quick-capture.css'
 type ActionKey = 'note' | 'measurement' | 'part' | 'timing' | 'blocked' | null
 type StepSummary = { id: string; label: string; description: string; status: string }
 type WaitingReason = 'parts' | 'research' | 'external_service' | 'customer' | 'tool_equipment' | 'other'
+type TimingCheckpoint = 'pre_service' | 'post_reassembly' | 'regulation' | 'final_qc' | 'other'
 
 function safeName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'bench-photo'
+}
+
+function suggestCheckpoint(step: StepSummary | null): TimingCheckpoint {
+  const text = `${step?.label ?? ''} ${step?.description ?? ''}`.toLowerCase()
+  if (/final|qc|quality|timing.*final/.test(text)) return 'final_qc'
+  if (/regulat|adjust.*rate|positional/.test(text)) return 'regulation'
+  if (/reassembl|assembly|first.*run|post.?service/.test(text)) return 'post_reassembly'
+  if (/intake|baseline|pre.?service|before.*service|initial.*timing/.test(text)) return 'pre_service'
+  return 'other'
 }
 
 export default function BenchQuickCapture({
@@ -37,6 +47,7 @@ export default function BenchQuickCapture({
   const [measurementNotes, setMeasurementNotes] = useState('')
   const [partType, setPartType] = useState('')
   const [partDescription, setPartDescription] = useState('')
+  const [checkpoint, setCheckpoint] = useState<TimingCheckpoint>('other')
   const [bph, setBph] = useState('18000')
   const [rate, setRate] = useState('')
   const [beatError, setBeatError] = useState('')
@@ -49,6 +60,15 @@ export default function BenchQuickCapture({
     setActiveAction(null)
     setMessage(successMessage)
     await onSaved()
+  }
+
+  function toggleTiming() {
+    if (activeAction === 'timing') {
+      setActiveAction(null)
+      return
+    }
+    setCheckpoint(suggestCheckpoint(currentStep))
+    setActiveAction('timing')
   }
 
   async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -191,6 +211,7 @@ export default function BenchQuickCapture({
       workspace_id: workspaceId,
       item_id: itemId,
       work_id: workId,
+      checkpoint,
       bph: parsedBph,
       rate_seconds_per_day: parsedRate,
       beat_error_ms: parsedBeatError,
@@ -209,7 +230,7 @@ export default function BenchQuickCapture({
     setRate('')
     setBeatError('')
     setTimingNotes('')
-    await finishAction('Timing run saved.')
+    await finishAction(`${checkpoint.replaceAll('_', ' ')} timing run saved.`)
   }
 
   async function saveBlocked(event: FormEvent) {
@@ -286,7 +307,7 @@ export default function BenchQuickCapture({
         <button type="button" className={activeAction === 'note' ? 'active' : ''} onClick={() => setActiveAction(activeAction === 'note' ? null : 'note')}><span>✎</span><strong>Note</strong></button>
         <button type="button" className={activeAction === 'measurement' ? 'active' : ''} onClick={() => setActiveAction(activeAction === 'measurement' ? null : 'measurement')}><span>⌖</span><strong>Measure</strong></button>
         <button type="button" className={activeAction === 'part' ? 'active' : ''} onClick={() => setActiveAction(activeAction === 'part' ? null : 'part')}><span>⚙</span><strong>Part needed</strong></button>
-        <button type="button" className={activeAction === 'timing' ? 'active' : ''} onClick={() => setActiveAction(activeAction === 'timing' ? null : 'timing')}><span>◷</span><strong>Timing</strong></button>
+        <button type="button" className={activeAction === 'timing' ? 'active' : ''} onClick={toggleTiming}><span>◷</span><strong>Timing</strong></button>
         <button type="button" className={`warning ${activeAction === 'blocked' ? 'active' : ''}`} onClick={() => setActiveAction(activeAction === 'blocked' ? null : 'blocked')}><span>!</span><strong>Blocked</strong></button>
       </div>
 
@@ -319,6 +340,7 @@ export default function BenchQuickCapture({
 
       {activeAction === 'timing' && (
         <form className="bench-quick-form bench-quick-form-grid" onSubmit={saveTiming}>
+          <label>Checkpoint<select value={checkpoint} onChange={(event) => setCheckpoint(event.target.value as TimingCheckpoint)}><option value="pre_service">Pre-service</option><option value="post_reassembly">Post-reassembly</option><option value="regulation">Regulation</option><option value="final_qc">Final QC</option><option value="other">Other</option></select></label>
           <label>BPH<input inputMode="numeric" value={bph} onChange={(event) => setBph(event.target.value)} /></label>
           <label>Rate s/day<input autoFocus inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} placeholder="+12" /></label>
           <label>Beat error ms<input inputMode="decimal" value={beatError} onChange={(event) => setBeatError(event.target.value)} placeholder="0.6" /></label>
