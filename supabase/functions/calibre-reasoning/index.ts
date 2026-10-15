@@ -163,9 +163,14 @@ Deno.serve(async (req: Request) => {
   const { data: rules, error: rulesError } = await supabase.from("knowledge_rules")
     .select("id,rule_key,rule_text,severity,applies_to")
     .eq("active", true)
-    .or(`applies_to.eq.watch,applies_to.eq.mechanical,applies_to.eq.${encodeURIComponent(String(passport?.calibre ?? ""))}`)
     .limit(40);
-  if (!rulesError) knowledgeRules = rules ?? [];
+  if (!rulesError) {
+    const calibre = String(passport?.calibre ?? "").trim().toLowerCase();
+    knowledgeRules = (rules ?? []).filter((rule: any) => {
+      const applies = String(rule.applies_to ?? "").trim().toLowerCase();
+      return ["watch", "mechanical", "timegrapher", "balance_staff", "parts", "knowledge"].includes(applies) || (calibre && applies === calibre);
+    });
+  }
 
   const context = compact({
     work: {
