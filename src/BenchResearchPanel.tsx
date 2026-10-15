@@ -105,7 +105,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId])
   const latest = requests[0] ?? null
-  const active = useMemo(() => requests.find((row) => ['pending', 'processing', 'needs_input'].includes(row.status)) ?? null, [requests])
+  const active = useMemo(() => requests.find((row) => row.requested_scope.autonomous === true && ['pending', 'processing', 'needs_input'].includes(row.status)) ?? null, [requests])
   const latestFindings = useMemo(() => latest ? findings.filter((row) => row.research_request_id === latest.id) : [], [findings, latest])
   const sourceById = useMemo(() => new Map(sources.map((row) => [row.id, row])), [sources])
   const sourceIdsByFinding = useMemo(() => {
