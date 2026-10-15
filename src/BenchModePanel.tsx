@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import BenchQuickCapture from './BenchQuickCapture'
+import BenchLifecycleControls from './BenchLifecycleControls'
 import './bench-mode.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -111,6 +112,12 @@ export default function BenchModePanel({
     if (!activeSession) setBenchOpen(false)
   }, [activeSession?.id])
 
+  async function refreshAfterLifecycle() {
+    setBenchOpen(false)
+    await loadSessions()
+    await onWorkChanged()
+  }
+
   async function startSession() {
     if (saving || ['complete', 'cancelled'].includes(workStatus)) return
     setSaving(true)
@@ -193,6 +200,15 @@ export default function BenchModePanel({
           {activeSession && <button type="button" className="secondary" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Finishing…' : 'Finish Session'}</button>}
           {!canStart && !activeSession && <span className="muted">Bench sessions are closed for {workStatus.replaceAll('_', ' ')} Work.</span>}
         </div>
+
+        <BenchLifecycleControls
+          workspaceId={workspaceId}
+          itemId={itemId}
+          workId={workId}
+          fallbackStatus={workStatus}
+          activeSessionId={activeSession?.id ?? null}
+          onChanged={refreshAfterLifecycle}
+        />
 
         {message && <p className="bench-mode-message">{message}</p>}
 
