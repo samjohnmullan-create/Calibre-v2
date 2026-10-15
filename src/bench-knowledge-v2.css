@@ -1,0 +1,146 @@
+.bench-knowledge {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(135,151,156,.18);
+  border-radius: 14px;
+  background: rgba(12,18,22,.26);
+}
+
+.bench-knowledge-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bench-knowledge-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.bench-knowledge-heading > span {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(216,189,152,.25);
+  border-radius: 999px;
+  color: #dec6a7;
+  background: rgba(216,189,152,.06);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.bench-knowledge-list {
+  display: grid;
+  gap: 9px;
+}
+
+.bench-knowledge-card {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgba(135,151,156,.17);
+  border-radius: 11px;
+  background: rgba(255,255,255,.025);
+}
+
+.bench-knowledge-card.kind-movement {
+  border-color: rgba(216,189,152,.24);
+  background: rgba(216,189,152,.045);
+}
+
+.bench-knowledge-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bench-knowledge-card-top > span {
+  color: #dec6a7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.bench-knowledge-card-top > small,
+.bench-knowledge-source small,
+.bench-knowledge-footnote,
+.bench-knowledge-message {
+  color: var(--calibre-muted, #9aa7ab);
+}
+
+.bench-knowledge-card > p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.bench-knowledge-relation {
+  padding-top: 2px;
+  color: #b9c3c5;
+  font-size: 12px;
+}
+
+.bench-knowledge-source {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(135,151,156,.12);
+}
+
+.bench-knowledge-source > span {
+  color: var(--calibre-muted, #9aa7ab);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.bench-knowledge-source > strong {
+  min-width: 0;
+  font-size: 12px;
+}
+
+.bench-knowledge-source > small {
+  grid-column: 2;
+  font-size: 10px;
+}
+
+.bench-knowledge-source > a {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  color: #dec6a7;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.bench-knowledge-footnote,
+.bench-knowledge-message {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .bench-knowledge-heading {
+    align-items: flex-start;
+  }
+
+  .bench-knowledge-source {
+    grid-template-columns: 1fr;
+  }
+
+  .bench-knowledge-source > span,
+  .bench-knowledge-source > strong,
+  .bench-knowledge-source > small,
+  .bench-knowledge-source > a {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
