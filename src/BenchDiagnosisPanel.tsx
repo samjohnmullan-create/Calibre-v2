@@ -7,6 +7,9 @@ type Hypothesis = { id: string; finding_id: string | null; title: string; ration
 type Check = { id: string; hypothesis_id: string; label: string; instructions: string; sequence: number; status: 'suggested' | 'approved' | 'complete' | 'not_applicable'; result: string; source_ref: string }
 type Seed = { title: string; rationale: string; confidence: 'probable' | 'possible'; checks: { label: string; instructions: string }[] }
 
+const GENERIC_DIAGNOSIS = 'Further mechanical diagnosis required'
+const RESEARCH_CHECK = 'Request fault-specific research'
+
 function norm(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() }
 function titleCase(value: string) { return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) }
 
@@ -67,9 +70,9 @@ function seedsFor(finding: Finding): Seed[] {
   }
 
   if (seeds.length === 0) {
-    add({ title: 'Further mechanical diagnosis required', rationale: 'This finding does not yet match a narrow deterministic rule. Record discriminating observations and request research for movement-specific evidence.', confidence: 'possible', checks: [
+    add({ title: GENERIC_DIAGNOSIS, rationale: 'This finding does not yet match a narrow deterministic rule. Add the exact symptom or observation below, then refine the suggestions or request movement-specific research.', confidence: 'possible', checks: [
       { label: 'Describe the symptom precisely', instructions: 'Record when the symptom occurs, what changes it, and any related sound, feel, measurement or timing result.' },
-      { label: 'Request fault-specific research', instructions: 'Use Request Research so Calibre can check your Drive library, movement references, parts evidence and the live web.' },
+      { label: RESEARCH_CHECK, instructions: 'Use the Research tab above so Calibre can check your Drive library, movement references, parts evidence and the live web.' },
     ] })
   }
 
@@ -80,6 +83,8 @@ export default function BenchDiagnosisPanel({ workspaceId, itemId, workId, refre
   const [findings, setFindings] = useState<Finding[]>([])
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([])
   const [checks, setChecks] = useState<Check[]>([])
+  const [findingDrafts, setFindingDrafts] = useState<Record<string, string>>({})
+  const [checkDrafts, setCheckDrafts] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -98,10 +103,27 @@ export default function BenchDiagnosisPanel({ workspaceId, itemId, workId, refre
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId, refreshKey])
 
+  async function saveFindingDetails(finding: Finding) {
+    const details = (findingDrafts[finding.id] ?? finding.details).trim()
+    setBusy(true)
+    const result = await supabase.from('work_findings').update({ details, updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('id', finding.id)
+    setBusy(false)
+    if (result.error) return setMessage(`Observation could not be saved: ${result.error.message}`)
+    setMessage('Observation saved. Refine suggestions to use the new symptom detail.')
+    await load(); await onChanged?.()
+  }
+
   async function suggest(finding: Finding) {
-    if (busy || hypotheses.some((row) => row.finding_id === finding.id)) return
+    if (busy) return
+    const effectiveFinding = { ...finding, details: findingDrafts[finding.id] ?? finding.details }
+    const existingTitles = new Set(hypotheses.filter((row) => row.finding_id === finding.id).map((row) => row.title))
+    const seeds = seedsFor(effectiveFinding).filter((seed) => !existingTitles.has(seed.title))
+    if (seeds.length === 0) {
+      setMessage('No additional deterministic causes matched yet. Add more symptom detail or use Research for movement-specific evidence.')
+      return
+    }
+
     setBusy(true); setMessage('Creating possible causes and discriminating checks…')
-    const seeds = seedsFor(finding)
     for (const seed of seeds) {
       const inserted = await supabase.from('work_diagnostic_hypotheses').insert({ workspace_id: workspaceId, work_id: workId, item_id: itemId, finding_id: finding.id, title: seed.title, rationale: seed.rationale, confidence: seed.confidence, status: 'possible', source_kind: 'calibre_rule', source_ref: 'Calibre deterministic diagnostic rule v1 — verify against movement-specific evidence.' }).select('id').single()
       if (inserted.error || !inserted.data) { setBusy(false); setMessage(`Suggestion could not be saved: ${inserted.error?.message ?? 'No hypothesis returned.'}`); return }
@@ -111,7 +133,7 @@ export default function BenchDiagnosisPanel({ workspaceId, itemId, workId, refre
         if (checksInsert.error) { setBusy(false); setMessage(`Checks could not be saved: ${checksInsert.error.message}`); return }
       }
     }
-    setBusy(false); setMessage('Possible causes added. They remain unconfirmed until you verify them.'); await load(); await onChanged?.()
+    setBusy(false); setMessage('Possible causes updated. They remain unconfirmed until bench evidence supports them.'); await load(); await onChanged?.()
   }
 
   async function setHypothesisStatus(row: Hypothesis, status: Hypothesis['status']) {
@@ -122,10 +144,20 @@ export default function BenchDiagnosisPanel({ workspaceId, itemId, workId, refre
     await load(); await onChanged?.()
   }
 
-  async function setCheckStatus(row: Check, status: Check['status']) {
+  async function saveCheckResult(row: Check) {
+    const resultText = (checkDrafts[row.id] ?? row.result).trim()
+    if (!resultText) { setMessage('Describe what you observed before saving this diagnostic check.'); return }
     setBusy(true)
-    const patch = status === 'complete' ? { status, completed_at: new Date().toISOString(), completed_by: (await supabase.auth.getUser()).data.user?.id ?? null, updated_at: new Date().toISOString() } : { status, completed_at: null, completed_by: null, updated_at: new Date().toISOString() }
-    const result = await supabase.from('work_diagnostic_checks').update(patch).eq('workspace_id', workspaceId).eq('id', row.id)
+    const userId = (await supabase.auth.getUser()).data.user?.id ?? null
+    const result = await supabase.from('work_diagnostic_checks').update({ result: resultText, status: 'complete', completed_at: new Date().toISOString(), completed_by: userId, updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('id', row.id)
+    setBusy(false)
+    if (result.error) return setMessage(`Diagnostic observation could not be saved: ${result.error.message}`)
+    setMessage('Diagnostic observation saved.'); await load(); await onChanged?.()
+  }
+
+  async function setCheckNotApplicable(row: Check) {
+    setBusy(true)
+    const result = await supabase.from('work_diagnostic_checks').update({ status: row.status === 'not_applicable' ? 'suggested' : 'not_applicable', completed_at: null, completed_by: null, updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('id', row.id)
     setBusy(false)
     if (result.error) return setMessage(`Diagnostic check could not be updated: ${result.error.message}`)
     await load(); await onChanged?.()
@@ -136,20 +168,31 @@ export default function BenchDiagnosisPanel({ workspaceId, itemId, workId, refre
 
   return <section className="bench-guided-panel bench-diagnosis-panel">
     <div className="bench-guided-heading"><div><p className="eyebrow">DIAGNOSIS</p><strong>Findings → possible causes → checks</strong></div><span>{openFindings.length} open</span></div>
-    <p className="bench-guided-help">Calibre can suggest avenues to investigate, but a suggestion is not a diagnosis. Confirm or rule out causes only when the bench evidence supports it.</p>
+    <p className="bench-guided-help">Record what you actually observe. Calibre can suggest avenues to investigate, but a suggestion is not a diagnosis until the bench evidence supports it.</p>
     {openFindings.length === 0 && <p className="muted">No open findings yet. Problems recorded during induction or Bench capture will appear here.</p>}
     <div className="bench-diagnosis-findings">{openFindings.map((finding) => {
-      const rows = grouped.get(finding.id) ?? []
+      const allRows = grouped.get(finding.id) ?? []
+      const hasSpecific = allRows.some((row) => row.title !== GENERIC_DIAGNOSIS)
+      const rows = hasSpecific ? allRows.filter((row) => row.title !== GENERIC_DIAGNOSIS) : allRows
+      const detailValue = findingDrafts[finding.id] ?? finding.details
       return <article className="bench-diagnosis-finding" key={finding.id}>
-        <div className="bench-diagnosis-finding-head"><div><span>{titleCase(finding.finding_type)} · {titleCase(finding.severity)}</span><strong>{finding.title}</strong></div>{rows.length === 0 && <button type="button" disabled={busy} onClick={() => void suggest(finding)}>Suggest investigation</button>}</div>
-        {finding.details && <p>{finding.details}</p>}
+        <div className="bench-diagnosis-finding-head"><div><span>{titleCase(finding.finding_type)} · {titleCase(finding.severity)}</span><strong>{finding.title}</strong></div><button type="button" disabled={busy} onClick={() => void suggest(finding)}>{allRows.length === 0 ? 'Suggest investigation' : 'Refine suggestions'}</button></div>
+        <label className="bench-finding-observation"><span>What are you seeing?</span><textarea rows={3} value={detailValue} onChange={(event) => setFindingDrafts((current) => ({ ...current, [finding.id]: event.target.value }))} placeholder="Describe exactly what happens, when it happens, what changes it, and any sound, feel, measurement or timing result…" /><button type="button" className="secondary" disabled={busy || detailValue.trim() === finding.details.trim()} onClick={() => void saveFindingDetails(finding)}>Save observation</button></label>
         {rows.length > 0 && <div className="bench-hypothesis-list">{rows.map((row) => {
           const rowChecks = checks.filter((check) => check.hypothesis_id === row.id)
+          const isGeneric = row.title === GENERIC_DIAGNOSIS
           return <div className={`bench-hypothesis status-${row.status}`} key={row.id}>
             <div className="bench-hypothesis-head"><div><span>{row.status === 'possible' ? 'POSSIBLE — NOT CONFIRMED' : titleCase(row.status)}</span><strong>{row.title}</strong></div><em>{titleCase(row.confidence)}</em></div>
             <p>{row.rationale}</p>
-            {rowChecks.length > 0 && <div className="bench-diagnostic-checks">{rowChecks.map((check) => <div className={`bench-diagnostic-check status-${check.status}`} key={check.id}><div><strong>{check.label}</strong><p>{check.instructions}</p></div><div className="bench-diagnostic-check-actions"><button type="button" className={check.status === 'complete' ? 'selected' : 'secondary'} disabled={busy} onClick={() => void setCheckStatus(check, check.status === 'complete' ? 'suggested' : 'complete')}>{check.status === 'complete' ? 'Completed' : 'Mark checked'}</button><button type="button" className={check.status === 'not_applicable' ? 'selected' : 'secondary'} disabled={busy} onClick={() => void setCheckStatus(check, check.status === 'not_applicable' ? 'suggested' : 'not_applicable')}>N/A</button></div></div>)}</div>}
-            <div className="bench-hypothesis-actions"><button type="button" disabled={busy || row.status === 'confirmed'} onClick={() => void setHypothesisStatus(row, 'confirmed')}>Confirm cause</button><button type="button" className="secondary" disabled={busy || row.status === 'ruled_out'} onClick={() => void setHypothesisStatus(row, 'ruled_out')}>Rule out</button>{row.status !== 'possible' && <button type="button" className="secondary" disabled={busy} onClick={() => void setHypothesisStatus(row, 'possible')}>Reopen</button>}</div>
+            {rowChecks.length > 0 && <div className="bench-diagnostic-checks">{rowChecks.map((check) => {
+              const isResearchAction = check.label === RESEARCH_CHECK
+              const resultValue = checkDrafts[check.id] ?? check.result
+              return <div className={`bench-diagnostic-check status-${check.status}`} key={check.id}>
+                <div><strong>{check.label}</strong><p>{check.instructions}</p></div>
+                {isResearchAction ? <div className="bench-diagnostic-research-hint"><strong>Use the Research tab above</strong><span>Choose Full update or Technical research so the request includes this finding and the current job evidence.</span></div> : <label className="bench-diagnostic-result"><span>Observation / result</span><textarea rows={3} value={resultValue} onChange={(event) => setCheckDrafts((current) => ({ ...current, [check.id]: event.target.value }))} placeholder="What did you find when you checked this?" /><div className="bench-diagnostic-check-actions"><button type="button" disabled={busy || !resultValue.trim()} onClick={() => void saveCheckResult(check)}>{check.status === 'complete' ? 'Update result' : 'Save result'}</button><button type="button" className={check.status === 'not_applicable' ? 'selected' : 'secondary'} disabled={busy} onClick={() => void setCheckNotApplicable(check)}>{check.status === 'not_applicable' ? 'Marked N/A' : 'Not applicable'}</button></div></label>}
+              </div>
+            })}</div>}
+            {!isGeneric && <div className="bench-hypothesis-actions"><button type="button" disabled={busy || row.status === 'confirmed'} onClick={() => void setHypothesisStatus(row, 'confirmed')}>Confirm cause</button><button type="button" className="secondary" disabled={busy || row.status === 'ruled_out'} onClick={() => void setHypothesisStatus(row, 'ruled_out')}>Rule out</button>{row.status !== 'possible' && <button type="button" className="secondary" disabled={busy} onClick={() => void setHypothesisStatus(row, 'possible')}>Reopen</button>}</div>}
           </div>
         })}</div>}
       </article>
