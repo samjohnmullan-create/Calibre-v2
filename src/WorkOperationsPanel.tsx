@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import WorkPartsMatcher from './WorkPartsMatcher'
 import WorkQcPanel from './WorkQcPanel'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
+import WorkNextBestAction from './WorkNextBestAction'
 import './work-operations-panel.css'
 
 type WorkEvent = { id: string; event_type: string; summary: string; details: Record<string, unknown>; actor_type: string; created_at: string }
@@ -28,6 +29,7 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const [measurementType, setMeasurementType] = useState('case_width')
   const [measurementValue, setMeasurementValue] = useState('')
@@ -75,6 +77,11 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
 
   const usedParts = useMemo(() => allocations.filter((allocation) => allocation.status === 'used'), [allocations])
 
+  async function refreshWorkState() {
+    setRefreshKey((value) => value + 1)
+    await load()
+  }
+
   async function addMeasurement(event: FormEvent) {
     event.preventDefault()
     const value = Number(measurementValue)
@@ -98,7 +105,7 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
     setMeasurementValue('')
     setMeasurementNotes('')
     setMessage('Measurement saved.')
-    await load()
+    await refreshWorkState()
   }
 
   async function addPartNeed(event: FormEvent) {
@@ -121,7 +128,7 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
     setPartType('')
     setPartDescription('')
     setMessage('Part need added.')
-    await load()
+    await refreshWorkState()
   }
 
   async function setNeedStatus(need: PartNeed, status: string) {
@@ -132,7 +139,7 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
       setMessage(`Part need could not be updated: ${error.message}`)
       return
     }
-    await load()
+    await refreshWorkState()
   }
 
   async function addHistoryNote(event: FormEvent) {
@@ -155,13 +162,15 @@ export default function WorkOperationsPanel({ workspaceId, itemId, workId }: { w
     }
     setHistoryNote('')
     setMessage('Work history note added.')
-    await load()
+    await refreshWorkState()
   }
 
   if (loading) return <div className="section-card work-ops-loading">Loading workshop records…</div>
 
   return (
     <div className="work-ops-shell">
+      <WorkNextBestAction workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} onChanged={refreshWorkState} />
+
       {message && <p className="work-ops-message">{message}</p>}
 
       <section className="section-card work-ops-card">
