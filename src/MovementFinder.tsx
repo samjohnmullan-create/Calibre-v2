@@ -17,6 +17,8 @@ export type MovementCandidate = {
   verification_status: string
   score: number
   reasons: string[]
+  source_count: number
+  confidence_band: 'low' | 'medium' | 'high'
 }
 
 type FinderClues = {
@@ -78,10 +80,10 @@ export default function MovementFinder({ initialClues, onSelectCandidate, select
     event.preventDefault()
     if (!hasClue || busy) return
     setBusy(true)
-    setMessage('Ranking movement candidates…')
+    setMessage('Ranking movement candidates and source evidence…')
     setResults([])
 
-    const { data, error } = await supabase.rpc('find_movement_candidates', {
+    const { data, error } = await supabase.rpc('find_movement_candidates_v2', {
       p_markings: markings.trim(),
       p_maker: maker.trim(),
       p_diameter_mm: n(diameter),
@@ -100,7 +102,7 @@ export default function MovementFinder({ initialClues, onSelectCandidate, select
 
     const next = (data ?? []) as MovementCandidate[]
     setResults(next)
-    setMessage(next.length ? `${next.length} ranked candidate${next.length === 1 ? '' : 's'}. A high score is a lead, not proof of identity.` : 'No candidates matched those clues. Try removing one constraint or checking the measurement.')
+    setMessage(next.length ? `${next.length} ranked candidate${next.length === 1 ? '' : 's'}. Confidence reflects clue agreement and source support — it is not proof of identity.` : 'No candidates matched those clues. Try removing one constraint or checking the measurement.')
   }
 
   function clear() {
@@ -121,7 +123,7 @@ export default function MovementFinder({ initialClues, onSelectCandidate, select
         <div>
           <p className="eyebrow">MOVEMENT FINDER</p>
           <h2>{compact ? 'Find from this Passport' : 'Identify from bench clues'}</h2>
-          <p className="muted">Rank likely movements from markings and measurements. Missing source data does not count against a candidate.</p>
+          <p className="muted">Rank likely movements from markings, measurements and linked source evidence. Missing source data does not count against a candidate.</p>
         </div>
       </div>
 
@@ -146,7 +148,12 @@ export default function MovementFinder({ initialClues, onSelectCandidate, select
                 <div><span className="candidate-rank">#{index + 1}</span><h3>{candidate.maker} {candidate.calibre}</h3>{candidate.calibre_family && <p>{candidate.calibre_family}</p>}</div>
                 <div className="candidate-score"><strong>{Number(candidate.score).toFixed(0)}</strong><span>score</span></div>
               </div>
-              <div className="candidate-badges"><span className={`evidence-badge evidence-${candidate.evidence_grade || 'unknown'}`}>{evidenceLabel(candidate.evidence_grade)}</span><span className="verification-badge">{evidenceLabel(candidate.verification_status)}</span></div>
+              <div className="candidate-badges">
+                <span className={`evidence-badge evidence-${candidate.evidence_grade || 'unknown'}`}>{evidenceLabel(candidate.evidence_grade)}</span>
+                <span className="verification-badge">{evidenceLabel(candidate.verification_status)}</span>
+                <span className={`verification-badge confidence-${candidate.confidence_band}`}>{evidenceLabel(candidate.confidence_band)} confidence</span>
+                <span className="verification-badge">{candidate.source_count} source{candidate.source_count === 1 ? '' : 's'}</span>
+              </div>
               <dl className="candidate-specs">
                 <div><dt>Diameter</dt><dd>{candidate.diameter_mm ?? '—'}{candidate.diameter_mm != null ? ' mm' : ''}</dd></div>
                 <div><dt>Height</dt><dd>{candidate.height_mm ?? '—'}{candidate.height_mm != null ? ' mm' : ''}</dd></div>
@@ -156,7 +163,7 @@ export default function MovementFinder({ initialClues, onSelectCandidate, select
                 <div><dt>Reserve</dt><dd>{candidate.power_reserve_hours ?? '—'}{candidate.power_reserve_hours != null ? ' h' : ''}</dd></div>
               </dl>
               <div className="candidate-reasons">{candidate.reasons?.length ? candidate.reasons.map((reason) => <span key={reason}>{reason}</span>) : <span>No positive clue recorded</span>}</div>
-              <p className="candidate-warning">Candidate only until confirmed by markings, architecture, dimensions or a trusted technical source.</p>
+              <p className="candidate-warning">{candidate.confidence_band === 'high' ? 'Strong candidate, but the watchmaker still confirms identity.' : candidate.confidence_band === 'medium' ? 'Useful candidate. Verify another independent clue before promoting it.' : 'Weak candidate. Treat as a lead only until more independent evidence is recorded.'}</p>
               {onSelectCandidate && <button type="button" className="candidate-select" onClick={() => onSelectCandidate(candidate)}>{selectLabel}</button>}
             </article>
           ))}
