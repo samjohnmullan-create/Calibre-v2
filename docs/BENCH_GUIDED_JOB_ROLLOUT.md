@@ -10,6 +10,17 @@ Canonical flow:
 
 Bench Mode should keep the watchmaker inside one job context while exposing the tools required by each step.
 
+## Research source hierarchy
+
+Research and diagnostic enrichment should use sources in this order:
+
+1. **Connected Google Drive watchmaking library** — owned books, course material, movement manuals, technical PDFs and reference documents.
+2. **Calibre Knowledge** — accepted movement records, technical documents, part applications, compatibility evidence and prior research.
+3. **Live web** — manufacturer documents, movement manuals, parts references, compatibility evidence, donor clues and current market/sales evidence that are missing or newer.
+4. **Workshop history** — previous Calibre findings, confirmed diagnoses, successful/failed part fits, timing outcomes and completed repairs.
+
+The browser application records the research request and its Work context. Connected-source and live-web research is performed by the research/assistant workflow, not silently fabricated by the client.
+
 ## Slice A - Bench job hub
 
 - Keep Workshop Induction and multi-select Job Plan as the entry path.
