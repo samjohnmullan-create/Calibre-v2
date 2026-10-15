@@ -4,13 +4,15 @@
 
 > **Product direction:** Calibre is the operating system for the workshop, inventory, research and resale business.
 
-The original `CalibreOI` repository is retired. All active product development and production releases now originate from this repository.
+The original `CalibreOI` repository is retired and archived. All active product development and production releases now originate from this repository.
 
 ## Production
 
-Target production URL: `https://app.calibreco.com.au`
+Production URL: `https://app.calibreco.com.au`
 
 GitHub Pages deployment is built from `main` through `.github/workflows/deploy-pages.yml`.
+
+Production cutover completed on 15 October 2026. The legacy `CalibreOI` repository is archived and no longer owns the custom domain or production deployment.
 
 ## Source of truth
 
