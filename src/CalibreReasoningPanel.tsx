@@ -11,6 +11,11 @@ type Hypothesis = {
   evidence_against: string[]
   missing_evidence: string[]
 }
+type Placement = {
+  mode: 'current_stage' | 'existing_stage' | 'manual'
+  checklist_step_key: string
+  reason: string
+}
 type ReasoningPayload = {
   summary: string
   leading_conclusion: { title: string; support_state: SupportState; explanation: string }
@@ -19,6 +24,7 @@ type ReasoningPayload = {
     title: string
     instructions: string
     why: string
+    placement?: Placement
     expected_outcomes: { result: string; implication: string }[]
   }
   plan_change: { recommended: boolean; reason: string; suggested_actions: string[] }
@@ -32,6 +38,20 @@ type ReasoningRun = {
   response_payload: ReasoningPayload
   summary: string
   created_at: string
+}
+type ProcedureStep = {
+  id: string
+  step_key: string
+  label: string
+  sequence: number
+  status: string
+}
+type ScheduledCheck = {
+  id: string
+  source_reasoning_run_id: string
+  checklist_step_id: string
+  label: string
+  status: string
 }
 
 function label(value: string) {
@@ -52,26 +72,64 @@ export default function CalibreReasoningPanel({
   onChanged?: () => void | Promise<void>
 }) {
   const [runs, setRuns] = useState<ReasoningRun[]>([])
+  const [steps, setSteps] = useState<ProcedureStep[]>([])
+  const [scheduledChecks, setScheduledChecks] = useState<ScheduledCheck[]>([])
+  const [targetStepId, setTargetStepId] = useState('')
   const [loading, setLoading] = useState(true)
   const [analysing, setAnalysing] = useState(false)
+  const [scheduling, setScheduling] = useState(false)
   const [message, setMessage] = useState('')
 
   async function load() {
     if (!workspaceId || !workId) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('work_reasoning_runs')
-      .select('id,model,status,response_payload,summary,created_at')
-      .eq('workspace_id', workspaceId)
-      .eq('work_id', workId)
-      .order('created_at', { ascending: false })
-      .limit(6)
+    const [runsResult, stepsResult, scheduledResult] = await Promise.all([
+      supabase
+        .from('work_reasoning_runs')
+        .select('id,model,status,response_payload,summary,created_at')
+        .eq('workspace_id', workspaceId)
+        .eq('work_id', workId)
+        .order('created_at', { ascending: false })
+        .limit(6),
+      supabase
+        .from('work_checklist_steps')
+        .select('id,step_key,label,sequence,status')
+        .eq('workspace_id', workspaceId)
+        .eq('work_id', workId)
+        .order('sequence', { ascending: true }),
+      supabase
+        .from('work_step_checks')
+        .select('id,source_reasoning_run_id,checklist_step_id,label,status')
+        .eq('workspace_id', workspaceId)
+        .eq('work_id', workId)
+        .not('source_reasoning_run_id', 'is', null)
+        .order('created_at', { ascending: false }),
+    ])
     setLoading(false)
+    const error = runsResult.error ?? stepsResult.error ?? scheduledResult.error
     if (error) {
-      setMessage(`Calibre Reasoning history could not load: ${error.message}`)
+      setMessage(`Calibre Reasoning could not load: ${error.message}`)
       return
     }
-    setRuns((data ?? []) as ReasoningRun[])
+
+    const nextRuns = (runsResult.data ?? []) as ReasoningRun[]
+    const nextSteps = (stepsResult.data ?? []) as ProcedureStep[]
+    const nextScheduled = (scheduledResult.data ?? []) as ScheduledCheck[]
+    setRuns(nextRuns)
+    setSteps(nextSteps)
+    setScheduledChecks(nextScheduled)
+
+    const latestRun = nextRuns[0]
+    const placement = latestRun?.response_payload?.next_check?.placement
+    const alreadyScheduled = latestRun ? nextScheduled.find((row) => row.source_reasoning_run_id === latestRun.id) : null
+    if (alreadyScheduled) {
+      setTargetStepId(alreadyScheduled.checklist_step_id)
+    } else if (placement?.checklist_step_key) {
+      const proposed = nextSteps.find((step) => step.step_key === placement.checklist_step_key && !['done', 'na'].includes(step.status))
+      setTargetStepId(proposed?.id ?? '')
+    } else {
+      setTargetStepId('')
+    }
     setMessage('')
   }
 
@@ -81,6 +139,10 @@ export default function CalibreReasoningPanel({
   const reasoning = latest?.response_payload ?? null
   const activeHypotheses = useMemo(() => (reasoning?.hypotheses ?? []).filter((row) => row.support_state !== 'ruled_out'), [reasoning])
   const ruledOut = useMemo(() => (reasoning?.hypotheses ?? []).filter((row) => row.support_state === 'ruled_out'), [reasoning])
+  const openSteps = useMemo(() => steps.filter((step) => !['done', 'na'].includes(step.status)), [steps])
+  const scheduledForLatest = useMemo(() => latest ? scheduledChecks.find((row) => row.source_reasoning_run_id === latest.id) ?? null : null, [latest, scheduledChecks])
+  const scheduledStage = scheduledForLatest ? steps.find((step) => step.id === scheduledForLatest.checklist_step_id) ?? null : null
+  const selectedStage = steps.find((step) => step.id === targetStepId) ?? null
 
   async function analyse() {
     if (analysing) return
@@ -103,6 +165,25 @@ export default function CalibreReasoningPanel({
       return
     }
     setMessage('Reasoning updated from the current workshop evidence.')
+    await load()
+    await onChanged?.()
+  }
+
+  async function addCheckToJob() {
+    if (!latest || !targetStepId || scheduling) return
+    setScheduling(true)
+    setMessage('Adding the diagnostic check to the guided procedure…')
+    const { error } = await supabase.rpc('schedule_reasoning_next_check', {
+      p_workspace_id: workspaceId,
+      p_reasoning_run_id: latest.id,
+      p_checklist_step_id: targetStepId,
+    })
+    setScheduling(false)
+    if (error) {
+      setMessage(`Diagnostic check could not be added: ${error.message}`)
+      return
+    }
+    setMessage(`Diagnostic check added to ${selectedStage?.label ?? 'the selected procedure stage'}.`)
     await load()
     await onChanged?.()
   }
@@ -133,10 +214,29 @@ export default function CalibreReasoningPanel({
       </div>
 
       <div className="calibre-next-check">
-        <div><p className="eyebrow">BEST NEXT CHECK</p><strong>{reasoning.next_check.title}</strong></div>
+        <div><p className="eyebrow">BEST NEXT DIAGNOSTIC CHECK</p><strong>{reasoning.next_check.title}</strong></div>
         <p>{reasoning.next_check.instructions}</p>
         <details open><summary>Why this check?</summary><p>{reasoning.next_check.why}</p></details>
         {reasoning.next_check.expected_outcomes.length > 0 && <div className="calibre-outcomes">{reasoning.next_check.expected_outcomes.map((outcome, index) => <div key={`${outcome.result}-${index}`}><strong>If: {outcome.result}</strong><span>{outcome.implication}</span></div>)}</div>}
+
+        {scheduledForLatest ? <div className="calibre-check-scheduled">
+          <div><span>Added to job</span><strong>{scheduledStage?.label ?? 'Procedure stage'}</strong></div>
+          <small>This becomes a required guided check when that stage is reached. Its answer is saved as diagnostic evidence.</small>
+        </div> : <div className="calibre-check-placement">
+          <div>
+            <span>Schedule this check</span>
+            {reasoning.next_check.placement?.reason && <small>{reasoning.next_check.placement.reason}</small>}
+          </div>
+          <label>
+            Procedure stage
+            <select value={targetStepId} onChange={(event) => setTargetStepId(event.target.value)}>
+              <option value="">Choose procedure stage…</option>
+              {openSteps.map((step) => <option key={step.id} value={step.id}>{step.label}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => void addCheckToJob()} disabled={!targetStepId || scheduling}>{scheduling ? 'Adding…' : 'Add to job'}</button>
+          {!reasoning.next_check.placement?.checklist_step_key && <small>Calibre could not safely choose a procedure stage for this older/manual recommendation. Choose where the prerequisite will actually be satisfied.</small>}
+        </div>}
       </div>
 
       {activeHypotheses.length > 0 && <details className="calibre-hypotheses" open><summary>Remaining hypotheses · {activeHypotheses.length}</summary><div>{activeHypotheses.map((row, index) => <article key={`${row.title}-${index}`}>
