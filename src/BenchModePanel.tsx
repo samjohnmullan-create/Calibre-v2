@@ -3,15 +3,10 @@ import { supabase } from './lib/supabase'
 import BenchQuickCapture from './BenchQuickCapture'
 import BenchLifecycleControls from './BenchLifecycleControls'
 import BenchExceptionsPanel from './BenchExceptionsPanel'
-import BenchKnowledgePanel from './BenchKnowledgePanel'
-import BenchResearchPanel from './BenchResearchPanel'
-import BenchDiagnosisPanel from './BenchDiagnosisPanel'
-import BenchTimegrapher from './BenchTimegrapher'
 import BenchStepChecklist from './BenchStepChecklist'
 import BenchMovementGuidance from './BenchMovementGuidance'
-import WorkPartsMatcher from './WorkPartsMatcher'
-import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkInductionPlan from './WorkInductionPlan'
+import BenchWorkspaceArea from './BenchWorkspaceArea'
 import './bench-mode.css'
 import './bench-guided-job.css'
 
@@ -19,7 +14,7 @@ type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete
 type ChecklistState = 'none' | 'active' | 'complete'
 type InductionStatus = 'pending' | 'in_progress' | 'complete' | 'legacy_skipped'
 type JobPlanStatus = 'pending' | 'ready' | 'applied'
-type JobTool = 'none' | 'research' | 'diagnosis' | 'timing' | 'parts'
+type WorkspaceArea = 'work' | 'research' | 'diagnosis' | 'timing' | 'parts'
 type StepToolTarget = 'research' | 'diagnosis' | 'timing' | 'parts' | 'knowledge'
 
 type StepSummary = {
@@ -99,7 +94,7 @@ export default function BenchModePanel({
   const [message, setMessage] = useState('')
   const [sessionNote, setSessionNote] = useState('')
   const [benchOpen, setBenchOpen] = useState(false)
-  const [jobTool, setJobTool] = useState<JobTool>('none')
+  const [workspaceArea, setWorkspaceArea] = useState<WorkspaceArea>('work')
   const [nowMs, setNowMs] = useState(Date.now())
   const [intelligenceRefresh, setIntelligenceRefresh] = useState(0)
 
@@ -110,25 +105,15 @@ export default function BenchModePanel({
   const workshopReady = inductionStatus === 'legacy_skipped' || jobPlanStatus === 'applied'
 
   const benchState = useMemo(() => {
-    if (inductionStatus === 'pending') {
-      return { eyebrow: 'WORKSHOP INDUCTION', currentLabel: 'Induction required', currentDescription: 'Assess how the watch arrived before choosing any repair or service procedure.', nextLabel: 'Start induction', nextDescription: 'Check function, condition and baseline performance, then build the job plan from what you find.' }
-    }
-    if (inductionStatus === 'in_progress') {
-      return { eyebrow: 'WORKSHOP INDUCTION', currentLabel: 'Induction in progress', currentDescription: 'Work through the incoming condition and function checks. Problems become findings for the job plan.', nextLabel: 'Finish assessment', nextDescription: 'Complete the required induction checks before selecting planned workshop work.' }
-    }
-    if (inductionStatus === 'complete' && jobPlanStatus !== 'applied') {
-      return { eyebrow: 'INDUCTION COMPLETE', currentLabel: 'Plan the job', currentDescription: 'The incoming condition is recorded. Choose what you intend to do and Calibre will build the working checklist.', nextLabel: 'Create job plan', nextDescription: 'Select one or more planned actions based on the induction findings.' }
-    }
-    if (checklistState === 'complete') {
-      return { eyebrow: 'CHECKLIST', currentLabel: 'Checklist complete', currentDescription: `${checklistCompleteCount} of ${checklistTotal} checklist steps are complete or not applicable.`, nextLabel: workStatus === 'qc' ? 'Complete Final QC' : 'Review readiness', nextDescription: workStatus === 'qc' ? 'Review readiness and capture final evidence before closing Work.' : 'Review exceptions and timing, then move this Work to Final QC when ready.' }
-    }
-    if (checklistState === 'none') {
-      return { eyebrow: 'JOB PLAN', currentLabel: 'Plan recorded', currentDescription: 'No guided procedure steps were generated for this plan. Bench capture remains available for documented ad-hoc work.', nextLabel: 'Document the work', nextDescription: 'Capture evidence and complete the planned action before Final QC.' }
-    }
+    if (inductionStatus === 'pending') return { eyebrow: 'WORKSHOP INDUCTION', currentLabel: 'Induction required', currentDescription: 'Assess how the watch arrived before choosing any repair or service procedure.', nextLabel: 'Start induction', nextDescription: 'Check function, condition and baseline performance, then build the job plan from what you find.' }
+    if (inductionStatus === 'in_progress') return { eyebrow: 'WORKSHOP INDUCTION', currentLabel: 'Induction in progress', currentDescription: 'Work through the incoming condition and function checks. Problems become findings for the job plan.', nextLabel: 'Finish assessment', nextDescription: 'Complete the required induction checks before selecting planned workshop work.' }
+    if (inductionStatus === 'complete' && jobPlanStatus !== 'applied') return { eyebrow: 'INDUCTION COMPLETE', currentLabel: 'Plan the job', currentDescription: 'The incoming condition is recorded. Choose what you intend to do and Calibre will build the working checklist.', nextLabel: 'Create job plan', nextDescription: 'Select one or more planned actions based on the induction findings.' }
+    if (checklistState === 'complete') return { eyebrow: 'FINAL VERIFICATION', currentLabel: 'Procedure complete', currentDescription: `${checklistCompleteCount} of ${checklistTotal} procedure stages are complete or not applicable.`, nextLabel: workStatus === 'qc' ? 'Release sign-off' : 'Review readiness', nextDescription: workStatus === 'qc' ? 'Complete the release sign-off before closing Work.' : 'Review exceptions and verification evidence before Release.' }
+    if (checklistState === 'none') return { eyebrow: 'JOB PLAN', currentLabel: 'Plan recorded', currentDescription: 'No guided procedure stages were generated for this plan. Bench capture remains available for documented ad-hoc work.', nextLabel: 'Document the work', nextDescription: 'Capture evidence and complete the planned action before Release.' }
     return {
       eyebrow: 'CURRENT STEP',
-      currentLabel: currentStep?.label ?? 'No open checklist step',
-      currentDescription: currentStep?.description || (currentStep ? `Status: ${currentStep.status.replaceAll('_', ' ')}` : 'No actionable checklist step is currently available.'),
+      currentLabel: currentStep?.label ?? 'No open procedure stage',
+      currentDescription: currentStep?.description || (currentStep ? `Status: ${currentStep.status.replaceAll('_', ' ')}` : 'No actionable procedure stage is currently available.'),
       nextLabel: nextStep?.label ?? 'No next step',
       nextDescription: nextStep?.description || (nextStep ? `Status: ${nextStep.status.replaceAll('_', ' ')}` : 'Finish or update the current step to advance.'),
     }
@@ -140,7 +125,8 @@ export default function BenchModePanel({
     const result = await supabase.from('work_sessions').select('id,work_id,item_id,started_at,ended_at,started_by,ended_by,note').eq('workspace_id', workspaceId).eq('work_id', workId).order('started_at', { ascending: false }).limit(8)
     setLoading(false)
     if (result.error) { setMessage(`Bench sessions could not be loaded: ${result.error.message}`); return }
-    setSessions((result.data ?? []) as WorkSession[]); setMessage('')
+    setSessions((result.data ?? []) as WorkSession[])
+    setMessage('')
   }
 
   useEffect(() => { void loadSessions() }, [workspaceId, workId])
@@ -150,41 +136,63 @@ export default function BenchModePanel({
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [activeSession?.id])
-  useEffect(() => { if (!activeSession) { setBenchOpen(false); setJobTool('none') } }, [activeSession?.id])
+  useEffect(() => { if (!activeSession) { setBenchOpen(false); setWorkspaceArea('work') } }, [activeSession?.id])
 
-  async function refreshEvidence() { setIntelligenceRefresh((value) => value + 1); await onWorkChanged() }
-  async function refreshAfterLifecycle() { setBenchOpen(false); setJobTool('none'); await loadSessions(); setIntelligenceRefresh((value) => value + 1); await onWorkChanged() }
+  async function refreshEvidence() {
+    setIntelligenceRefresh((value) => value + 1)
+    await onWorkChanged()
+  }
+
+  async function refreshAfterLifecycle() {
+    setBenchOpen(false)
+    setWorkspaceArea('work')
+    await loadSessions()
+    setIntelligenceRefresh((value) => value + 1)
+    await onWorkChanged()
+  }
 
   async function startSession() {
     if (saving || ['complete', 'cancelled'].includes(workStatus)) return
-    setSaving(true); setMessage('Starting bench session…')
+    setSaving(true)
+    setMessage('Starting bench session…')
     const result = await supabase.rpc('start_work_session', { p_workspace_id: workspaceId, p_work_id: workId })
     setSaving(false)
     if (result.error) { setMessage(`Bench session could not start: ${result.error.message}`); return }
-    await loadSessions(); setIntelligenceRefresh((value) => value + 1); await onWorkChanged(); setBenchOpen(true); setJobTool('none'); setMessage('Bench session started. Work is now On bench.')
+    await loadSessions()
+    setIntelligenceRefresh((value) => value + 1)
+    await onWorkChanged()
+    setBenchOpen(true)
+    setWorkspaceArea('work')
+    setMessage('Bench session started. Work is now On bench.')
   }
 
   async function finishSession() {
     if (!activeSession || saving) return
-    setSaving(true); setMessage('Ending bench session…')
+    setSaving(true)
+    setMessage('Ending bench session…')
     const result = await supabase.rpc('finish_work_session', { p_workspace_id: workspaceId, p_session_id: activeSession.id, p_note: sessionNote.trim() })
     setSaving(false)
     if (result.error) { setMessage(`Bench session could not end: ${result.error.message}`); return }
-    setSessionNote(''); await loadSessions(); setIntelligenceRefresh((value) => value + 1); await onWorkChanged(); setBenchOpen(false); setJobTool('none'); setMessage('Bench session ended and time saved. Work status was left unchanged.')
+    setSessionNote('')
+    await loadSessions()
+    setIntelligenceRefresh((value) => value + 1)
+    await onWorkChanged()
+    setBenchOpen(false)
+    setWorkspaceArea('work')
+    setMessage('Bench session ended and time saved. Work status was left unchanged.')
   }
 
   const canStart = !activeSession && !['complete', 'cancelled'].includes(workStatus)
-  const toggleTool = (tool: Exclude<JobTool, 'none'>) => setJobTool((current) => current === tool ? 'none' : tool)
-  const openStepTool = (tool: StepToolTarget) => setJobTool(tool === 'knowledge' ? 'diagnosis' : tool)
+  const openStepTool = (tool: StepToolTarget) => setWorkspaceArea(tool === 'knowledge' ? 'diagnosis' : tool)
   const timingCheckpoint = workStatus === 'qc' ? 'final_qc' : 'pre_service'
 
   return <>
     <section className="section-card bench-mode-panel">
-      <div className="bench-mode-panel-heading"><div><p className="eyebrow">BENCH MODE</p><h3>{activeSession ? 'Session running' : 'Hands-on workshop session'}</h3><p className="muted">Bench time belongs to this Work. The live session now carries induction, research, diagnosis, timing, evidence and procedure work in one place.</p></div><div className={`bench-mode-session-state ${activeSession ? 'active' : ''}`}><span>{activeSession ? 'LIVE' : 'RECORDED'}</span><strong>{activeSession ? formatClock(activeSeconds) : formatDuration(totalRecordedSeconds)}</strong></div></div>
+      <div className="bench-mode-panel-heading"><div><p className="eyebrow">BENCH MODE</p><h3>{activeSession ? 'Session running' : 'Hands-on workshop session'}</h3><p className="muted">Bench Mode keeps the live Work surface separate from Research, Diagnosis and Timing so each task has its own workspace.</p></div><div className={`bench-mode-session-state ${activeSession ? 'active' : ''}`}><span>{activeSession ? 'LIVE' : 'RECORDED'}</span><strong>{activeSession ? formatClock(activeSeconds) : formatDuration(totalRecordedSeconds)}</strong></div></div>
       <div className="bench-mode-step-preview"><div><span>{benchState.eyebrow}</span><strong>{benchState.currentLabel}</strong><p>{benchState.currentDescription}</p></div><div><span>NEXT</span><strong>{benchState.nextLabel}</strong><p>{benchState.nextDescription}</p></div></div>
       {!benchOpen && workshopReady && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
       {activeSession && <label className="bench-mode-note">Session note<textarea rows={2} value={sessionNote} onChange={(event) => setSessionNote(event.target.value)} placeholder="Optional summary of this bench session…" /></label>}
-      <div className="bench-mode-actions">{canStart && <button type="button" onClick={() => void startSession()} disabled={saving}>{saving ? 'Starting…' : 'Start Bench Session'}</button>}{activeSession && <button type="button" onClick={() => setBenchOpen(true)} disabled={saving}>Open Bench Mode</button>}{activeSession && <button type="button" className="secondary" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Ending…' : 'End Bench Session'}</button>}{!canStart && !activeSession && <span className="muted">Bench sessions are closed for {workStatus.replaceAll('_', ' ')} Work.</span>}</div>
+      <div className="bench-mode-actions">{canStart && <button type="button" onClick={() => void startSession()} disabled={saving}>{saving ? 'Starting…' : 'Start Bench Session'}</button>}{activeSession && <button type="button" onClick={() => { setWorkspaceArea('work'); setBenchOpen(true) }} disabled={saving}>Open Bench Mode</button>}{activeSession && <button type="button" className="secondary" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Ending…' : 'End Bench Session'}</button>}{!canStart && !activeSession && <span className="muted">Bench sessions are closed for {workStatus.replaceAll('_', ' ')} Work.</span>}</div>
       <BenchLifecycleControls workspaceId={workspaceId} itemId={itemId} workId={workId} fallbackStatus={workStatus} activeSessionId={activeSession?.id ?? null} onChanged={refreshAfterLifecycle} />
       {message && <p className="bench-mode-message">{message}</p>}
       <details className="bench-mode-history"><summary>Session history · {sessions.length}</summary>{loading ? <p className="muted">Loading bench history…</p> : sessions.length === 0 ? <p className="muted">No bench time has been recorded yet.</p> : <div className="bench-mode-history-list">{sessions.map((session) => <div key={session.id}><div><strong>{session.ended_at ? formatDuration(secondsBetween(session.started_at, session.ended_at)) : `${formatClock(secondsBetween(session.started_at, null, nowMs))} live`}</strong><span>{new Date(session.started_at).toLocaleString('en-AU')}</span></div>{session.note && <p>{session.note}</p>}</div>)}</div>}</details>
@@ -192,30 +200,28 @@ export default function BenchModePanel({
 
     {benchOpen && activeSession && <div className="bench-mode-overlay" role="dialog" aria-modal="true" aria-label={`Bench Mode for Work #${workNumber}`}>
       <div className="bench-mode-overlay-shell">
-        <header><div><p className="eyebrow">WORK #{workNumber} · BENCH SESSION</p><h2>{workTitle}</h2></div><div className="bench-mode-live-clock"><span>LIVE</span><strong>{formatClock(activeSeconds)}</strong></div></header>
-        <main className={`bench-mode-focus ${inductionFlow ? 'induction-flow' : ''}`}>
-          <nav className="bench-job-hub" aria-label="Bench job tools">
-            <button type="button" className={jobTool === 'research' ? 'active' : ''} onClick={() => toggleTool('research')}><span>⌕</span><strong>Research</strong><small>Manuals · parts · market</small></button>
-            <button type="button" className={jobTool === 'diagnosis' ? 'active' : ''} onClick={() => toggleTool('diagnosis')}><span>◇</span><strong>Diagnosis</strong><small>Findings · causes · checks</small></button>
-            <button type="button" className={jobTool === 'timing' ? 'active' : ''} onClick={() => toggleTool('timing')}><span>◷</span><strong>Timing</strong><small>Live Timegrapher · history</small></button>
+        <header><div><p className="eyebrow">WORK #{workNumber} · {workspaceArea === 'work' ? 'BENCH SESSION' : workspaceArea.toUpperCase()}</p><h2>{workTitle}</h2></div><div className="bench-mode-live-clock"><span>LIVE</span><strong>{formatClock(activeSeconds)}</strong></div></header>
+        <main className={`bench-mode-focus ${inductionFlow && workspaceArea === 'work' ? 'induction-flow' : ''} ${workspaceArea !== 'work' ? 'workspace-only' : ''}`}>
+          <nav className="bench-job-hub" aria-label="Bench workspace navigation">
+            <button type="button" className={workspaceArea === 'work' ? 'active' : ''} onClick={() => setWorkspaceArea('work')}><span>⌁</span><strong>Work</strong><small>Current procedure · evidence</small></button>
+            <button type="button" className={workspaceArea === 'research' ? 'active' : ''} onClick={() => setWorkspaceArea('research')}><span>⌕</span><strong>Research</strong><small>Technical · parts · market</small></button>
+            <button type="button" className={workspaceArea === 'diagnosis' ? 'active' : ''} onClick={() => setWorkspaceArea('diagnosis')}><span>◇</span><strong>Diagnosis</strong><small>Findings · evidence · reasoning</small></button>
+            <button type="button" className={workspaceArea === 'timing' ? 'active' : ''} onClick={() => setWorkspaceArea('timing')}><span>◷</span><strong>Timing</strong><small>Timegrapher · history</small></button>
           </nav>
 
-          {jobTool === 'research' && <BenchResearchPanel workspaceId={workspaceId} itemId={itemId} workId={workId} onChanged={refreshEvidence} />}
-          {jobTool === 'diagnosis' && <div className="bench-tool-stack"><BenchDiagnosisPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} /><BenchKnowledgePanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} /></div>}
-          {jobTool === 'timing' && <div className="bench-tool-stack"><BenchTimegrapher workspaceId={workspaceId} itemId={itemId} workId={workId} defaultCheckpoint={timingCheckpoint} onSaved={refreshEvidence} /><details className="bench-timing-history"><summary>Timing comparison & recorded history</summary><WorkTimingWorkflow workspaceId={workspaceId} itemId={itemId} workId={workId} /></details></div>}
-          {jobTool === 'parts' && <div className="bench-tool-stack"><div className="bench-guided-panel"><div className="bench-guided-heading"><div><p className="eyebrow">PARTS & COMPATIBILITY</p><strong>Find stock, donors and fit evidence</strong></div><button type="button" className="secondary small" onClick={() => setJobTool('none')}>Close</button></div><WorkPartsMatcher workspaceId={workspaceId} itemId={itemId} workId={workId} /></div></div>}
+          {workspaceArea !== 'work' ? <BenchWorkspaceArea area={workspaceArea} workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} timingCheckpoint={timingCheckpoint} onChanged={refreshEvidence} onBack={() => setWorkspaceArea('work')} /> : <>
+            {inductionFlow ? <WorkInductionPlan workspaceId={workspaceId} itemId={itemId} workId={workId} compact onChanged={refreshEvidence} /> : <section className={`bench-mode-current-step state-${checklistState}`}><span>{benchState.eyebrow}</span><h1>{benchState.currentLabel}</h1><p>{benchState.currentDescription}</p>{currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}</section>}
 
-          {inductionFlow ? <WorkInductionPlan workspaceId={workspaceId} itemId={itemId} workId={workId} compact onChanged={refreshEvidence} /> : <section className={`bench-mode-current-step state-${checklistState}`}><span>{benchState.eyebrow}</span><h1>{benchState.currentLabel}</h1><p>{benchState.currentDescription}</p>{currentStep && checklistState === 'active' && <small>{currentStep.status.replaceAll('_', ' ')}</small>}</section>}
+            {!inductionFlow && checklistState === 'active' && currentStep && <BenchMovementGuidance workspaceId={workspaceId} itemId={itemId} workId={workId} checklistStepId={currentStep.id} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} />}
+            {!inductionFlow && checklistState === 'active' && currentStep && <BenchStepChecklist workspaceId={workspaceId} itemId={itemId} workId={workId} step={currentStep} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} onOpenTool={openStepTool} />}
 
-          {!inductionFlow && checklistState === 'active' && currentStep && <BenchMovementGuidance workspaceId={workspaceId} itemId={itemId} workId={workId} checklistStepId={currentStep.id} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} />}
-          {!inductionFlow && checklistState === 'active' && currentStep && <BenchStepChecklist workspaceId={workspaceId} itemId={itemId} workId={workId} step={currentStep} refreshKey={intelligenceRefresh} onChanged={refreshEvidence} onOpenTool={openStepTool} />}
+            <BenchQuickCapture workspaceId={workspaceId} itemId={itemId} workId={workId} workNumber={workNumber} currentStep={inductionFlow ? null : currentStep} onSaved={refreshEvidence} />
 
-          <BenchQuickCapture workspaceId={workspaceId} itemId={itemId} workId={workId} workNumber={workNumber} currentStep={inductionFlow ? null : currentStep} onSaved={refreshEvidence} />
-
-          {!inductionFlow && checklistState !== 'none' && <section className="bench-mode-next-step"><span>NEXT</span><strong>{benchState.nextLabel}</strong><p>{benchState.nextDescription}</p></section>}
-          {!inductionFlow && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
+            {!inductionFlow && checklistState !== 'none' && <section className="bench-mode-next-step"><span>NEXT</span><strong>{benchState.nextLabel}</strong><p>{benchState.nextDescription}</p></section>}
+            {!inductionFlow && <BenchExceptionsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={intelligenceRefresh} />}
+          </>}
         </main>
-        <footer><button type="button" className="secondary" onClick={() => { setJobTool('none'); setBenchOpen(false) }}>Back to Job Card</button><button type="button" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Ending…' : 'End Bench Session'}</button></footer>
+        <footer><button type="button" className="secondary" onClick={() => { setWorkspaceArea('work'); setBenchOpen(false) }}>Back to Job Card</button><button type="button" onClick={() => void finishSession()} disabled={saving}>{saving ? 'Ending…' : 'End Bench Session'}</button></footer>
       </div>
     </div>}
   </>
