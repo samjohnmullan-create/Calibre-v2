@@ -10,6 +10,13 @@ type TrashRow = {
   archived_at: string
   archive_reason: string
 }
+type DeleteEligibility = {
+  entity_type: TrashKind
+  entity_id: string
+  can_delete: boolean
+  reasons: string[]
+}
+type DeleteState = { row: TrashRow; eligibility: DeleteEligibility } | null
 
 type Props = {
   workspaceId: string
@@ -25,6 +32,9 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
   const [rows, setRows] = useState<TrashRow[]>([])
   const [loading, setLoading] = useState(false)
   const [restoringId, setRestoringId] = useState('')
+  const [checkingId, setCheckingId] = useState('')
+  const [deletingId, setDeletingId] = useState('')
+  const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [message, setMessage] = useState('')
   const [kindFilter, setKindFilter] = useState<'all' | TrashKind>('all')
 
@@ -45,38 +55,10 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
     }
 
     const next: TrashRow[] = [
-      ...(itemsResult.data ?? []).map((row) => ({
-        id: row.id,
-        kind: 'item' as const,
-        title: `Item #${row.item_number} · ${row.title}`,
-        detail: `${titleCase(row.type)} · ${titleCase(row.purpose)}`,
-        archived_at: row.archived_at as string,
-        archive_reason: row.archive_reason || '',
-      })),
-      ...(partsResult.data ?? []).map((row) => ({
-        id: row.id,
-        kind: 'part' as const,
-        title: row.description || titleCase(row.part_type),
-        detail: [row.manufacturer, row.reference, titleCase(row.part_type)].filter(Boolean).join(' · '),
-        archived_at: row.archived_at as string,
-        archive_reason: row.archive_reason || '',
-      })),
-      ...(toolsResult.data ?? []).map((row) => ({
-        id: row.id,
-        kind: 'tool' as const,
-        title: row.name,
-        detail: [row.manufacturer, row.model, row.category ? titleCase(row.category) : ''].filter(Boolean).join(' · '),
-        archived_at: row.archived_at as string,
-        archive_reason: row.archive_reason || '',
-      })),
-      ...(consumablesResult.data ?? []).map((row) => ({
-        id: row.id,
-        kind: 'consumable' as const,
-        title: row.name,
-        detail: [row.category ? titleCase(row.category) : '', row.unit].filter(Boolean).join(' · '),
-        archived_at: row.archived_at as string,
-        archive_reason: row.archive_reason || '',
-      })),
+      ...(itemsResult.data ?? []).map((row) => ({ id: row.id, kind: 'item' as const, title: `Item #${row.item_number} · ${row.title}`, detail: `${titleCase(row.type)} · ${titleCase(row.purpose)}`, archived_at: row.archived_at as string, archive_reason: row.archive_reason || '' })),
+      ...(partsResult.data ?? []).map((row) => ({ id: row.id, kind: 'part' as const, title: row.description || titleCase(row.part_type), detail: [row.manufacturer, row.reference, titleCase(row.part_type)].filter(Boolean).join(' · '), archived_at: row.archived_at as string, archive_reason: row.archive_reason || '' })),
+      ...(toolsResult.data ?? []).map((row) => ({ id: row.id, kind: 'tool' as const, title: row.name, detail: [row.manufacturer, row.model, row.category ? titleCase(row.category) : ''].filter(Boolean).join(' · '), archived_at: row.archived_at as string, archive_reason: row.archive_reason || '' })),
+      ...(consumablesResult.data ?? []).map((row) => ({ id: row.id, kind: 'consumable' as const, title: row.name, detail: [row.category ? titleCase(row.category) : '', row.unit].filter(Boolean).join(' · '), archived_at: row.archived_at as string, archive_reason: row.archive_reason || '' })),
     ].sort((a, b) => b.archived_at.localeCompare(a.archived_at))
 
     setRows(next)
@@ -94,7 +76,7 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
   }), [rows])
 
   async function restore(row: TrashRow) {
-    if (!workspaceId || restoringId) return
+    if (!workspaceId || restoringId || checkingId || deletingId) return
     setRestoringId(row.id)
     const { error } = await supabase.rpc('restore_inventory_entity', {
       p_workspace_id: workspaceId,
@@ -106,7 +88,48 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
       setMessage(`Could not restore ${row.title}: ${error.message}`)
       return
     }
+    setDeleteState(null)
     setMessage(`${row.title} restored to active inventory.`)
+    await load()
+    onRestored?.()
+  }
+
+  async function checkPermanentDelete(row: TrashRow) {
+    if (!workspaceId || checkingId || restoringId || deletingId) return
+    setCheckingId(row.id)
+    setMessage('Checking whether permanent deletion is safe…')
+    const result = await supabase.rpc('inventory_delete_eligibility', {
+      p_workspace_id: workspaceId,
+      p_entity_type: row.kind,
+      p_entity_id: row.id,
+    })
+    setCheckingId('')
+    if (result.error) {
+      setDeleteState(null)
+      setMessage(`Could not check ${row.title}: ${result.error.message}`)
+      return
+    }
+    const eligibility = result.data as DeleteEligibility
+    setDeleteState({ row, eligibility })
+    setMessage(eligibility.can_delete ? 'Calibre found no linked history that requires preservation.' : `Permanent deletion is blocked for ${row.title}.`)
+  }
+
+  async function permanentlyDelete() {
+    if (!workspaceId || !deleteState?.eligibility.can_delete || deletingId) return
+    const row = deleteState.row
+    setDeletingId(row.id)
+    const result = await supabase.rpc('permanently_delete_inventory_entity', {
+      p_workspace_id: workspaceId,
+      p_entity_type: row.kind,
+      p_entity_id: row.id,
+    })
+    setDeletingId('')
+    if (result.error) {
+      setMessage(`Permanent delete failed for ${row.title}: ${result.error.message}`)
+      return
+    }
+    setDeleteState(null)
+    setMessage(`${row.title} permanently deleted. This action cannot be undone.`)
     await load()
     onRestored?.()
   }
@@ -114,7 +137,7 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
   return (
     <section className="inventory-trash">
       <div className="inventory-trash-heading">
-        <div><p className="eyebrow">TRASH</p><h2>Archived inventory</h2><p className="muted">Archived records stay financially and historically intact. Permanent deletion is deliberately unavailable until Calibre can prove that no purchase, Work, fit, sale, donor, media or audit history would be damaged.</p></div>
+        <div><p className="eyebrow">TRASH</p><h2>Archived inventory</h2><p className="muted">Archive is the normal Remove action. Restore is always preferred. Permanent deletion is available only when the database proves the archived record has no cost, donor, Work, storage or other dependent history.</p></div>
         <button type="button" className="secondary" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
       </div>
 
@@ -136,10 +159,33 @@ export default function InventoryTrash({ workspaceId, refreshToken = 0, onRestor
             <div className="inventory-trash-kind">{titleCase(row.kind)}</div>
             <div className="inventory-trash-main"><strong>{row.title}</strong><span>{row.detail}</span>{row.archive_reason && <small>Reason: {row.archive_reason}</small>}</div>
             <time dateTime={row.archived_at}>{new Date(row.archived_at).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}</time>
-            <button type="button" className="secondary small" disabled={restoringId === row.id} onClick={() => void restore(row)}>{restoringId === row.id ? 'Restoring…' : 'Restore'}</button>
+            <div className="inventory-trash-actions">
+              <button type="button" className="secondary small" disabled={restoringId === row.id || checkingId === row.id || deletingId === row.id} onClick={() => void restore(row)}>{restoringId === row.id ? 'Restoring…' : 'Restore'}</button>
+              <button type="button" className="danger small" disabled={restoringId === row.id || checkingId === row.id || deletingId === row.id} onClick={() => void checkPermanentDelete(row)}>{checkingId === row.id ? 'Checking…' : 'Delete permanently…'}</button>
+            </div>
           </article>
         ))}
       </div>
+
+      {deleteState && (
+        <div className="archive-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !deletingId) setDeleteState(null) }}>
+          <section className="archive-dialog" role="dialog" aria-modal="true" aria-label="Permanent delete review">
+            <div>
+              <p className="eyebrow">PERMANENT DELETE</p>
+              <h2>{deleteState.row.title}</h2>
+              {deleteState.eligibility.can_delete ? (
+                <p>Calibre found no dependent history that requires preservation. This is intended only for accidental or empty records. The final deletion cannot be undone.</p>
+              ) : (
+                <><p>Permanent deletion is blocked because this record still carries evidence that must be preserved.</p><ul className="delete-block-reasons">{deleteState.eligibility.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></>
+              )}
+            </div>
+            <div className="archive-dialog-actions">
+              <button type="button" className="secondary" disabled={Boolean(deletingId)} onClick={() => setDeleteState(null)}>{deleteState.eligibility.can_delete ? 'Keep archived' : 'Close'}</button>
+              {deleteState.eligibility.can_delete && <button type="button" className="danger" disabled={Boolean(deletingId)} onClick={() => void permanentlyDelete()}>{deletingId ? 'Deleting…' : 'Delete permanently'}</button>}
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   )
 }
