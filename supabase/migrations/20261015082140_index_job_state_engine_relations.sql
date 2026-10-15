@@ -1,0 +1,2 @@
+create index work_diagnostic_evidence_workspace_item_idx on public.work_diagnostic_evidence(workspace_id, item_id);
+create index work_plan_revisions_workspace_item_idx on public.work_plan_revisions(workspace_id, item_id);
