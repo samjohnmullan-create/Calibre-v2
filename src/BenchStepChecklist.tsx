@@ -36,7 +36,7 @@ type StepCheck = {
   source_reasoning_run_id: string | null
   outcome_implications: Record<string, string>
   recommendation_why: string
-  origin_kind: 'template' | 'deterministic' | 'ai_reasoning' | 'manual'
+  origin_kind: 'template' | 'deterministic' | 'ai_reasoning' | 'movement_knowledge' | 'manual'
 }
 
 type BenchToolTarget = 'research' | 'diagnosis' | 'timing' | 'parts' | 'knowledge'
@@ -88,9 +88,9 @@ export default function BenchStepChecklist({
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [severity, setSeverity] = useState<'info' | 'minor' | 'moderate' | 'major' | 'critical'>('moderate')
 
-  async function load() {
+  async function load(showLoading = false) {
     if (!workspaceId || !step.id) return
-    setLoading(true)
+    if (showLoading) setLoading(true)
     const { data, error } = await supabase
       .from('work_step_checks')
       .select('id,check_key,label,description,sequence,required,check_type,tool_key,knowledge_scope,evidence_required,status,result_text,problem_finding_id,answer_kind,answer_options,activation_rule,problem_values,answer_value,is_active,parent_check_id,state_reason,source_reasoning_run_id,outcome_implications,recommendation_why,origin_kind')
@@ -98,7 +98,7 @@ export default function BenchStepChecklist({
       .eq('work_id', workId)
       .eq('checklist_step_id', step.id)
       .order('sequence', { ascending: true })
-    setLoading(false)
+    if (showLoading) setLoading(false)
     if (error) {
       setMessage(`Step checklist could not load: ${error.message}`)
       return
@@ -110,7 +110,8 @@ export default function BenchStepChecklist({
     setMessage('')
   }
 
-  useEffect(() => { void load() }, [workspaceId, workId, step.id, refreshKey])
+  useEffect(() => { void load(true) }, [workspaceId, workId, step.id])
+  useEffect(() => { if (refreshKey) void load(false) }, [refreshKey])
 
   const activeChecks = useMemo(() => checks.filter((check) => check.is_active), [checks])
   const completedCount = useMemo(() => activeChecks.filter((check) => check.status === 'complete' || check.status === 'not_applicable').length, [activeChecks])
@@ -172,7 +173,7 @@ export default function BenchStepChecklist({
     if (error) { setMessage(`Check could not update: ${error.message}`); return }
     setEditingId('')
     setProblemId('')
-    await load()
+    await load(false)
     await onChanged()
   }
 
@@ -191,7 +192,7 @@ export default function BenchStepChecklist({
     if (error) { setMessage(`Observation could not save: ${error.message}`); return }
     setMessage('Observation saved to this step.')
     setEditingId('')
-    await load()
+    await load(false)
     await onChanged()
   }
 
@@ -215,7 +216,7 @@ export default function BenchStepChecklist({
     setEditingId('')
     setProblemId('')
     setMessage(data ? 'Answer saved. A Finding was created and the next relevant branch has been recalculated.' : 'Answer saved as diagnostic evidence. Re-analyse when you want Calibre to narrow the fault again.')
-    await load()
+    await load(false)
     await onChanged()
   }
 
@@ -232,7 +233,7 @@ export default function BenchStepChecklist({
     if (error) { setMessage(`Problem could not be recorded: ${error.message}`); return }
     setMessage('Problem recorded as a Finding. Diagnosis now has this exact procedure context.')
     setProblemId('')
-    await load()
+    await load(false)
     await onChanged()
     onOpenTool('diagnosis')
   }
@@ -299,7 +300,7 @@ export default function BenchStepChecklist({
         <div className="bench-step-check-state" aria-hidden="true">{check.status === 'complete' ? '✓' : check.status === 'not_applicable' ? '–' : check.status === 'problem' ? '!' : depth ? '↳' : '○'}</div>
         <div className="bench-step-check-body">
           <div className="bench-step-check-title">
-            <div><strong>{check.label}</strong><span>{check.required ? 'Required' : 'Optional'} · {check.check_type.replaceAll('_', ' ')}{check.origin_kind === 'ai_reasoning' ? ' · Calibre Reasoning' : ''}{depth ? ` · branch ${depth}` : ''}</span></div>
+            <div><strong>{check.label}</strong><span>{check.required ? 'Required' : 'Optional'} · {check.check_type.replaceAll('_', ' ')}{check.origin_kind === 'ai_reasoning' ? ' · Calibre Reasoning' : check.origin_kind === 'movement_knowledge' ? ' · Movement Intelligence' : ''}{depth ? ` · branch ${depth}` : ''}</span></div>
             <em>{statusLabel(check)}</em>
           </div>
           {check.description && <p>{check.description}</p>}
