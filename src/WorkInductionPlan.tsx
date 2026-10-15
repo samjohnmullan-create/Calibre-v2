@@ -97,9 +97,9 @@ export default function WorkInductionPlan({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
-  async function load() {
+  async function load(showLoading = true) {
     if (!workspaceId || !workId) return
-    setLoading(true)
+    if (showLoading) setLoading(true)
     const [workResult, checkResult, findingResult, planResult] = await Promise.all([
       supabase
         .from('work_records')
@@ -150,7 +150,7 @@ export default function WorkInductionPlan({
   const openFindings = useMemo(() => findings.filter((finding) => finding.status === 'open'), [findings])
 
   async function changed() {
-    await load()
+    await load(false)
     await onChanged?.()
   }
 
