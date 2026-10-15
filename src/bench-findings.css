@@ -1,0 +1,154 @@
+.bench-findings-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 14px;
+  background: rgba(17, 27, 33, .46);
+}
+
+.bench-findings-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bench-findings-heading strong {
+  display: block;
+  font-size: 17px;
+}
+
+.bench-findings-heading > span,
+.bench-finding header em {
+  padding: 4px 8px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 999px;
+  color: var(--calibre-muted);
+  font: 600 9px/1.2 "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-style: normal;
+}
+
+.bench-findings-help,
+.bench-findings-message,
+.bench-findings-empty span {
+  margin: 0;
+  color: var(--calibre-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.bench-findings-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bench-finding {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 12px;
+  background: rgba(12, 21, 26, .46);
+}
+
+.bench-finding header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.bench-finding header div {
+  display: grid;
+  gap: 3px;
+}
+
+.bench-finding header span {
+  color: var(--calibre-muted);
+  font: 600 9px/1.3 "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.bench-finding textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bench-finding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.bench-findings-empty {
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  border: 1px dashed var(--calibre-line);
+  border-radius: 12px;
+}
+
+.bench-findings-history {
+  border-top: 1px solid var(--calibre-line);
+  padding-top: 10px;
+}
+
+.bench-findings-history summary {
+  cursor: pointer;
+  color: var(--calibre-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bench-findings-history > div {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.bench-findings-history article {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--calibre-line);
+  border-radius: 10px;
+}
+
+.bench-findings-history article > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bench-findings-history span,
+.bench-findings-history p {
+  margin: 0;
+  color: var(--calibre-muted);
+  font-size: 10px;
+}
+
+@media (max-width: 640px) {
+  .bench-findings-heading,
+  .bench-finding header,
+  .bench-findings-history article > div {
+    display: grid;
+  }
+
+  .bench-findings-heading > span,
+  .bench-finding header em {
+    width: fit-content;
+  }
+
+  .bench-finding-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bench-finding-actions button:first-child {
+    grid-column: 1 / -1;
+  }
+}
