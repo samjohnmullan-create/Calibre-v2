@@ -50,6 +50,7 @@ import './bench-quick-layout.css'
 import './safe-removal.css'
 import './system-health.css'
 import './resource-inventory.css'
+import './bench-dex-toolbar.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

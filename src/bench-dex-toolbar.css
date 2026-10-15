@@ -1,0 +1,9 @@
+/* DeX / desktop Bench Mode: keep the Job Hub in normal document flow.
+   The sticky toolbar is useful on phones, but on a wide bench display it
+   obscures the active procedure as the user scrolls. */
+@media (min-width: 821px) {
+  .bench-job-hub {
+    position: static !important;
+    top: auto !important;
+  }
+}
