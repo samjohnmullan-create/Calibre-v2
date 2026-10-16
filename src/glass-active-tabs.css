@@ -1,0 +1,85 @@
+/* Active navigation/tab glass treatment. Loaded last so it only changes selected states. */
+
+:where(
+  .calibre-rail-nav button.active,
+  .calibre-rail-secondary button.active,
+  .calibre-mobile-nav button.active,
+  .calibre-mobile-more > button.active,
+  .intake-tabs button.active,
+  .bench-job-hub button.active,
+  .inventory-hub-tabs button.active,
+  .item-workspace-tabs button.active,
+  .workbench-tabs button.active,
+  .business-tabs button.active,
+  .settings-tabs button.active,
+  [role="tab"][aria-selected="true"]
+) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(224, 236, 238, 0.24) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.055) 48%, rgba(255, 255, 255, 0.025)),
+    rgba(87, 112, 120, 0.16) !important;
+  color: var(--calibre-text, #edf1ee) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.035),
+    0 7px 22px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(137, 187, 198, 0.045);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+
+:where(
+  .calibre-rail-nav button.active,
+  .calibre-rail-secondary button.active,
+  .calibre-mobile-nav button.active,
+  .calibre-mobile-more > button.active,
+  .intake-tabs button.active,
+  .bench-job-hub button.active,
+  .inventory-hub-tabs button.active,
+  .item-workspace-tabs button.active,
+  .workbench-tabs button.active,
+  .business-tabs button.active,
+  .settings-tabs button.active,
+  [role="tab"][aria-selected="true"]
+)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 24% 0%, rgba(255,255,255,.16), transparent 45%),
+    linear-gradient(110deg, transparent 0 35%, rgba(255,255,255,.07) 47%, transparent 61%);
+}
+
+.calibre-mobile-nav button.active {
+  border-radius: 12px !important;
+  margin: 2px 1px;
+}
+
+.calibre-rail-nav button.active,
+.calibre-rail-secondary button.active,
+.calibre-mobile-more > button.active,
+.intake-tabs button.active,
+.bench-job-hub button.active {
+  border-radius: 12px !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :where(
+    .calibre-rail-nav button.active,
+    .calibre-rail-secondary button.active,
+    .calibre-mobile-nav button.active,
+    .calibre-mobile-more > button.active,
+    .intake-tabs button.active,
+    .bench-job-hub button.active,
+    [role="tab"][aria-selected="true"]
+  ) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(71, 91, 98, 0.52) !important;
+  }
+}
