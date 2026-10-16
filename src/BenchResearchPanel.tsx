@@ -249,9 +249,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
               url: signed.data.signedUrl,
             }
           }))
-          const photos = settled
-            .filter((result): result is PromiseFulfilledResult<NonNullable<unknown>> => result.status === 'fulfilled' && Boolean(result.value))
-            .map((result) => result.value)
+          const photos = settled.flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : [])
 
           if (photos.length) {
             const enrichedScope = { ...requestedScope, photos, photo_count: photos.length }
