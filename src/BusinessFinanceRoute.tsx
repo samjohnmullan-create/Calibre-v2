@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import BusinessDeeperAnalytics from './BusinessDeeperAnalytics'
 import './business-finance-v4.css'
 
 type FinanceSummary = {
@@ -233,6 +234,8 @@ export default function BusinessFinanceRoute() {
           </div>
         </section>
       </div>
+
+      <BusinessDeeperAnalytics workspaceId={workspaceId} />
 
       <p className="finance-v4-footnote">Profit figures are before labour. Bench time is shown beside the money so you can judge whether a repair was actually worth doing without mixing a hypothetical wage into historical accounts.</p>
     </>}
