@@ -13,6 +13,8 @@ import TimegrapherRoute from './TimegrapherRoute'
 import ProcedureStudioRoute from './ProcedureStudioRoute'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
+import CalibreBrandMark from './CalibreBrandMark'
+import './brand-mark-test.css'
 
 type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'procedures' | 'calibre' | 'settings' | 'other'
 
@@ -121,7 +123,7 @@ export default function CalibreShell() {
     <div className="calibre-os" data-shell-section={section}>
       <aside className="calibre-rail" aria-label="Primary navigation">
         <button className="calibre-rail-brand" type="button" onClick={() => navigate('#/home')} aria-label="Calibre home">
-          <span className="calibre-rail-mark" aria-hidden="true"><span className="calibre-rail-moon" /><span className="calibre-rail-star">✦</span></span>
+          <span className="calibre-rail-mark" aria-hidden="true"><CalibreBrandMark /></span>
           <span className="calibre-rail-brand-copy"><strong>Calibre</strong><small>& Co.</small></span>
         </button>
 
@@ -145,6 +147,7 @@ export default function CalibreShell() {
       <div className="calibre-stage">
         <header className="calibre-utility-bar">
           <div className="calibre-utility-title">
+            <CalibreBrandMark className="calibre-utility-brand-mark" />
             <span className="eyebrow">CALIBRE & CO.</span>
             <strong>{titleFor(section)}</strong>
           </div>
