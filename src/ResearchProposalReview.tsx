@@ -84,7 +84,10 @@ export default function ResearchProposalReview({
         .update({ [field]: value, updated_at: now })
         .eq('workspace_id', workspaceId)
         .eq('id', itemId)
+        .select(`id,${field}`)
+        .maybeSingle()
       if (result.error) throw result.error
+      if (!result.data) throw new Error('Item was not updated. The write matched no editable Item row.')
       return
     }
 
@@ -97,9 +100,10 @@ export default function ResearchProposalReview({
 
     const payload = { [field]: value, updated_at: now }
     const result = existing.data
-      ? await supabase.from(table).update(payload).eq('workspace_id', workspaceId).eq('item_id', itemId)
-      : await supabase.from(table).insert({ workspace_id: workspaceId, item_id: itemId, ...payload })
+      ? await supabase.from(table).update(payload).eq('workspace_id', workspaceId).eq('item_id', itemId).select(`item_id,${field}`).maybeSingle()
+      : await supabase.from(table).insert({ workspace_id: workspaceId, item_id: itemId, ...payload }).select(`item_id,${field}`).maybeSingle()
     if (result.error) throw result.error
+    if (!result.data) throw new Error(`${destinationLabel} was not updated. The write matched no editable record.`)
   }
 
   async function confirm() {
@@ -117,10 +121,12 @@ export default function ResearchProposalReview({
         accepted_at: now,
         applied_at: now,
         updated_at: now,
-      }).eq('workspace_id', workspaceId).eq('id', finding.id)
+      }).eq('workspace_id', workspaceId).eq('id', finding.id).select('id').maybeSingle()
       if (findingUpdate.error) throw findingUpdate.error
+      if (!findingUpdate.data) throw new Error('The Item detail was saved, but the research finding could not be marked applied.')
       setMessage(`Added to ${destinationLabel}.`)
       setEditing(false)
+      window.dispatchEvent(new CustomEvent('calibre:item-changed', { detail: { itemId, destination, field } }))
       await onChanged?.()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'This detail could not be added.')
