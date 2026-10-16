@@ -5,6 +5,7 @@ import PassportPanel from './PassportPanel'
 import WorkJobCard from './WorkJobCard'
 import ItemSalePanel from './ItemSalePanel'
 import ItemStoragePanel from './ItemStoragePanel'
+import BenchResearchPanel from './BenchResearchPanel'
 
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; acquired_at: string | null; created_at: string }
 type Identity = { maker: string; model: string; reference: string; serial: string; era: string; country: string; materials: string; dimensions_text: string; dial_markings: string; case_markings: string; movement_markings: string; notes: string }
@@ -47,6 +48,7 @@ export default function ItemWorkspaceRoute() {
   const [message, setMessage] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [movingToWorkbench, setMovingToWorkbench] = useState(false)
 
   useEffect(() => {
     const sync = () => { setItemId(routeItemId()); setTab('overview') }
@@ -101,6 +103,33 @@ export default function ItemWorkspaceRoute() {
   const target = valuation?.target_value ?? null
   const potential = target == null ? null : target - totalCost
 
+  async function moveToWorkbench() {
+    if (!workspaceId || !item || movingToWorkbench) return
+    if (activeWork) {
+      window.location.hash = `#/workbench/${encodeURIComponent(activeWork.id)}`
+      return
+    }
+
+    setMovingToWorkbench(true)
+    setMessage('Moving Item to Workbench…')
+    const { data, error } = await supabase.rpc('start_work', {
+      p_workspace_id: workspaceId,
+      p_item_id: item.id,
+      p_type: 'assessment',
+      p_title: 'Workshop job',
+      p_template_id: null,
+    })
+    setMovingToWorkbench(false)
+    if (error) {
+      setMessage(`Could not move Item to Workbench: ${error.message}`)
+      return
+    }
+    const created = (Array.isArray(data) ? data[0] : data) as { id?: string } | null
+    await load()
+    window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId: created?.id ?? '' } }))
+    window.location.hash = created?.id ? `#/workbench/${encodeURIComponent(created.id)}` : '#/workbench'
+  }
+
   if (!itemId) return null
   if (loading && !item) return <main className="item-v2-page"><div className="loading-card">Loading Item…</div></main>
   if (!item) return <main className="item-v2-page"><div className="section-card"><h2>Item unavailable</h2><p>{message || 'This Item could not be loaded.'}</p><button onClick={() => { window.location.hash = '#/items' }}>Back to Inventory</button></div></main>
@@ -117,7 +146,8 @@ export default function ItemWorkspaceRoute() {
           </div>
           <div className="item-v2-actions">
             <button type="button" className="secondary" onClick={() => setEditing(true)}>Edit details</button>
-            <button type="button" onClick={() => setTab('work')}>{activeWork ? 'Open Work' : 'Start Work'}</button>
+            <button type="button" className="secondary" onClick={() => setTab('research')}>Research</button>
+            <button type="button" onClick={() => void moveToWorkbench()} disabled={movingToWorkbench}>{movingToWorkbench ? 'Moving…' : activeWork ? 'Open in Workbench' : 'Move to Workbench'}</button>
           </div>
         </div>
       </header>
@@ -132,15 +162,15 @@ export default function ItemWorkspaceRoute() {
         <div className="item-v2-overview">
           <section className="item-v2-hero-card">
             <div><p className="eyebrow">CURRENT POSITION</p><h2>{activeWork ? titleCase(activeWork.status) : titleCase(item.status)}</h2><p>{activeWork?.next_action || (item.status === 'ready_for_sale' ? 'Ready for sale.' : 'No active workshop action.')}</p></div>
-            <button type="button" className="secondary" onClick={() => setTab(activeWork ? 'work' : 'details')}>{activeWork ? 'Open Job Card' : 'Review details'}</button>
+            <button type="button" onClick={() => void moveToWorkbench()} disabled={movingToWorkbench}>{movingToWorkbench ? 'Moving…' : activeWork ? 'Open in Workbench' : 'Move to Workbench'}</button>
           </section>
 
           <div className="item-v2-summary-grid">
             <section className="section-card"><p className="eyebrow">IDENTITY</p><h3>{identity?.maker || 'Maker unresolved'}</h3><dl className="item-v2-facts"><div><dt>Model</dt><dd>{identity?.model || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div></dl><button type="button" className="text-button" onClick={() => setTab('details')}>Open details →</button></section>
-            <section className="section-card"><p className="eyebrow">WORK</p><h3>{activeWork ? `Work #${activeWork.work_number}` : 'No active Work'}</h3><p>{activeWork?.title || 'Start a Work record only when this Item enters the workshop.'}</p>{activeWork && <dl className="item-v2-facts"><div><dt>Status</dt><dd>{titleCase(activeWork.status)}</dd></div><div><dt>Next</dt><dd>{activeWork.next_action || '—'}</dd></div></dl>}<button type="button" className="text-button" onClick={() => setTab('work')}>{activeWork ? 'Open Job Card →' : 'Start Work →'}</button></section>
+            <section className="section-card"><p className="eyebrow">WORK</p><h3>{activeWork ? `Work #${activeWork.work_number}` : 'Not on Workbench'}</h3><p>{activeWork?.title || 'Move this Item to Workbench when you are ready to assess, repair or service it.'}</p>{activeWork && <dl className="item-v2-facts"><div><dt>Status</dt><dd>{titleCase(activeWork.status)}</dd></div><div><dt>Next</dt><dd>{activeWork.next_action || '—'}</dd></div></dl>}<button type="button" className="text-button" onClick={() => void moveToWorkbench()}>{activeWork ? 'Open in Workbench →' : 'Move to Workbench →'}</button></section>
             <ItemStoragePanel workspaceId={workspaceId} itemId={item.id} onMoved={load} />
             <section className="section-card"><p className="eyebrow">SALE POSITION</p><h3>{money(target, currency)} target</h3><dl className="item-v2-facts"><div><dt>Recorded cost</dt><dd>{money(totalCost, currency)}</dd></div><div><dt>Potential gross</dt><dd>{money(potential, currency)}</dd></div><div><dt>Purpose</dt><dd>{titleCase(item.purpose)}</dd></div></dl><button type="button" className="text-button" onClick={() => setTab('sale')}>Open sale record →</button></section>
-            <section className="section-card"><p className="eyebrow">RESEARCH</p><h3>{identity?.movement_markings ? 'Evidence recorded' : 'Research available'}</h3><p>{identity?.movement_markings || identity?.notes || 'Capture markings, movement identity and supporting evidence here.'}</p><button type="button" className="text-button" onClick={() => setTab('research')}>Open research →</button></section>
+            <section className="section-card"><p className="eyebrow">RESEARCH</p><h3>{identity?.movement_markings ? 'Evidence recorded' : 'Research available'}</h3><p>{identity?.movement_markings || identity?.notes || 'Run sourced research before or during workshop work.'}</p><button type="button" className="text-button" onClick={() => setTab('research')}>Research this Item →</button></section>
           </div>
           <ItemMedia workspaceId={workspaceId} itemId={item.id} />
         </div>
@@ -164,7 +194,8 @@ export default function ItemWorkspaceRoute() {
 
       {tab === 'research' && (
         <div className="item-v2-stack">
-          <section className="section-card"><p className="eyebrow">ITEM RESEARCH</p><h2>Evidence attached to this Item</h2><div className="item-v2-observations"><div><strong>Movement markings</strong><p>{identity?.movement_markings || 'Nothing recorded yet.'}</p></div><div><strong>Identity notes</strong><p>{identity?.notes || 'No identity / research notes yet.'}</p></div><div><strong>Item notes</strong><p>{item.notes || 'No Item notes yet.'}</p></div></div></section>
+          <BenchResearchPanel workspaceId={workspaceId} itemId={item.id} workId={activeWork?.id ?? null} onChanged={load} />
+          <section className="section-card"><p className="eyebrow">ITEM EVIDENCE</p><h2>Recorded observations</h2><div className="item-v2-observations"><div><strong>Movement markings</strong><p>{identity?.movement_markings || 'Nothing recorded yet.'}</p></div><div><strong>Identity notes</strong><p>{identity?.notes || 'No identity / research notes yet.'}</p></div><div><strong>Item notes</strong><p>{item.notes || 'No Item notes yet.'}</p></div></div></section>
           <section className="section-card item-v2-callout"><div><p className="eyebrow">CALIBRE LIBRARY</p><h3>Reusable movement and compatibility knowledge lives in Library.</h3><p className="muted">Item-specific conclusions stay here; reusable technical knowledge stays in the Library.</p></div><button type="button" onClick={() => { window.location.hash = '#/calibre' }}>Open Library</button></section>
         </div>
       )}

@@ -56,7 +56,7 @@ function autonomousSummary(row: ResearchRequest | null) {
   return typeof value === 'string' ? value : ''
 }
 
-export default function BenchResearchPanel({ workspaceId, itemId, workId, onChanged }: { workspaceId: string; itemId: string; workId: string; onChanged?: () => void | Promise<void> }) {
+export default function BenchResearchPanel({ workspaceId, itemId, workId, onChanged }: { workspaceId: string; itemId: string; workId?: string | null; onChanged?: () => void | Promise<void> }) {
   const [requests, setRequests] = useState<ResearchRequest[]>([])
   const [findings, setFindings] = useState<ResearchFinding[]>([])
   const [sources, setSources] = useState<Source[]>([])
@@ -66,10 +66,13 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   const [message, setMessage] = useState('')
 
   async function load() {
-    const requestResult = await supabase.from('research_requests')
+    let requestQuery = supabase.from('research_requests')
       .select('id,request_type,status,requested_scope,requested_at,completed_at')
-      .eq('workspace_id', workspaceId).eq('item_id', itemId).eq('work_id', workId)
-      .order('requested_at', { ascending: false }).limit(8)
+      .eq('workspace_id', workspaceId)
+      .eq('item_id', itemId)
+    if (workId) requestQuery = requestQuery.eq('work_id', workId)
+
+    const requestResult = await requestQuery.order('requested_at', { ascending: false }).limit(8)
     if (requestResult.error) return setMessage(`Research requests could not load: ${requestResult.error.message}`)
 
     const nextRequests = (requestResult.data ?? []) as ResearchRequest[]
@@ -119,22 +122,40 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     setBusy(true)
     setMessage('Preparing research context…')
 
-    const [itemResult, identityResult, passportResult, workResult, findingsResult, planResult, partsResult, timingResult, mediaResult] = await Promise.all([
+    const [itemResult, identityResult, passportResult, mediaResult] = await Promise.all([
       supabase.from('items').select('item_number,type,purpose,status,title,notes').eq('workspace_id', workspaceId).eq('id', itemId).single(),
       supabase.from('item_identity').select('*').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
       supabase.from('passports').select('*').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
-      supabase.from('work_records').select('id,work_number,title,type,status,diagnosis,blocker,induction_status,job_plan_status').eq('workspace_id', workspaceId).eq('id', workId).single(),
-      supabase.from('work_findings').select('id,finding_type,severity,title,details,status,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: true }),
-      supabase.from('work_plan_actions').select('action_key,label,status,notes,sequence').eq('workspace_id', workspaceId).eq('work_id', workId).order('sequence'),
-      supabase.from('work_part_needs').select('part_type,description,status,created_at,updated_at').eq('workspace_id', workspaceId).eq('work_record_id', workId),
-      supabase.from('timing_runs').select('checkpoint,bph,rate_seconds_per_day,beat_error_ms,lift_angle_deg,position,duration_seconds,confidence,device,notes,recorded_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('recorded_at', { ascending: false }).limit(40),
       supabase.from('media_assets').select('category,caption,original_filename,storage_path,is_cover').eq('workspace_id', workspaceId).eq('item_id', itemId).order('is_cover', { ascending: false }).order('created_at', { ascending: true }).limit(12),
     ])
 
-    const firstError = itemResult.error ?? identityResult.error ?? passportResult.error ?? workResult.error ?? findingsResult.error ?? planResult.error ?? partsResult.error ?? timingResult.error ?? mediaResult.error
-    if (firstError || !itemResult.data || !workResult.data) {
+    let workSnapshot: Record<string, unknown> | null = null
+    let findingsSnapshot: unknown[] = []
+    let planSnapshot: unknown[] = []
+    let partNeedsSnapshot: unknown[] = []
+    let timingSnapshot: unknown[] = []
+    let workError: { message: string } | null = null
+
+    if (workId) {
+      const [workResult, findingsResult, planResult, partsResult, timingResult] = await Promise.all([
+        supabase.from('work_records').select('id,work_number,title,type,status,diagnosis,blocker,induction_status,job_plan_status').eq('workspace_id', workspaceId).eq('id', workId).single(),
+        supabase.from('work_findings').select('id,finding_type,severity,title,details,status,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: true }),
+        supabase.from('work_plan_actions').select('action_key,label,status,notes,sequence').eq('workspace_id', workspaceId).eq('work_id', workId).order('sequence'),
+        supabase.from('work_part_needs').select('part_type,description,status,created_at,updated_at').eq('workspace_id', workspaceId).eq('work_record_id', workId),
+        supabase.from('timing_runs').select('checkpoint,bph,rate_seconds_per_day,beat_error_ms,lift_angle_deg,position,duration_seconds,confidence,device,notes,recorded_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('recorded_at', { ascending: false }).limit(40),
+      ])
+      workError = workResult.error ?? findingsResult.error ?? planResult.error ?? partsResult.error ?? timingResult.error
+      workSnapshot = (workResult.data ?? null) as Record<string, unknown> | null
+      findingsSnapshot = findingsResult.data ?? []
+      planSnapshot = planResult.data ?? []
+      partNeedsSnapshot = partsResult.data ?? []
+      timingSnapshot = timingResult.data ?? []
+    }
+
+    const firstError = itemResult.error ?? identityResult.error ?? passportResult.error ?? mediaResult.error ?? workError
+    if (firstError || !itemResult.data) {
       setBusy(false)
-      setMessage(`Research context could not be prepared: ${firstError?.message ?? 'Work context unavailable.'}`)
+      setMessage(`Research context could not be prepared: ${firstError?.message ?? 'Item context unavailable.'}`)
       return
     }
 
@@ -152,18 +173,19 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       item_snapshot: itemResult.data,
       identity_snapshot: identityResult.data ?? {},
       passport_snapshot: passportResult.data ?? {},
-      work_snapshot: workResult.data,
-      findings_snapshot: findingsResult.data ?? [],
-      job_plan_snapshot: planResult.data ?? [],
-      part_needs_snapshot: partsResult.data ?? [],
-      timing_snapshot: timingResult.data ?? [],
+      work_snapshot: workSnapshot ?? {},
+      findings_snapshot: findingsSnapshot,
+      job_plan_snapshot: planSnapshot,
+      part_needs_snapshot: partNeedsSnapshot,
+      timing_snapshot: timingSnapshot,
       photos,
       photo_count: photos.filter((row) => row.url).length,
       autonomous: true,
+      context: workId ? 'work' : 'item',
       handoff_version: 4,
     }
 
-    const insert = await supabase.from('research_requests').insert({ workspace_id: workspaceId, item_id: itemId, work_id: workId, request_type: scope, requested_scope: requestedScope })
+    const insert = await supabase.from('research_requests').insert({ workspace_id: workspaceId, item_id: itemId, work_id: workId ?? null, request_type: scope, requested_scope: requestedScope })
       .select('id,request_type,status,requested_scope,requested_at,completed_at').single()
     if (insert.error || !insert.data) {
       setBusy(false)
@@ -188,7 +210,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   }
 
   return <section className="bench-guided-panel bench-research-panel">
-    <div className="bench-guided-heading"><div><p className="eyebrow">RESEARCH</p><strong>Autonomous sourced research for this Work</strong></div>{latest && <span>{titleCase(latest.status)}</span>}</div>
+    <div className="bench-guided-heading"><div><p className="eyebrow">RESEARCH</p><strong>Autonomous sourced research for this {workId ? 'Work' : 'Item'}</strong></div>{latest && <span>{titleCase(latest.status)}</span>}</div>
     <p className="bench-guided-help">Calibre checks existing Movement/Knowledge records first, then uses web research for gaps, corroboration and current market or parts evidence. Results are saved as sourced findings and proposals for review — never silently promoted into canonical Item or Passport data.</p>
 
     <div className="bench-research-scopes">{scopes.map((entry) => <button type="button" key={entry.key} className={scope === entry.key ? 'selected' : ''} onClick={() => setScope(entry.key)} disabled={busy}><strong>{entry.label}</strong><small>{entry.detail}</small></button>)}</div>

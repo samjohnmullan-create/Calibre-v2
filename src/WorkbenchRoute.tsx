@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import WorkJobCard from './WorkJobCard'
+import BenchResearchPanel from './BenchResearchPanel'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type WorkRow = {
@@ -30,6 +31,7 @@ type ChecklistProgress = {
 }
 type ViewKey = 'active' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'queued' | 'complete'
 type CommandLaneKey = 'ready' | 'waiting' | 'qc' | 'queued'
+type JobPanelMode = 'job' | 'research'
 
 const views: { key: ViewKey; label: string }[] = [
   { key: 'active', label: 'Active' },
@@ -55,8 +57,13 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function workbenchRoute() {
+  const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+  return { active: parts[0] === 'workbench', workId: parts[0] === 'workbench' && parts[1] ? decodeURIComponent(parts[1]) : '' }
+}
+
 function isWorkbench() {
-  return window.location.hash.replace(/\/$/, '') === '#/workbench'
+  return workbenchRoute().active
 }
 
 function cleanSearch(value: string) {
@@ -117,6 +124,7 @@ function CommandCard({ record, progress, featured = false, onOpen }: { record: W
 }
 
 export default function WorkbenchRoute() {
+  const initialRoute = workbenchRoute()
   const [active, setActive] = useState(isWorkbench)
   const [workspaceId, setWorkspaceId] = useState('')
   const [work, setWork] = useState<WorkRow[]>([])
@@ -126,7 +134,8 @@ export default function WorkbenchRoute() {
   const [view, setView] = useState<ViewKey>('active')
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [selectedWorkId, setSelectedWorkId] = useState('')
+  const [selectedWorkId, setSelectedWorkId] = useState(initialRoute.workId)
+  const [panelMode, setPanelMode] = useState<JobPanelMode>('job')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [page, setPage] = useState(0)
@@ -151,7 +160,16 @@ export default function WorkbenchRoute() {
   }), [commandWork])
 
   useEffect(() => {
-    const sync = () => setActive(isWorkbench())
+    const sync = () => {
+      const route = workbenchRoute()
+      setActive(route.active)
+      if (route.workId) {
+        setSelectedWorkId(route.workId)
+        setPanelMode('job')
+      } else if (route.active) {
+        setSelectedWorkId('')
+      }
+    }
     window.addEventListener('hashchange', sync)
     sync()
     return () => window.removeEventListener('hashchange', sync)
@@ -310,6 +328,19 @@ export default function WorkbenchRoute() {
   useEffect(() => { if (active && workspaceId) void loadPage() }, [active, workspaceId, view, page, debouncedQuery])
 
   useEffect(() => {
+    if (!active || !workspaceId || !selectedWorkId || selectedWork) return
+    let cancelled = false
+    ;(async () => {
+      const result = await supabase.from('workbench_jobs')
+        .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,opened_at,completed_at,item_number,item_title,item_type')
+        .eq('workspace_id', workspaceId).eq('id', selectedWorkId).maybeSingle()
+      if (cancelled || result.error || !result.data) return
+      setCommandWork((current) => current.some((row) => row.id === selectedWorkId) ? current : [result.data as WorkRow, ...current])
+    })()
+    return () => { cancelled = true }
+  }, [active, workspaceId, selectedWorkId, selectedWork])
+
+  useEffect(() => {
     if (!active || !workspaceId) return
     let timer: number | undefined
     const refreshWorkbench = () => {
@@ -327,12 +358,16 @@ export default function WorkbenchRoute() {
     }
   }, [active, workspaceId, view, page, debouncedQuery])
 
-  function openJob(record: WorkRow) {
+  function openJob(record: WorkRow, mode: JobPanelMode = 'job') {
+    setPanelMode(mode)
     setSelectedWorkId(record.id)
+    window.location.hash = `#/workbench/${encodeURIComponent(record.id)}`
   }
 
   function closeJob() {
     setSelectedWorkId('')
+    setPanelMode('job')
+    if (isWorkbench()) window.location.hash = '#/workbench'
     void loadPage()
     void loadSummary()
     void loadCommandCentre()
@@ -353,7 +388,7 @@ export default function WorkbenchRoute() {
           <h1>Workbench</h1>
           <p className="muted">A command centre for what is on the bench, what is ready next, and what is blocking progress.</p>
         </div>
-        <button type="button" className="secondary" onClick={() => { window.location.hash = '#/items' }}>Start Work from an Item</button>
+        <button type="button" className="secondary" onClick={() => { window.location.hash = '#/items' }}>Choose an Item</button>
       </header>
 
       {message && <p className="workbench-v2-message">{message}</p>}
@@ -370,7 +405,7 @@ export default function WorkbenchRoute() {
           </div>
         ) : (
           <div className="workbench-command-empty">
-            <div><strong>No Work is currently on the bench.</strong><span>{firstReady ? `${firstReady.item_title || firstReady.title} is ready to pick up next.` : 'Move a queued Work record to Ready when it can genuinely be started.'}</span></div>
+            <div><strong>No Work is currently on the bench.</strong><span>{firstReady ? `${firstReady.item_title || firstReady.title} is ready to pick up next.` : 'Move an Item to Workbench from its Item page when you are ready to start.'}</span></div>
             {firstReady && <button type="button" className="secondary" onClick={() => openJob(firstReady)}>Open Ready Job</button>}
           </div>
         )}
@@ -447,9 +482,18 @@ export default function WorkbenchRoute() {
           <aside className="workbench-v2-job-panel" role="dialog" aria-modal="true" aria-label={`Work #${selectedWork.work_number} Job Card`}>
             <div className="workbench-v2-job-toolbar">
               <div><span>Work #{selectedWork.work_number}</span><strong>{selectedWork.item_title || selectedWork.title}</strong></div>
-              <div><button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(selectedWork.item_id)}` }}>Open Item</button><button type="button" className="secondary small" onClick={closeJob}>Close</button></div>
+              <div>
+                <button type="button" className={panelMode === 'job' ? 'small' : 'secondary small'} onClick={() => setPanelMode('job')}>Job Card</button>
+                <button type="button" className={panelMode === 'research' ? 'small' : 'secondary small'} onClick={() => setPanelMode('research')}>Research</button>
+                <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(selectedWork.item_id)}` }}>Open Item</button>
+                <button type="button" className="secondary small" onClick={closeJob}>Close</button>
+              </div>
             </div>
-            <div className="workbench-v2-job-scroll"><WorkJobCard workspaceId={workspaceId} itemId={selectedWork.item_id} focusWorkId={selectedWork.id} /></div>
+            <div className="workbench-v2-job-scroll">
+              {panelMode === 'job'
+                ? <WorkJobCard workspaceId={workspaceId} itemId={selectedWork.item_id} focusWorkId={selectedWork.id} />
+                : <BenchResearchPanel workspaceId={workspaceId} itemId={selectedWork.item_id} workId={selectedWork.id} onChanged={() => { void loadCommandCentre(); void loadPage() }} />}
+            </div>
           </aside>
         </div>
       )}
