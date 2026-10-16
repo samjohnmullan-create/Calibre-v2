@@ -53,10 +53,18 @@ const scopes: { key: ResearchScope; label: string; detail: string }[] = [
 function token() { return crypto.randomUUID().replaceAll('-', '').slice(0, 8) }
 function titleCase(value: string) { return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) }
 function requestToken(row: ResearchRequest | null) { return row && typeof row.requested_scope.token === 'string' ? row.requested_scope.token : '' }
+function autonomousResult(row: ResearchRequest | null) {
+  if (!row || !row.requested_scope.autonomous_research || typeof row.requested_scope.autonomous_research !== 'object') return null
+  return row.requested_scope.autonomous_research as Record<string, unknown>
+}
 function autonomousSummary(row: ResearchRequest | null) {
-  if (!row || !row.requested_scope.autonomous_research || typeof row.requested_scope.autonomous_research !== 'object') return ''
-  const value = (row.requested_scope.autonomous_research as Record<string, unknown>).summary
+  const result = autonomousResult(row)
+  const value = result?.summary
   return typeof value === 'string' ? value : ''
+}
+function hasCompletedAutonomousResult(row: ResearchRequest | null) {
+  const result = autonomousResult(row)
+  return typeof result?.completed_at === 'string' && Boolean(result.completed_at)
 }
 
 export default function BenchResearchPanel({ workspaceId, itemId, workId, onChanged }: { workspaceId: string; itemId: string; workId?: string | null; onChanged?: () => void | Promise<void> }) {
@@ -111,8 +119,10 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId])
   const latest = requests[0] ?? null
-  const active = useMemo(() => requests.find((row) => row.requested_scope.autonomous === true && ['pending', 'processing', 'needs_input'].includes(row.status)) ?? null, [requests])
-  const retryable = useMemo(() => latest && ['pending', 'failed'].includes(latest.status) ? latest : null, [latest])
+  const active = useMemo(() => requests.find((row) => row.requested_scope.autonomous === true && !hasCompletedAutonomousResult(row) && ['pending', 'processing'].includes(row.status)) ?? null, [requests])
+  const retryable = useMemo(() => latest && !hasCompletedAutonomousResult(latest) && ['pending', 'failed'].includes(latest.status) ? latest : null, [latest])
+  const needsInput = useMemo(() => latest && !hasCompletedAutonomousResult(latest) && latest.status === 'needs_input' ? latest : null, [latest])
+  const latestStatus = latest ? (hasCompletedAutonomousResult(latest) ? 'complete' : latest.status) : ''
   const latestFindings = useMemo(() => latest ? findings.filter((row) => row.research_request_id === latest.id) : [], [findings, latest])
   const sourceById = useMemo(() => new Map(sources.map((row) => [row.id, row])), [sources])
   const sourceIdsByFinding = useMemo(() => {
@@ -240,7 +250,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   }
 
   return <section className="bench-guided-panel bench-research-panel">
-    <div className="bench-guided-heading"><div><p className="eyebrow">RESEARCH</p><strong>Autonomous sourced research for this {workId ? 'Work' : 'Item'}</strong></div>{latest && <span>{titleCase(latest.status)}</span>}</div>
+    <div className="bench-guided-heading"><div><p className="eyebrow">RESEARCH</p><strong>Autonomous sourced research for this {workId ? 'Work' : 'Item'}</strong></div>{latest && <span>{titleCase(latestStatus)}</span>}</div>
     <p className="bench-guided-help">Calibre checks existing Movement/Knowledge records first, then uses web research for gaps, corroboration and current market or parts evidence. Results are saved as sourced findings and proposals for review — never silently promoted into canonical Item or Passport data.</p>
 
     <div className="bench-research-scopes">{scopes.map((entry) => <button type="button" key={entry.key} className={scope === entry.key ? 'selected' : ''} onClick={() => setScope(entry.key)} disabled={busy}><strong>{entry.label}</strong><small>{entry.detail}</small></button>)}</div>
@@ -249,8 +259,9 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       {retryable && !busy && <button type="button" className="secondary" onClick={() => void invokeResearch(retryable)}>Retry research</button>}
       {active && !busy && <button type="button" className="secondary" onClick={() => void load()}>Refresh status</button>}
     </div>
+    {needsInput && <p className="bench-guided-message">This request is waiting for more evidence or confirmation. It is not still running. Review the findings below or run a new research request.</p>}
 
-    {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latest.status)}</small>{autonomousSummary(latest) && <p>{autonomousSummary(latest)}</p>}</div>}
+    {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latestStatus)}</small>{autonomousSummary(latest) && <p>{autonomousSummary(latest)}</p>}</div>}
 
     {latestFindings.length > 0 && <div className="bench-research-results">
       <div className="bench-guided-heading"><div><p className="eyebrow">FINDINGS</p><strong>{latestFindings.length} sourced result{latestFindings.length === 1 ? '' : 's'} · review each proposed detail before it becomes Item data</strong></div></div>
