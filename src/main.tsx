@@ -52,6 +52,7 @@ import './safe-removal.css'
 import './system-health.css'
 import './resource-inventory.css'
 import './bench-dex-toolbar.css'
+import './bench-mobile-acceptance.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
