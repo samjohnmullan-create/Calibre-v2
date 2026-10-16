@@ -32,6 +32,7 @@ type ActiveSession = {
   work_id: string
   item_id: string
   started_at: string
+  paused_at: string | null
 }
 
 type WorkLifecycle = {
@@ -115,7 +116,7 @@ export default function BenchModeHost() {
     const [sessionResult, workResult] = await Promise.all([
       supabase
         .from('work_sessions')
-        .select('id,work_id,item_id,started_at')
+        .select('id,work_id,item_id,started_at,paused_at')
         .eq('workspace_id', workspaceId)
         .eq('started_by', userId)
         .is('ended_at', null)
@@ -213,11 +214,13 @@ export default function BenchModeHost() {
     setChooserOpen(true)
   }
 
+  const benchPaused = Boolean(activeSession?.paused_at)
+
   return (
     <>
-      <button type="button" className={`bench-mode-launcher ${activeSession ? 'active' : ''}`} onClick={openLauncher} aria-label={activeSession ? 'Open active Bench Mode session' : 'Open Bench Mode'}>
+      <button type="button" className={`bench-mode-launcher ${activeSession ? 'active' : ''} ${benchPaused ? 'paused' : ''}`} onClick={openLauncher} aria-label={activeSession ? (benchPaused ? 'Open paused Bench Mode session' : 'Open active Bench Mode session') : 'Open Bench Mode'}>
         <span aria-hidden="true">⌁</span>
-        <div><small>{activeSession ? 'BENCH LIVE' : 'BENCH MODE'}</small><strong>{activeSession ? 'Session active' : 'Start session'}</strong></div>
+        <div><small>{activeSession ? (benchPaused ? 'BENCH PAUSED' : 'BENCH LIVE') : 'BENCH MODE'}</small><strong>{activeSession ? (benchPaused ? 'Timer paused' : 'Session active') : 'Start session'}</strong></div>
       </button>
 
       {chooserOpen && (
