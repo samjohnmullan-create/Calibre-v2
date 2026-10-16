@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import WorkCompatibilityIntelligence from './WorkCompatibilityIntelligence'
 import './work-parts-matcher.css'
 
 type PartNeed = { id: string; part_type: string; description: string; status: 'open' | 'reserved' | 'fulfilled' | 'cancelled' }
@@ -186,7 +187,7 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
   return (
     <section className="section-card parts-match-card">
       <div className="parts-match-heading">
-        <div><p className="eyebrow">PARTS MATCHING</p><h3>Allocate workshop stock</h3><p className="muted">Search results are stock-text matches. Fit is only confirmed when you record evidence.</p></div>
+        <div><p className="eyebrow">PARTS MATCHING</p><h3>Allocate workshop stock</h3><p className="muted">Calibre now checks evidence-ranked owned parts and donor movements first. Fit is only confirmed when you record bench evidence.</p></div>
         <span>{activeNeeds.length} active</span>
       </div>
 
@@ -194,17 +195,20 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
 
       <label className="parts-match-need">Requirement<select value={selectedNeed?.id ?? ''} onChange={(event) => setSelectedNeedId(event.target.value)}>{needs.map((need) => <option key={need.id} value={need.id}>{need.part_type || 'Part'} · {need.description || 'No description'} · {need.status}</option>)}</select></label>
 
+      <WorkCompatibilityIntelligence workspaceId={workspaceId} itemId={itemId} need={selectedNeed} hasReservation={Boolean(selectedAllocation)} onReserved={load} />
+
       {selectedNeed && selectedNeed.status === 'open' && !selectedAllocation && (
-        <>
+        <details className="parts-manual-search">
+          <summary>Manual stock text search</summary>
           <div className="parts-match-search">
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Optional maker, reference or description…" />
             <button type="button" disabled={saving} onClick={() => void search()}>{saving ? 'Searching…' : 'Find stock'}</button>
           </div>
           {candidates.length > 0 && <div className="parts-candidate-list">{candidates.map((candidate) => <article className="parts-candidate" key={candidate.part_id}>
-            <div><strong>{partName(candidate)}</strong><p>{candidate.description || candidate.condition || 'No description'}</p><small>{candidate.available_quantity} available of {candidate.stock_quantity} · score {candidate.match_score}{candidate.donor_item_id ? ' · donor stock' : ''}</small></div>
+            <div><strong>{partName(candidate)}</strong><p>{candidate.description || candidate.condition || 'No description'}</p><small>{candidate.available_quantity} available of {candidate.stock_quantity} · text-match score {candidate.match_score}{candidate.donor_item_id ? ' · donor stock' : ''}</small></div>
             <div className="parts-candidate-action"><input aria-label="Quantity" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} /><button type="button" disabled={saving || Number(quantity) > Number(candidate.available_quantity)} onClick={() => void reserve(candidate)}>Reserve</button></div>
           </article>)}</div>}
-        </>
+        </details>
       )}
 
       {selectedNeed && selectedAllocation && selectedPart && (
