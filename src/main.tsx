@@ -54,6 +54,7 @@ import './system-health.css'
 import './resource-inventory.css'
 import './bench-dex-toolbar.css'
 import './bench-mobile-acceptance.css'
+import './glass-active-tabs.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
