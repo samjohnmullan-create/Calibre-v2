@@ -43,14 +43,15 @@ export type CustomerPublication = {
 
 const fields = 'id,slug,published,catalogue_visible,sold_archive_visible,public_title,subtitle,summary,condition_summary,maker,model,reference,era,country,movement_maker,calibre,jewels,beat_rate,movement_type,escapement,case_material,crystal_type,width_mm,thickness_mm,provenance_summary,service_summary,final_timing_summary,authenticity_note,certificate_number,certificate_issued_at,hero_image_url,gallery_urls,price_amount,currency,availability,published_at'
 
-type PublicRoute = { page: 'catalogue' | 'sold' | 'passport' | 'certificate'; slug: string | null }
+type PublicRoute = { page: 'home' | 'catalogue' | 'sold' | 'passport' | 'certificate'; slug: string | null }
 
 function readPublicRoute(): PublicRoute {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   if (parts[0] === 'passport') return { page: 'passport', slug: parts[1] ? decodeURIComponent(parts[1]) : null }
   if (parts[0] === 'certificate') return { page: 'certificate', slug: parts[1] ? decodeURIComponent(parts[1]) : null }
+  if (parts[0] === 'catalogue') return { page: 'catalogue', slug: null }
   if (parts[0] === 'sold') return { page: 'sold', slug: null }
-  return { page: 'catalogue', slug: null }
+  return { page: 'home', slug: null }
 }
 
 function money(value: number | null, currency: string) {
@@ -71,11 +72,12 @@ function navigate(hash: string) {
 function Header() {
   return (
     <header className="customer-header">
-      <button className="customer-brand" type="button" onClick={() => navigate('#/catalogue')}>
+      <button className="customer-brand" type="button" onClick={() => navigate('#/home')}>
         <CalibreBrandMark className="customer-brand-mark" />
         <span><strong>Calibre & Co.</strong><small>Vintage watches · documented properly</small></span>
       </button>
       <nav aria-label="Customer navigation">
+        <button type="button" onClick={() => navigate('#/home')}>Home</button>
         <button type="button" onClick={() => navigate('#/catalogue')}>Catalogue</button>
         <button type="button" onClick={() => navigate('#/sold')}>Archive</button>
       </nav>
@@ -105,6 +107,43 @@ function CatalogueCard({ item }: { item: CustomerPublication }) {
       </div>
     </article>
   )
+}
+
+function Home() {
+  const [featured, setFeatured] = useState<CustomerPublication[]>([])
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data } = await supabase.from('customer_publications').select(fields).eq('published', true).eq('catalogue_visible', true).neq('availability', 'archive').order('published_at', { ascending: false, nullsFirst: false }).limit(3)
+      if (active) setFeatured((data ?? []) as CustomerPublication[])
+    })()
+    return () => { active = false }
+  }, [])
+
+  return <main className="customer-main">
+    <section className="customer-home-hero">
+      <p className="eyebrow">CALIBRE & CO. · TASMANIA</p>
+      <h1>Old watches deserve better records.</h1>
+      <p>We research, document and restore vintage watches with the evidence left visible. Every published watch carries a digital Passport — its identity, movement, known history, service record and the things that are still uncertain.</p>
+      <div className="customer-home-actions"><button type="button" onClick={() => navigate('#/catalogue')}>Explore the catalogue</button><button type="button" className="secondary-public" onClick={() => navigate('#/sold')}>Browse the archive</button></div>
+    </section>
+
+    <section className="customer-home-strip">
+      <article><p className="eyebrow">01 · IDENTIFY</p><strong>Evidence before certainty.</strong><p>Maker, movement, markings and measurements are recorded before claims are made.</p></article>
+      <article><p className="eyebrow">02 · PRESERVE</p><strong>Repair without erasing history.</strong><p>Age is not a defect. Restoration should make a watch usable without pretending it is new.</p></article>
+      <article><p className="eyebrow">03 · DOCUMENT</p><strong>The Passport stays with the watch.</strong><p>A permanent customer-safe record can remain available long after the watch has been sold.</p></article>
+    </section>
+
+    {featured.length > 0 && <section className="customer-home-feature">
+      <div className="customer-home-feature-heading"><div><p className="eyebrow">RECENTLY DOCUMENTED</p><h2>From the catalogue</h2></div><button type="button" onClick={() => navigate('#/catalogue')}>View all →</button></div>
+      <div className="catalogue-grid">{featured.map((item) => <CatalogueCard key={item.id} item={item} />)}</div>
+    </section>}
+
+    <section className="customer-home-manifesto">
+      <div><p className="eyebrow">THE CALIBRE RECORD</p><h2>A watch is more than a listing.</h2></div>
+      <div><p>A sales description disappears. A Passport is intended to remain useful: what the watch was identified as, why that identification was made, what work was carried out and what was measured afterwards.</p><p>Where something is uncertain, the record should say so. Confirmed, probable and unresolved are more useful than manufactured confidence.</p></div>
+    </section>
+  </main>
 }
 
 function Catalogue({ sold = false }: { sold?: boolean }) {
@@ -216,10 +255,11 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
 export default function CustomerSite() {
   const [route, setRoute] = useState<PublicRoute>(() => readPublicRoute())
   useEffect(() => { const sync = () => { setRoute(readPublicRoute()); window.scrollTo({ top: 0, left: 0, behavior: 'auto' }) }; window.addEventListener('hashchange', sync); return () => window.removeEventListener('hashchange', sync) }, [])
-  return <div className="customer-site"><Header />{route.page === 'catalogue' && <Catalogue />}{route.page === 'sold' && <Catalogue sold />}{route.page === 'passport' && <Passport slug={route.slug} />}{route.page === 'certificate' && <Passport slug={route.slug} certificate />}</div>
+  useEffect(() => { document.title = route.page === 'passport' ? 'Watch Passport · Calibre & Co.' : route.page === 'certificate' ? 'Watch Certificate · Calibre & Co.' : 'Calibre & Co. · Vintage Watches' }, [route.page])
+  return <div className="customer-site"><Header />{route.page === 'home' && <Home />}{route.page === 'catalogue' && <Catalogue />}{route.page === 'sold' && <Catalogue sold />}{route.page === 'passport' && <Passport slug={route.slug} />}{route.page === 'certificate' && <Passport slug={route.slug} certificate />}</div>
 }
 
 export function isCustomerRoute() {
   const first = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)[0]
-  return ['catalogue', 'sold', 'passport', 'certificate'].includes(first)
+  return ['home', 'catalogue', 'sold', 'passport', 'certificate'].includes(first)
 }
