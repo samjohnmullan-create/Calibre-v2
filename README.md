@@ -2,17 +2,21 @@
 
 **Canonical Calibre application.**
 
-> **Product direction:** Calibre is the operating system for the workshop, inventory, knowledge, business and future public/customer experience.
+> **Product direction:** Calibre is the operating system for the workshop, inventory, knowledge, business and public/customer experience.
 
 The original `CalibreOI` repository is retired and archived. All active product development and production releases now originate from this repository.
 
 ## Production
 
-Production URL: `https://app.calibreco.com.au`
+Customer site: `https://calibreco.com.au`
+
+Workshop application: `https://app.calibreco.com.au`
 
 GitHub Pages deployment is built from `main` through `.github/workflows/deploy-pages.yml`.
 
-Production cutover completed on 15 October 2026. The legacy `CalibreOI` repository is archived and no longer owns the custom domain or production deployment.
+The frontend distinguishes the public customer hostname from the workshop surface. `calibreco.com.au` renders the customer experience, while customer-visible data comes from the intentionally published `customer_publications` projection rather than direct access to internal workshop records.
+
+Production cutover for the workshop application completed on 15 October 2026. The legacy `CalibreOI` repository is archived and no longer owns the production application.
 
 ## Single source of truth
 
@@ -37,6 +41,21 @@ New ideas must be fitted into an existing roadmap phase, explicitly deferred, or
 - Evidence, confidence and history are preserved rather than replaced by guessed certainty.
 - Material decisions remain explicit and auditable.
 - Test/Demo records must not contaminate Workshop Memory, finance or customer outputs.
+
+## Customer publishing
+
+Authenticated Calibre users can open `#/customer` to prepare the public record for an Item.
+
+The Publishing Studio can:
+
+- prefill verified Item and Passport facts;
+- prepare customer-safe descriptions, condition, provenance and service summaries;
+- copy selected private workshop images into the separate public media library;
+- set catalogue, availability and archive state;
+- issue and preview Watch Passport and Certificate records;
+- explicitly publish, update or unpublish a customer record.
+
+Nothing becomes public merely because it exists internally. A customer record must be deliberately published.
 
 ## Backend
 
@@ -73,9 +92,12 @@ Current `main` includes substantial foundations for:
 - storage/location history and Needs Put-away;
 - Item economics, Stock, Listings, Sales, Costs and Business Ledger foundations;
 - Archive / Trash / Restore and guarded permanent deletion;
-- unified search across core domains.
+- unified search across core domains;
+- public customer homepage, catalogue and sold archive;
+- deliberately published Watch Passports and Certificates;
+- Customer Publishing Studio with separate public media storage.
 
-The active focus is **Phase 1 — Hardening and Simplification** from the canonical roadmap, followed by **Phase 2 — Bench UX 3.0**.
+The active focus remains driven by the canonical roadmap.
 
 ## Local development
 

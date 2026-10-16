@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import CalibreShell from './CalibreShell'
 import BenchModeHost from './BenchModeHost'
 import ProcedurePreviewHost from './ProcedurePreviewHost'
+import CustomerSite, { isCustomerRoute } from './CustomerSite'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
@@ -57,11 +58,19 @@ import './bench-mobile-acceptance.css'
 import './glass-active-tabs.css'
 import './mobile-ui-v3.css'
 import './research-click-fix.css'
+import './customer-site.css'
+import './customer-publishing.css'
+
+function isCustomerHostname() {
+  const host = window.location.hostname.toLowerCase()
+  return host === 'calibreco.com.au' || host === 'www.calibreco.com.au'
+}
+
+function Root() {
+  if (isCustomerHostname() || isCustomerRoute()) return <CustomerSite />
+  return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /></>
+}
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <CalibreShell />
-    <BenchModeHost />
-    <ProcedurePreviewHost />
-  </StrictMode>,
+  <StrictMode><Root /></StrictMode>,
 )
