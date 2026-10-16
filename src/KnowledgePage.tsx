@@ -3,8 +3,9 @@ import { importKnowledgeEngine } from './lib/knowledge-import'
 import MovementFinder from './MovementFinder'
 import MovementSearch from './MovementSearch'
 import CompatibilityIntelligence from './CompatibilityIntelligence'
+import MovementIntelligenceStudio from './MovementIntelligenceStudio'
 
-type LibraryMode = 'search' | 'identify' | 'compatibility'
+type LibraryMode = 'search' | 'identify' | 'compatibility' | 'intelligence'
 
 type ImportProgress = {
   dataset: string
@@ -78,7 +79,7 @@ export default function KnowledgePage() {
         <div>
           <p className="eyebrow">LIBRARY</p>
           <h1>Research</h1>
-          <p className="muted">Search known movements, identify an unknown calibre, or inspect compatibility evidence from one place.</p>
+          <p className="muted">Search known movements, identify an unknown calibre, inspect compatibility evidence, or author movement-specific workshop intelligence.</p>
         </div>
       </section>
 
@@ -109,12 +110,16 @@ export default function KnowledgePage() {
         <button type="button" className={mode === 'compatibility' ? 'active' : ''} onClick={() => setMode('compatibility')}>
           <strong>Compatibility</strong><span>Inspect documented and bench-confirmed relationships.</span>
         </button>
+        <button type="button" className={mode === 'intelligence' ? 'active' : ''} onClick={() => setMode('intelligence')}>
+          <strong>Movement intelligence</strong><span>Author sourced calibre-specific bench guidance.</span>
+        </button>
       </nav>
 
       <section className="library-v2-panel">
         {mode === 'search' && <MovementSearch />}
         {mode === 'identify' && <MovementFinder />}
         {mode === 'compatibility' && <CompatibilityIntelligence />}
+        {mode === 'intelligence' && <MovementIntelligenceStudio />}
       </section>
 
       <details className="library-v2-admin">
