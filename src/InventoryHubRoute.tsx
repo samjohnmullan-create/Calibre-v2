@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import PartsInventory from './PartsInventory'
+import DonorInventory from './DonorInventory'
 import StorageManager from './StorageManager'
 import ArchiveConfirmDialog from './ArchiveConfirmDialog'
 import InventoryTrash from './InventoryTrash'
@@ -19,7 +20,7 @@ type ItemRow = {
 }
 
 type StorageLocation = { id: string; parent_id: string | null; name: string; code: string | null; sort_order: number }
-type InventoryView = 'items' | 'parts' | 'tools' | 'consumables' | 'storage' | 'trash'
+type InventoryView = 'items' | 'donors' | 'parts' | 'tools' | 'consumables' | 'storage' | 'trash'
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
@@ -60,6 +61,7 @@ export default function InventoryHubRoute() {
   const [unassignedCount, setUnassignedCount] = useState(0)
   const [archiveTarget, setArchiveTarget] = useState<ItemRow | null>(null)
   const [archiveBusy, setArchiveBusy] = useState(false)
+  const [movingToDonorId, setMovingToDonorId] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
 
   const pathById = useMemo(() => {
@@ -96,7 +98,7 @@ export default function InventoryHubRoute() {
   useEffect(() => {
     const openView = (event: Event) => {
       const requested = (event as CustomEvent<string>).detail
-      if (requested === 'items' || requested === 'parts' || requested === 'tools' || requested === 'consumables' || requested === 'storage' || requested === 'trash') setView(requested)
+      if (requested === 'items' || requested === 'donors' || requested === 'parts' || requested === 'tools' || requested === 'consumables' || requested === 'storage' || requested === 'trash') setView(requested)
       if (requested === 'workshop') setView('storage')
     }
     const chooseWorkItem = () => { setView('items'); setMessage('Choose the Item you want to work on, then open its Work tab.') }
@@ -167,6 +169,22 @@ export default function InventoryHubRoute() {
     return () => { cancelled = true }
   }, [active, workspaceId, view, page, debouncedQuery, typeFilter, purposeFilter, statusFilter, storageFilter, refreshToken])
 
+  async function moveItemToDonor(item: ItemRow) {
+    if (!workspaceId || item.purpose === 'donor' || movingToDonorId) return
+    const confirmed = window.confirm(`Move Item #${item.item_number} · ${item.title} to Donor?\n\nIts acquisition cost, history, storage and existing Work records will be preserved.`)
+    if (!confirmed) return
+    setMovingToDonorId(item.id)
+    const { error } = await supabase.from('items')
+      .update({ purpose: 'donor', updated_at: new Date().toISOString() })
+      .eq('workspace_id', workspaceId)
+      .eq('id', item.id)
+    setMovingToDonorId('')
+    if (error) { setMessage(`Item #${item.item_number} could not be moved to Donor: ${error.message}`); return }
+    setMessage(`Item #${item.item_number} moved to Donor. Cost, history and storage were preserved.`)
+    window.dispatchEvent(new CustomEvent('calibre:item-changed', { detail: { itemId: item.id } }))
+    setRefreshToken((value) => value + 1)
+  }
+
   async function archiveItem(reason: string) {
     if (!workspaceId || !archiveTarget || archiveBusy) return
     setArchiveBusy(true)
@@ -203,6 +221,7 @@ export default function InventoryHubRoute() {
 
       <nav className="inventory-v2-primary" aria-label="Inventory views">
         <button type="button" className={view === 'items' ? 'active' : ''} onClick={() => setView('items')}><span>Items</span><strong>{totalItems}</strong></button>
+        <button type="button" className={view === 'donors' ? 'active' : ''} onClick={() => setView('donors')}><span>Donors</span><strong>{donorCount}</strong></button>
         <button type="button" className={view === 'parts' ? 'active' : ''} onClick={() => setView('parts')}><span>Parts</span></button>
         <button type="button" className={view === 'tools' ? 'active' : ''} onClick={() => setView('tools')}><span>Tools</span></button>
         <button type="button" className={view === 'consumables' ? 'active' : ''} onClick={() => setView('consumables')}><span>Consumables</span></button>
@@ -214,7 +233,7 @@ export default function InventoryHubRoute() {
         <section className="inventory-v2-summary" aria-label="Inventory summary">
           <div><span>Total Items</span><strong>{totalItems}</strong></div>
           <button type="button" onClick={() => setStatusFilter('ready_for_sale')}><span>Ready for sale</span><strong>{readyCount}</strong></button>
-          <button type="button" onClick={() => setPurposeFilter('donor')}><span>Donors</span><strong>{donorCount}</strong></button>
+          <button type="button" onClick={() => setView('donors')}><span>Donors</span><strong>{donorCount}</strong></button>
           <button type="button" onClick={() => setStorageFilter('unassigned')}><span>Needs put-away</span><strong>{unassignedCount}</strong></button>
         </section>
 
@@ -242,6 +261,7 @@ export default function InventoryHubRoute() {
                   <span className="inventory-row-main"><strong>{item.title}</strong><small>{titleCase(item.purpose)} · {item.storage_location_id ? (pathById.get(item.storage_location_id) || 'Unknown location') : 'Needs put-away'}</small></span>
                   <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
                 </button>
+                {item.purpose !== 'donor' && <button type="button" className="inventory-row-remove secondary small" disabled={movingToDonorId === item.id} onClick={() => void moveItemToDonor(item)} aria-label={`Move Item #${item.item_number} to Donor`}>{movingToDonorId === item.id ? 'Moving…' : 'Donor'}</button>}
                 <button type="button" className="inventory-row-remove secondary small" onClick={() => setArchiveTarget(item)} aria-label={`Remove Item #${item.item_number}`}>Remove</button>
               </div>)}
             </section>)}
@@ -250,6 +270,7 @@ export default function InventoryHubRoute() {
         </section>
       </>}
 
+      {view === 'donors' && workspaceId && <DonorInventory workspaceId={workspaceId} />}
       {view === 'parts' && <PartsInventory />}
       {view === 'tools' && workspaceId && <ResourceInventory kind="tool" workspaceId={workspaceId} onArchived={() => setRefreshToken((value) => value + 1)} />}
       {view === 'consumables' && workspaceId && <ResourceInventory kind="consumable" workspaceId={workspaceId} onArchived={() => setRefreshToken((value) => value + 1)} />}
