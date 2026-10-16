@@ -57,7 +57,13 @@ const scopes: { key: ResearchScope; label: string; detail: string }[] = [
   { key: 'service', label: 'Service intelligence', detail: 'Known calibre weaknesses, service cautions, common faults, lubrication references and useful bench checks.' },
 ]
 
-function token() { return crypto.randomUUID().replaceAll('-', '').slice(0, 8) }
+function token() {
+  try {
+    const uuid = globalThis.crypto?.randomUUID?.()
+    if (uuid) return uuid.replaceAll('-', '').slice(0, 8)
+  } catch { /* Older WebViews can expose crypto without randomUUID. */ }
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`.slice(-8)
+}
 function titleCase(value: string) { return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) }
 function requestToken(row: ResearchRequest | null) { return row && typeof row.requested_scope.token === 'string' ? row.requested_scope.token : '' }
 function autonomousResult(row: ResearchRequest | null) {
@@ -191,83 +197,85 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   async function createRequest() {
     if (busy) return
     setBusy(true)
-    setMessage('Preparing research context…')
+    setMessage('Research button pressed · creating request…')
 
-    const [itemResult, identityResult, passportResult, mediaResult] = await Promise.all([
-      supabase.from('items').select('item_number,type,purpose,status,title,notes').eq('workspace_id', workspaceId).eq('id', itemId).single(),
-      supabase.from('item_identity').select('*').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
-      supabase.from('passports').select('*').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
-      supabase.from('media_assets').select('category,caption,original_filename,storage_path,is_cover').eq('workspace_id', workspaceId).eq('item_id', itemId).order('is_cover', { ascending: false }).order('created_at', { ascending: true }).limit(12),
-    ])
+    try {
+      const requestId = token()
+      const question = scopes.find((entry) => entry.key === scope)?.detail ?? scopes[0].detail
+      const requestedScope: Record<string, unknown> = {
+        token: requestId,
+        summary: question,
+        source_priority: ['Calibre Knowledge database', 'live web', 'Calibre workshop history'],
+        autonomous: true,
+        context: workId ? 'work' : 'item',
+        handoff_version: 6,
+      }
 
-    let workSnapshot: Record<string, unknown> | null = null
-    let findingsSnapshot: unknown[] = []
-    let planSnapshot: unknown[] = []
-    let partNeedsSnapshot: unknown[] = []
-    let timingSnapshot: unknown[] = []
-    let workError: { message: string } | null = null
+      const insert = await supabase.from('research_requests').insert({
+        workspace_id: workspaceId,
+        item_id: itemId,
+        work_id: workId ?? null,
+        request_type: scope,
+        requested_scope: requestedScope,
+      }).select('id,request_type,status,requested_scope,requested_at,completed_at').single()
 
-    if (workId) {
-      const [workResult, findingsResult, planResult, partsResult, timingResult] = await Promise.all([
-        supabase.from('work_records').select('id,work_number,title,type,status,diagnosis,blocker,induction_status,job_plan_status').eq('workspace_id', workspaceId).eq('id', workId).single(),
-        supabase.from('work_findings').select('id,finding_type,severity,title,details,status,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: true }),
-        supabase.from('work_plan_actions').select('action_key,label,status,notes,sequence').eq('workspace_id', workspaceId).eq('work_id', workId).order('sequence'),
-        supabase.from('work_part_needs').select('part_type,description,status,created_at,updated_at').eq('workspace_id', workspaceId).eq('work_record_id', workId),
-        supabase.from('timing_runs').select('checkpoint,bph,rate_seconds_per_day,beat_error_ms,lift_angle_deg,position,duration_seconds,confidence,device,notes,recorded_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('recorded_at', { ascending: false }).limit(40),
-      ])
-      workError = workResult.error ?? findingsResult.error ?? planResult.error ?? partsResult.error ?? timingResult.error
-      workSnapshot = (workResult.data ?? null) as Record<string, unknown> | null
-      findingsSnapshot = findingsResult.data ?? []
-      planSnapshot = planResult.data ?? []
-      partNeedsSnapshot = partsResult.data ?? []
-      timingSnapshot = timingResult.data ?? []
-    }
+      if (insert.error || !insert.data) throw new Error(insert.error?.message ?? 'No research request was returned.')
 
-    const firstError = itemResult.error ?? identityResult.error ?? passportResult.error ?? mediaResult.error ?? workError
-    if (firstError || !itemResult.data) {
+      let created = insert.data as ResearchRequest
+      setRequests((current) => [created, ...current.filter((row) => row.id !== created.id)])
+      setMessage(`Research ${requestId} created · attaching available photos…`)
+
+      // Photos improve identification, but they are optional. A media/storage problem must
+      // never prevent the request itself from reaching Calibre Research.
+      try {
+        const mediaResult = await supabase.from('media_assets')
+          .select('category,caption,original_filename,storage_path,is_cover')
+          .eq('workspace_id', workspaceId)
+          .eq('item_id', itemId)
+          .not('storage_path', 'is', null)
+          .order('is_cover', { ascending: false })
+          .order('created_at', { ascending: true })
+          .limit(8)
+
+        if (!mediaResult.error && mediaResult.data?.length) {
+          const settled = await Promise.allSettled(mediaResult.data.map(async (photo) => {
+            if (!photo.storage_path) return null
+            const signed = await supabase.storage.from('calibre-media').createSignedUrl(photo.storage_path, 3600)
+            if (signed.error || !signed.data?.signedUrl) return null
+            return {
+              category: photo.category,
+              caption: photo.caption || photo.original_filename,
+              is_cover: photo.is_cover,
+              url: signed.data.signedUrl,
+            }
+          }))
+          const photos = settled.flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : [])
+
+          if (photos.length) {
+            const enrichedScope = { ...requestedScope, photos, photo_count: photos.length }
+            const scopeUpdate = await supabase.from('research_requests')
+              .update({ requested_scope: enrichedScope })
+              .eq('workspace_id', workspaceId)
+              .eq('id', created.id)
+              .select('id,request_type,status,requested_scope,requested_at,completed_at')
+              .maybeSingle()
+            if (!scopeUpdate.error && scopeUpdate.data) {
+              created = scopeUpdate.data as ResearchRequest
+              setRequests((current) => current.map((row) => row.id === created.id ? created : row))
+            }
+          }
+        }
+      } catch {
+        // Best-effort only. The Edge Function reads canonical Item/Passport/Work data itself.
+      }
+
       setBusy(false)
-      setMessage(`Research context could not be prepared: ${firstError?.message ?? 'Item context unavailable.'}`)
-      return
-    }
-
-    const photos = await Promise.all((mediaResult.data ?? []).map(async (photo) => {
-      const signed = await supabase.storage.from('calibre-media').createSignedUrl(photo.storage_path, 3600)
-      return { category: photo.category, caption: photo.caption || photo.original_filename, is_cover: photo.is_cover, url: signed.data?.signedUrl || '' }
-    }))
-
-    const requestId = token()
-    const question = scopes.find((entry) => entry.key === scope)?.detail ?? scopes[0].detail
-    const requestedScope = {
-      token: requestId,
-      summary: question,
-      source_priority: ['Calibre Knowledge database', 'live web', 'Calibre workshop history'],
-      item_snapshot: itemResult.data,
-      identity_snapshot: identityResult.data ?? {},
-      passport_snapshot: passportResult.data ?? {},
-      work_snapshot: workSnapshot ?? {},
-      findings_snapshot: findingsSnapshot,
-      job_plan_snapshot: planSnapshot,
-      part_needs_snapshot: partNeedsSnapshot,
-      timing_snapshot: timingSnapshot,
-      photos,
-      photo_count: photos.filter((row) => row.url).length,
-      autonomous: true,
-      context: workId ? 'work' : 'item',
-      handoff_version: 5,
-    }
-
-    const insert = await supabase.from('research_requests').insert({ workspace_id: workspaceId, item_id: itemId, work_id: workId ?? null, request_type: scope, requested_scope: requestedScope })
-      .select('id,request_type,status,requested_scope,requested_at,completed_at').single()
-    if (insert.error || !insert.data) {
+      await invokeResearch(created)
+    } catch (error) {
       setBusy(false)
-      setMessage(`Research request could not be created: ${insert.error?.message ?? 'No request returned.'}`)
-      return
+      const reason = error instanceof Error ? error.message : 'Research request could not be created.'
+      setMessage(`Research could not start: ${reason}`)
     }
-
-    const created = insert.data as ResearchRequest
-    setRequests((current) => [created, ...current])
-    setBusy(false)
-    await invokeResearch(created)
   }
 
   const batchHandled = latest ? ['movement', 'identify', 'comprehensive'].includes(latest.request_type) : false
@@ -277,8 +285,8 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     <p className="bench-guided-help">Choose the kind of decision you need. Calibre gathers sourced evidence first, then presents proposed changes for review instead of silently changing Item data.</p>
 
     <div className="bench-research-scopes">{scopes.map((entry) => <button type="button" key={entry.key} className={scope === entry.key ? 'selected' : ''} onClick={() => setScope(entry.key)} disabled={busy}><strong>{entry.label}</strong><small>{entry.detail}</small></button>)}</div>
-    <div className="bench-guided-actions">
-      <button type="button" disabled={busy || Boolean(active)} onClick={() => void createRequest()}>{busy || active ? 'Researching…' : 'Run research'}</button>
+    <div className="bench-guided-actions research-primary-actions">
+      <button type="button" className="research-run-button" disabled={busy || Boolean(active)} onClick={() => void createRequest()}>{busy || active ? 'Researching…' : 'Run research'}</button>
       {retryable && !busy && <button type="button" className="secondary" onClick={() => void invokeResearch(retryable)}>Retry research</button>}
       {active && !busy && <button type="button" className="secondary" onClick={() => void load()}>Refresh status</button>}
     </div>
@@ -335,6 +343,6 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       })}
     </div>}
 
-    {message && <p className="bench-guided-message">{message}</p>}
+    {message && <p className="bench-guided-message" role="status" aria-live="polite">{message}</p>}
   </section>
 }
