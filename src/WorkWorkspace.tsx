@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import WorkInductionPlan from './WorkInductionPlan'
 import WorkOperationsPanel from './WorkOperationsPanel'
 import WorkResumeSnapshot from './WorkResumeSnapshot'
+import WorkUnifiedCapture from './WorkUnifiedCapture'
 import './work-workspace.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -226,6 +227,18 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
 
             {!inductionOpen && nextStep && <div className="work-workspace-next"><span>NEXT</span><strong>{nextStep.label}</strong><p>{nextStep.description || titleCase(nextStep.status)}</p></div>}
           </section>
+
+          {!inductionOpen && work.status !== 'complete' && (
+            <WorkUnifiedCapture
+              workspaceId={workspaceId}
+              itemId={itemId}
+              workId={work.id}
+              workNumber={work.work_number}
+              currentStep={currentStep}
+              onSaved={refreshWorkspace}
+              compact
+            />
+          )}
 
           {inductionOpen && <WorkInductionPlan workspaceId={workspaceId} itemId={itemId} workId={work.id} compact onChanged={refreshWorkspace} />}
 
