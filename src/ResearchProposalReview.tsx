@@ -89,7 +89,7 @@ export default function ResearchProposalReview({
       const result = await query.maybeSingle()
       if (!cancelled) {
         setCurrentLoading(false)
-        if (!result.error) setCurrentValue(result.data ? (result.data as Record<string, unknown>)[field] : null)
+        if (!result.error) setCurrentValue(result.data ? ((result.data as unknown) as Record<string, unknown>)[field] : null)
       }
     }
     void loadCurrent()
@@ -109,7 +109,7 @@ export default function ResearchProposalReview({
         .maybeSingle()
       if (result.error) throw result.error
       if (!result.data) throw new Error('Item was not updated. The write matched no editable Item row.')
-      setCurrentValue((result.data as Record<string, unknown>)[field])
+      setCurrentValue(((result.data as unknown) as Record<string, unknown>)[field])
       return
     }
 
@@ -126,7 +126,7 @@ export default function ResearchProposalReview({
       : await supabase.from(table).insert({ workspace_id: workspaceId, item_id: itemId, ...payload }).select(`item_id,${field}`).maybeSingle()
     if (result.error) throw result.error
     if (!result.data) throw new Error(`${destinationLabel} was not updated. The write matched no editable record.`)
-    setCurrentValue((result.data as Record<string, unknown>)[field])
+    setCurrentValue(((result.data as unknown) as Record<string, unknown>)[field])
   }
 
   async function confirm() {
