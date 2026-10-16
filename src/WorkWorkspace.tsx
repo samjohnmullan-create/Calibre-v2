@@ -5,6 +5,7 @@ import WorkInductionPlan from './WorkInductionPlan'
 import WorkOperationsPanel from './WorkOperationsPanel'
 import WorkResumeSnapshot from './WorkResumeSnapshot'
 import WorkUnifiedCapture from './WorkUnifiedCapture'
+import WorkWorkshopMemory from './WorkWorkshopMemory'
 import './work-workspace.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -275,6 +276,8 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
             </div>
             {work.blocker && <div className="work-workspace-intel-alert"><span>WORK BLOCKER</span><strong>{work.blocker}</strong></div>}
           </section>
+
+          <WorkWorkshopMemory workspaceId={workspaceId} itemId={itemId} workId={work.id} refreshKey={refreshKey} />
 
           <section className="section-card work-workspace-intel-card">
             <div className="work-workspace-section-heading"><div><p className="eyebrow">WORK NOTES</p><h3>Diagnosis & context</h3></div></div>
