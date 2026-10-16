@@ -1,0 +1,1 @@
+Phase 2 mobile acceptance follow-up: clamps Bench Mode to the handset viewport, hides the redundant active-step hero on phone, and guarantees the workspace tabs and session footer remain within the viewport without affecting DeX/desktop.
