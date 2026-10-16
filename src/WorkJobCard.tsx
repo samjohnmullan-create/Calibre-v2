@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import WorkRepairEconomics from './WorkRepairEconomics'
 import WorkResetControls from './WorkResetControls'
 import WorkWorkspace from './WorkWorkspace'
 import './work-job-card.css'
@@ -105,6 +106,14 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
       )}
       {message && <p className="work-job-message">{message}</p>}
       <WorkWorkspace key={`${selectedWorkId}-${resetVersion}`} workspaceId={workspaceId} itemId={itemId} workId={selectedWorkId} />
+      {selectedWork?.data_mode === 'real' && (
+        <WorkRepairEconomics
+          key={`economics-${selectedWorkId}-${resetVersion}`}
+          workspaceId={workspaceId}
+          itemId={itemId}
+          workId={selectedWorkId}
+        />
+      )}
       {selectedWork && (
         <WorkResetControls
           workspaceId={workspaceId}
