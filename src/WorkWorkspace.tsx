@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import WorkComponentState from './WorkComponentState'
 import WorkInductionPlan from './WorkInductionPlan'
 import WorkOperationsPanel from './WorkOperationsPanel'
 import WorkResumeSnapshot from './WorkResumeSnapshot'
@@ -188,7 +189,7 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
 
       {message && <p className="work-workspace-message">{message}</p>}
 
-      <WorkResumeSnapshot workspaceId={workspaceId} workId={work.id} currentAction={resumeAction} blocker={activeBlocker} />
+      <WorkResumeSnapshot workspaceId={workspaceId} workId={work.id} currentAction={resumeAction} blocker={activeBlocker} refreshKey={refreshKey} />
 
       <div className="work-workspace-grid">
         <nav className="work-workspace-navigator" aria-label="Job navigator">
@@ -238,6 +239,10 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
               onSaved={refreshWorkspace}
               compact
             />
+          )}
+
+          {!inductionOpen && work.status !== 'complete' && (
+            <WorkComponentState workspaceId={workspaceId} itemId={itemId} workId={work.id} onChanged={refreshWorkspace} compact />
           )}
 
           {inductionOpen && <WorkInductionPlan workspaceId={workspaceId} itemId={itemId} workId={work.id} compact onChanged={refreshWorkspace} />}

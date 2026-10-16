@@ -9,6 +9,7 @@ type PartNeedRow = { part_type: string; description: string; status: string }
 type TimingRow = { bph: number; rate_seconds_per_day: number; beat_error_ms: number | null; position: string; checkpoint: string; recorded_at: string }
 type DiagnosticCheckRow = { label: string; instructions: string; status: string }
 type EventRow = { summary: string; created_at: string }
+type ComponentRow = { component_key: string; component_label: string; state: string; location: string; notes: string; sequence: number }
 
 type Snapshot = {
   session: SessionRow | null
@@ -18,6 +19,7 @@ type Snapshot = {
   timing: TimingRow | null
   diagnostic: DiagnosticCheckRow | null
   lastEvent: EventRow | null
+  components: ComponentRow[]
 }
 
 function when(value: string | null) {
@@ -29,15 +31,31 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export default function WorkResumeSnapshot({ workspaceId, workId, currentAction, blocker }: { workspaceId: string; workId: string; currentAction: string; blocker?: string }) {
-  const [snapshot, setSnapshot] = useState<Snapshot>({ session: null, lastCompleted: null, findings: [], parts: [], timing: null, diagnostic: null, lastEvent: null })
+function needsAttention(component: ComponentRow) {
+  return !['installed', 'reassembled', 'not_applicable'].includes(component.state)
+}
+
+export default function WorkResumeSnapshot({
+  workspaceId,
+  workId,
+  currentAction,
+  blocker,
+  refreshKey = 0,
+}: {
+  workspaceId: string
+  workId: string
+  currentAction: string
+  blocker?: string
+  refreshKey?: number
+}) {
+  const [snapshot, setSnapshot] = useState<Snapshot>({ session: null, lastCompleted: null, findings: [], parts: [], timing: null, diagnostic: null, lastEvent: null, components: [] })
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
   async function load() {
     if (!workspaceId || !workId) return
     setLoading(true)
-    const [sessionResult, stepResult, findingResult, partResult, timingResult, diagnosticResult, eventResult] = await Promise.all([
+    const [sessionResult, stepResult, findingResult, partResult, timingResult, diagnosticResult, eventResult, componentResult] = await Promise.all([
       supabase.from('work_sessions').select('started_at,ended_at,paused_at,note').eq('workspace_id', workspaceId).eq('work_id', workId).order('started_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('work_checklist_steps').select('label,completed_at').eq('workspace_id', workspaceId).eq('work_id', workId).in('status', ['done', 'na']).not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('work_findings').select('title,details,severity,status').eq('workspace_id', workspaceId).eq('work_id', workId).in('status', ['open', 'accepted']).order('created_at', { ascending: false }).limit(4),
@@ -45,9 +63,10 @@ export default function WorkResumeSnapshot({ workspaceId, workId, currentAction,
       supabase.from('timing_runs').select('bph,rate_seconds_per_day,beat_error_ms,position,checkpoint,recorded_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('work_diagnostic_checks').select('label,instructions,status').eq('workspace_id', workspaceId).eq('work_id', workId).in('status', ['suggested', 'approved']).order('sequence', { ascending: true }).limit(1).maybeSingle(),
       supabase.from('work_events').select('summary,created_at').eq('workspace_id', workspaceId).eq('work_id', workId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('work_component_states').select('component_key,component_label,state,location,notes,sequence').eq('workspace_id', workspaceId).eq('work_id', workId).order('sequence', { ascending: true }),
     ])
     setLoading(false)
-    const error = sessionResult.error ?? stepResult.error ?? findingResult.error ?? partResult.error ?? timingResult.error ?? diagnosticResult.error ?? eventResult.error
+    const error = sessionResult.error ?? stepResult.error ?? findingResult.error ?? partResult.error ?? timingResult.error ?? diagnosticResult.error ?? eventResult.error ?? componentResult.error
     if (error) {
       setMessage(`Resume Snapshot could not load: ${error.message}`)
       return
@@ -60,11 +79,12 @@ export default function WorkResumeSnapshot({ workspaceId, workId, currentAction,
       timing: (timingResult.data ?? null) as TimingRow | null,
       diagnostic: (diagnosticResult.data ?? null) as DiagnosticCheckRow | null,
       lastEvent: (eventResult.data ?? null) as EventRow | null,
+      components: (componentResult.data ?? []) as ComponentRow[],
     })
     setMessage('')
   }
 
-  useEffect(() => { void load() }, [workspaceId, workId])
+  useEffect(() => { void load() }, [workspaceId, workId, refreshKey])
 
   const sessionState = useMemo(() => {
     const session = snapshot.session
@@ -73,6 +93,8 @@ export default function WorkResumeSnapshot({ workspaceId, workId, currentAction,
     if (!session.ended_at) return `Active since ${when(session.started_at)}`
     return `Last session ended ${when(session.ended_at)}`
   }, [snapshot.session])
+
+  const physicalState = useMemo(() => snapshot.components.filter(needsAttention), [snapshot.components])
 
   if (loading) return <section className="work-resume-snapshot loading"><span>RESUME SNAPSHOT</span><strong>Rebuilding bench context…</strong></section>
 
@@ -99,7 +121,14 @@ export default function WorkResumeSnapshot({ workspaceId, workId, currentAction,
         <article><span>QUEUED DIAGNOSTIC</span><strong>{snapshot.diagnostic?.label || 'None queued'}</strong><small>{snapshot.diagnostic?.instructions || '—'}</small></article>
       </div>
 
-      <div className="work-resume-note">Component/tray state will appear here automatically once the next Phase 2 component-state model lands.</div>
+      <div className="work-resume-physical">
+        <div className="work-resume-physical-heading"><span>PHYSICAL STATE</span><strong>{snapshot.components.length ? `${physicalState.length} component${physicalState.length === 1 ? '' : 's'} out / open` : 'Not recorded yet'}</strong></div>
+        {physicalState.length > 0 ? (
+          <div className="work-resume-physical-list">
+            {physicalState.map((component) => <span key={component.component_key}><strong>{component.component_label}</strong> · {titleCase(component.state)}{component.location ? ` · ${component.location}` : ''}</span>)}
+          </div>
+        ) : snapshot.components.length > 0 ? <small>Recorded components are installed, reassembled or not applicable.</small> : <small>Use Components & trays below to record removals, open assemblies and tray locations.</small>}
+      </div>
     </section>
   )
 }
