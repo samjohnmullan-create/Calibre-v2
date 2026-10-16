@@ -67,6 +67,7 @@ export default function ResearchProposalReview({
   const [draft, setDraft] = useState(displayValue(finding.proposed_value))
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [locallyApplied, setLocallyApplied] = useState(false)
 
   const destinationLabel = useMemo(() => {
     if (destination === 'identity') return 'Item details'
@@ -124,13 +125,15 @@ export default function ResearchProposalReview({
       }).eq('workspace_id', workspaceId).eq('id', finding.id).select('id').maybeSingle()
       if (findingUpdate.error) throw findingUpdate.error
       if (!findingUpdate.data) throw new Error('The Item detail was saved, but the research finding could not be marked applied.')
+
+      setLocallyApplied(true)
       setMessage(`Added to ${destinationLabel}.`)
       setEditing(false)
+      setBusy(false)
       window.dispatchEvent(new CustomEvent('calibre:item-changed', { detail: { itemId, destination, field } }))
-      await onChanged?.()
+      void Promise.resolve(onChanged?.()).catch(() => undefined)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'This detail could not be added.')
-    } finally {
       setBusy(false)
     }
   }
@@ -148,7 +151,7 @@ export default function ResearchProposalReview({
     setBusy(false)
     if (result.error) return setMessage(result.error.message)
     setMessage('Kept as research evidence only.')
-    await onChanged?.()
+    void Promise.resolve(onChanged?.()).catch(() => undefined)
   }
 
   async function reject() {
@@ -163,12 +166,12 @@ export default function ResearchProposalReview({
     setBusy(false)
     if (result.error) return setMessage(result.error.message)
     setMessage('Rejected.')
-    await onChanged?.()
+    void Promise.resolve(onChanged?.()).catch(() => undefined)
   }
 
   if (!finding.proposed_destination || !finding.proposed_field) return null
 
-  if (finding.proposal_status === 'applied') {
+  if (locallyApplied || finding.proposal_status === 'applied') {
     return <div className="bench-guided-actions"><span className="status-pill status-complete">✓ Added to {destinationLabel}</span></div>
   }
   if (finding.proposal_status === 'kept') {
