@@ -56,6 +56,7 @@ import './bench-dex-toolbar.css'
 import './bench-mobile-acceptance.css'
 import './glass-active-tabs.css'
 import './mobile-ui-v3.css'
+import './research-click-fix.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
