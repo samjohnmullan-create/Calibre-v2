@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './lib/supabase'
 import ResearchProposalReview from './ResearchProposalReview'
 import './bench-guided-job.css'
 
@@ -39,6 +39,8 @@ type Source = {
 
 type FindingSource = { research_finding_id: string; source_id: string }
 type ResearchScope = 'comprehensive' | 'movement' | 'parts' | 'valuation' | 'identify'
+
+type ResearchPayload = { finding_count?: number; source_count?: number; summary?: string; error?: string }
 
 const scopes: { key: ResearchScope; label: string; detail: string }[] = [
   { key: 'comprehensive', label: 'Full update', detail: 'Identity, technical data, manuals, parts, faults, history and market.' },
@@ -110,6 +112,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   useEffect(() => { void load() }, [workspaceId, itemId, workId])
   const latest = requests[0] ?? null
   const active = useMemo(() => requests.find((row) => row.requested_scope.autonomous === true && ['pending', 'processing', 'needs_input'].includes(row.status)) ?? null, [requests])
+  const retryable = useMemo(() => latest && ['pending', 'failed'].includes(latest.status) ? latest : null, [latest])
   const latestFindings = useMemo(() => latest ? findings.filter((row) => row.research_request_id === latest.id) : [], [findings, latest])
   const sourceById = useMemo(() => new Map(sources.map((row) => [row.id, row])), [sources])
   const sourceIdsByFinding = useMemo(() => {
@@ -117,6 +120,42 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     for (const link of links) map.set(link.research_finding_id, [...(map.get(link.research_finding_id) ?? []), link.source_id])
     return map
   }, [links])
+
+  async function invokeResearch(request: ResearchRequest) {
+    const label = requestToken(request) || request.id.slice(0, 8)
+    setBusy(true)
+    setMessage(`Research ${label} is running…`)
+
+    try {
+      const sessionResult = await supabase.auth.getSession()
+      const accessToken = sessionResult.data.session?.access_token
+      if (!accessToken) throw new Error('Your Calibre session has expired. Sign in again and retry.')
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/calibre-research`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ research_request_id: request.id }),
+      })
+
+      let payload: ResearchPayload | null = null
+      try { payload = await response.json() as ResearchPayload } catch { payload = null }
+      if (!response.ok) throw new Error(payload?.error || `Research service returned ${response.status}.`)
+
+      setMessage(`Research ${label} complete · ${payload?.finding_count ?? 0} findings · ${payload?.source_count ?? 0} sources.`)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Research request could not be sent.'
+      await supabase.from('research_requests').update({ status: 'failed' }).eq('workspace_id', workspaceId).eq('id', request.id)
+      setMessage(`Research ${label} failed: ${reason}. You can retry this request.`)
+    } finally {
+      setBusy(false)
+      await load()
+      await onChanged?.()
+    }
+  }
 
   async function createRequest() {
     if (busy) return
@@ -194,20 +233,10 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       return
     }
 
-    setRequests((current) => [insert.data as ResearchRequest, ...current])
-    setMessage(`Research ${requestId} is running…`)
-
-    const run = await supabase.functions.invoke('calibre-research', { body: { research_request_id: insert.data.id } })
+    const created = insert.data as ResearchRequest
+    setRequests((current) => [created, ...current])
     setBusy(false)
-    await load()
-    await onChanged?.()
-
-    if (run.error) {
-      setMessage(`Research ${requestId} failed: ${run.error.message}`)
-      return
-    }
-    const payload = run.data as { finding_count?: number; source_count?: number; summary?: string } | null
-    setMessage(`Research ${requestId} complete · ${payload?.finding_count ?? 0} findings · ${payload?.source_count ?? 0} sources.`)
+    await invokeResearch(created)
   }
 
   return <section className="bench-guided-panel bench-research-panel">
@@ -215,7 +244,11 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     <p className="bench-guided-help">Calibre checks existing Movement/Knowledge records first, then uses web research for gaps, corroboration and current market or parts evidence. Results are saved as sourced findings and proposals for review — never silently promoted into canonical Item or Passport data.</p>
 
     <div className="bench-research-scopes">{scopes.map((entry) => <button type="button" key={entry.key} className={scope === entry.key ? 'selected' : ''} onClick={() => setScope(entry.key)} disabled={busy}><strong>{entry.label}</strong><small>{entry.detail}</small></button>)}</div>
-    <div className="bench-guided-actions"><button type="button" disabled={busy || Boolean(active)} onClick={() => void createRequest()}>{busy || active ? 'Researching…' : 'Run research'}</button>{active && !busy && <button type="button" className="secondary" onClick={() => void load()}>Refresh status</button>}</div>
+    <div className="bench-guided-actions">
+      <button type="button" disabled={busy || Boolean(active)} onClick={() => void createRequest()}>{busy || active ? 'Researching…' : 'Run research'}</button>
+      {retryable && !busy && <button type="button" className="secondary" onClick={() => void invokeResearch(retryable)}>Retry research</button>}
+      {active && !busy && <button type="button" className="secondary" onClick={() => void load()}>Refresh status</button>}
+    </div>
 
     {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latest.status)}</small>{autonomousSummary(latest) && <p>{autonomousSummary(latest)}</p>}</div>}
 
