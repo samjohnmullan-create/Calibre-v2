@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import WorkResetControls from './WorkResetControls'
 import WorkWorkspace from './WorkWorkspace'
 import './work-job-card.css'
 
@@ -10,6 +11,7 @@ type WorkSummary = {
   title: string
   status: WorkStatus
   opened_at: string
+  data_mode: 'real' | 'test'
 }
 
 function statusLabel(status: WorkStatus) {
@@ -22,13 +24,14 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [resetVersion, setResetVersion] = useState(0)
 
   async function loadWork(preferredId?: string) {
     if (!workspaceId || !itemId) return
     setLoading(true)
     const { data, error } = await supabase
       .from('work_records')
-      .select('id,work_number,title,status,opened_at')
+      .select('id,work_number,title,status,opened_at,data_mode')
       .eq('workspace_id', workspaceId)
       .eq('item_id', itemId)
       .order('work_number', { ascending: false })
@@ -71,6 +74,12 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId: created?.id ?? '' } }))
   }
 
+  async function afterReset() {
+    await loadWork(selectedWorkId)
+    setResetVersion((value) => value + 1)
+    window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId: selectedWorkId } }))
+  }
+
   if (loading) return <div className="loading-card">Loading Work…</div>
 
   if (!selectedWorkId) {
@@ -83,6 +92,8 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     )
   }
 
+  const selectedWork = work.find((record) => record.id === selectedWorkId) ?? null
+
   return (
     <div className="work-job-shell work-job-workspace-host">
       {work.length > 1 && (
@@ -93,7 +104,15 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
         </label>
       )}
       {message && <p className="work-job-message">{message}</p>}
-      <WorkWorkspace workspaceId={workspaceId} itemId={itemId} workId={selectedWorkId} />
+      <WorkWorkspace key={`${selectedWorkId}-${resetVersion}`} workspaceId={workspaceId} itemId={itemId} workId={selectedWorkId} />
+      {selectedWork && (
+        <WorkResetControls
+          workspaceId={workspaceId}
+          workId={selectedWorkId}
+          dataMode={selectedWork.data_mode}
+          onReset={afterReset}
+        />
+      )}
     </div>
   )
 }
