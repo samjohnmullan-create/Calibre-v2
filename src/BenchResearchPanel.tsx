@@ -73,6 +73,11 @@ function hasCompletedAutonomousResult(row: ResearchRequest | null) {
   const result = autonomousResult(row)
   return typeof result?.completed_at === 'string' && Boolean(result.completed_at)
 }
+function isFreshActiveRequest(row: ResearchRequest) {
+  if (hasCompletedAutonomousResult(row) || !['pending', 'processing'].includes(row.status)) return false
+  const requestedAt = Date.parse(row.requested_at)
+  return Number.isFinite(requestedAt) && Date.now() - requestedAt < 5 * 60 * 1000
+}
 function marketSuggestion(row: ResearchRequest | null) {
   const ingestion = row?.requested_scope?.domain_ingestion
   if (!ingestion || typeof ingestion !== 'object') return null
@@ -94,7 +99,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       .select('id,request_type,status,requested_scope,requested_at,completed_at')
       .eq('workspace_id', workspaceId)
       .eq('item_id', itemId)
-    if (workId) requestQuery = requestQuery.eq('work_id', workId)
+    requestQuery = workId ? requestQuery.eq('work_id', workId) : requestQuery.is('work_id', null)
 
     const requestResult = await requestQuery.order('requested_at', { ascending: false }).limit(8)
     if (requestResult.error) return setMessage(`Research requests could not load: ${requestResult.error.message}`)
@@ -132,10 +137,11 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId])
   const latest = requests[0] ?? null
-  const active = useMemo(() => requests.find((row) => row.requested_scope.autonomous === true && !hasCompletedAutonomousResult(row) && ['pending', 'processing'].includes(row.status)) ?? null, [requests])
+  const active = useMemo(() => requests.find(isFreshActiveRequest) ?? null, [requests])
   const retryable = useMemo(() => latest && !hasCompletedAutonomousResult(latest) && ['pending', 'failed'].includes(latest.status) ? latest : null, [latest])
+  const stalePending = useMemo(() => latest && latest.status === 'pending' && !hasCompletedAutonomousResult(latest) && !isFreshActiveRequest(latest) ? latest : null, [latest])
   const needsInput = useMemo(() => latest && !hasCompletedAutonomousResult(latest) && latest.status === 'needs_input' ? latest : null, [latest])
-  const latestStatus = latest ? (hasCompletedAutonomousResult(latest) ? 'complete' : latest.status) : ''
+  const latestStatus = latest ? (hasCompletedAutonomousResult(latest) ? 'complete' : stalePending ? 'stale' : latest.status) : ''
   const latestFindings = useMemo(() => latest ? findings.filter((row) => row.research_request_id === latest.id) : [], [findings, latest])
   const latestFindingIds = useMemo(() => new Set(latestFindings.map((row) => row.id)), [latestFindings])
   const latestSourceCount = useMemo(() => new Set(links.filter((row) => latestFindingIds.has(row.research_finding_id)).map((row) => row.source_id)).size, [links, latestFindingIds])
@@ -276,6 +282,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       {retryable && !busy && <button type="button" className="secondary" onClick={() => void invokeResearch(retryable)}>Retry research</button>}
       {active && !busy && <button type="button" className="secondary" onClick={() => void load()}>Refresh status</button>}
     </div>
+    {stalePending && <p className="bench-guided-message">The previous request stopped before it started processing. It no longer blocks new research. Retry it or run a fresh request.</p>}
     {needsInput && <p className="bench-guided-message">This request is waiting for more evidence or confirmation. It is not still running. Review the research gaps below or run a new request after adding the missing evidence.</p>}
 
     {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latestStatus)}</small></div>}
