@@ -65,18 +65,13 @@ type StorageMove = {
   moved_at: string
 }
 
-const workStatuses: { value: WorkStatus; label: string }[] = [
-  { value: 'queued', label: 'Queue' },
-  { value: 'ready', label: 'Ready' },
-  { value: 'on_bench', label: 'On bench' },
-  { value: 'waiting', label: 'Waiting' },
-  { value: 'qc', label: 'QC' },
-  { value: 'complete', label: 'Complete' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
-
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function workStatusLabel(status: WorkStatus) {
+  if (status === 'qc') return 'Release review'
+  return titleCase(status)
 }
 
 export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { workspaceId: string; itemId: string; focusWorkId?: string | null }) {
@@ -285,24 +280,6 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
     await loadWork(created?.id)
   }
 
-  async function updateWorkStatus(status: WorkStatus) {
-    if (!selected || saving) return
-    setSaving(true)
-    const now = new Date().toISOString()
-    const patch: Record<string, unknown> = { status, updated_at: now }
-    if (status === 'on_bench' && !selected.started_at) patch.started_at = now
-    if (status === 'complete') patch.completed_at = now
-    if (status !== 'complete') patch.completed_at = null
-    const { error } = await supabase.from('work_records').update(patch).eq('workspace_id', workspaceId).eq('id', selected.id)
-    setSaving(false)
-    if (error) {
-      setMessage(`Work status could not be changed: ${error.message}`)
-      return
-    }
-    setMessage(status === 'complete' ? 'Work completed.' : `Work moved to ${titleCase(status)}.`)
-    await loadWork(selected.id)
-  }
-
   async function saveWorkNotes() {
     if (!selected || saving) return
     setSaving(true)
@@ -356,12 +333,12 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
           <div>
             <p className="eyebrow">JOB CARD · WORK #{selected.work_number}</p>
             <h3>{selected.title}</h3>
-            <p className="muted">{selected.induction_status === 'legacy_skipped' ? titleCase(selected.type) : 'Induction → Job plan → Work → Final QC'} · opened {new Date(selected.opened_at).toLocaleDateString('en-AU')}</p>
+            <p className="muted">{selected.induction_status === 'legacy_skipped' ? titleCase(selected.type) : 'Induction → Job plan → Work → Final Verification → Release'} · opened {new Date(selected.opened_at).toLocaleDateString('en-AU')}</p>
           </div>
-          <label className="work-job-status">Status<select value={selected.status} disabled={saving} onChange={(event) => void updateWorkStatus(event.target.value as WorkStatus)}>{workStatuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <div className="work-job-status"><span>Status</span><strong>{workStatusLabel(selected.status)}</strong><small>Change workflow state from Bench lifecycle controls.</small></div>
         </div>
 
-        {work.length > 1 && <label className="work-job-switcher">Work record<select value={selected.id} onChange={(event) => setSelectedWorkId(event.target.value)}>{work.map((record) => <option key={record.id} value={record.id}>#{record.work_number} · {record.title} · {titleCase(record.status)}</option>)}</select></label>}
+        {work.length > 1 && <label className="work-job-switcher">Work record<select value={selected.id} onChange={(event) => setSelectedWorkId(event.target.value)}>{work.map((record) => <option key={record.id} value={record.id}>#{record.work_number} · {record.title} · {workStatusLabel(record.status)}</option>)}</select></label>}
 
         <div className="work-job-fields">
           <label>Diagnosis<textarea rows={3} value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} placeholder="Diagnosis develops from induction findings and workshop evidence…" /></label>
@@ -390,7 +367,7 @@ export default function WorkJobCard({ workspaceId, itemId, focusWorkId }: { work
             <div className="work-job-sections">
               {grouped.map(([section, sectionSteps]) => (
                 <section className={`work-job-section phase-${section === 'final_qc' ? 'final-qc' : 'procedure'}`} key={section}>
-                  <div className="work-job-section-title"><strong>{section === 'final_qc' ? 'Final QC' : titleCase(section)}</strong><span>{sectionSteps.filter((step) => step.status === 'done' || step.status === 'na').length}/{sectionSteps.length}</span></div>
+                  <div className="work-job-section-title"><strong>{section === 'final_qc' ? 'Final Verification' : titleCase(section)}</strong><span>{sectionSteps.filter((step) => step.status === 'done' || step.status === 'na').length}/{sectionSteps.length}</span></div>
                   <div className="work-job-step-list">
                     {sectionSteps.map((step) => (
                       <article className={`work-job-step step-${step.status}`} key={step.id}>

@@ -142,11 +142,19 @@ export default function BenchStepChecklist({
   }
 
   async function completeStep() {
+    if (requiredOpen.length > 0) {
+      setMessage(`Complete the remaining required check${requiredOpen.length === 1 ? '' : 's'} first: ${requiredOpen.map((check) => check.label).join(' · ')}`)
+      return
+    }
     setSavingId('main')
     const { error } = await supabase.rpc('complete_work_checklist_step', { p_workspace_id: workspaceId, p_step_id: step.id })
     setSavingId('')
-    if (error) { setMessage(`Step could not complete: ${error.message}`); return }
-    setMessage('Step complete. Calibre has advanced to the next procedure stage.')
+    if (error) {
+      await load(false)
+      setMessage(`Stage could not complete: ${error.message}. Review the required checks shown above; the database will not bypass them.`)
+      return
+    }
+    setMessage('Stage complete. Calibre has advanced to the next procedure stage.')
     await onChanged()
   }
 
@@ -351,7 +359,10 @@ export default function BenchStepChecklist({
       {inactiveChecks.length > 0 && <details className="bench-step-inactive"><summary>Ruled out / not needed · {inactiveChecks.length}</summary><div>{inactiveChecks.map((check) => <div key={check.id}><strong>{check.label}</strong><span>{check.state_reason || 'Inactive branch'}</span></div>)}</div></details>}
 
       {checks.length > 0 && <div className="bench-step-checklist-foot">
-        <div><strong>{readyToComplete ? 'Stage ready' : `${requiredOpen.length} required check${requiredOpen.length === 1 ? '' : 's'} remaining`}</strong><span>{readyToComplete ? 'All active required checks are complete or explicitly N/A.' : 'Inactive branches do not block progress. Active problems continue through their revealed branch.'}</span></div>
+        <div>
+          <strong>{readyToComplete ? 'Stage ready' : `${requiredOpen.length} required check${requiredOpen.length === 1 ? '' : 's'} remaining`}</strong>
+          <span>{readyToComplete ? 'All active required checks are complete or explicitly N/A.' : `Complete: ${requiredOpen.map((check) => check.label).join(' · ')}`}</span>
+        </div>
         <button type="button" onClick={() => void completeStep()} disabled={!readyToComplete || savingId === 'main' || step.status === 'done'}>{savingId === 'main' ? 'Completing…' : 'Complete stage'}</button>
       </div>}
       {message && <p className="bench-step-checklist-message">{message}</p>}

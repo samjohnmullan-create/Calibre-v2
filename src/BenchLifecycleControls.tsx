@@ -15,7 +15,12 @@ const actionCopy: Record<Exclude<Action, 'resume'>, { title: string; copy: strin
   pause: { title: 'Pause Work', copy: 'Finish the active bench session and place this Work in a neutral paused state.', confirm: 'Pause Work' },
   queue: { title: 'Remove from bench', copy: 'Finish any active session and return this Work to the queue without losing history.', confirm: 'Remove from bench' },
   cancel: { title: 'Cancel Work', copy: 'Close this Work permanently as cancelled while preserving its checklist, timing, notes, costs and audit history.', confirm: 'Cancel Work' },
-  cancel_qc: { title: 'Cancel QC', copy: 'Leave Final QC and return the Work to active bench status so corrections can continue.', confirm: 'Cancel QC' },
+  cancel_qc: { title: 'Leave release review', copy: 'Leave Release review and return the Work to active bench status so corrections can continue.', confirm: 'Return to bench' },
+}
+
+function statusLabel(status: WorkStatus) {
+  if (status === 'qc') return 'Release review'
+  return status.replaceAll('_', ' ')
 }
 
 export default function BenchLifecycleControls({
@@ -104,7 +109,7 @@ export default function BenchLifecycleControls({
       if (state.status !== 'qc') { setSaving(false); return }
       toStatus = 'on_bench'
       Object.assign(patch, { status: toStatus, waiting_reason: null, blocker: '' })
-      summary = 'Final QC cancelled; Work returned to bench'
+      summary = 'Release review cancelled; Work returned to bench'
     }
 
     const update = await supabase.from('work_records').update(patch).eq('workspace_id', workspaceId).eq('id', workId)
@@ -140,11 +145,11 @@ export default function BenchLifecycleControls({
   if (terminal) return null
 
   return <section className="bench-lifecycle-controls" aria-label="Work lifecycle controls">
-    <div className="bench-lifecycle-heading"><div><span>WORK LIFECYCLE</span><strong>{paused ? 'Paused' : state.status.replaceAll('_', ' ')}</strong></div><small>These actions change workflow state; they never delete Work history.</small></div>
+    <div className="bench-lifecycle-heading"><div><span>WORK LIFECYCLE</span><strong>{paused ? 'Paused' : statusLabel(state.status)}</strong></div><small>These actions change workflow state; they never delete Work history.</small></div>
     <div className="bench-lifecycle-actions">
       {paused ? <button type="button" onClick={() => void transition('resume')} disabled={saving}>Resume Work</button> : state.status !== 'queued' && state.status !== 'qc' && <button type="button" className="secondary" onClick={() => setConfirming('pause')} disabled={saving}>Pause Work</button>}
       {state.status !== 'queued' && <button type="button" className="secondary" onClick={() => setConfirming('queue')} disabled={saving}>Remove from bench</button>}
-      {state.status === 'qc' && <button type="button" className="secondary" onClick={() => setConfirming('cancel_qc')} disabled={saving}>Cancel QC</button>}
+      {state.status === 'qc' && <button type="button" className="secondary" onClick={() => setConfirming('cancel_qc')} disabled={saving}>Return to bench</button>}
       <button type="button" className="secondary danger" onClick={() => setConfirming('cancel')} disabled={saving}>Cancel Work</button>
     </div>
 
