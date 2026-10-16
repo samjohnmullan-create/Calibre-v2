@@ -97,6 +97,15 @@ export default function ItemWorkspaceRoute() {
 
   useEffect(() => { if (workspaceId && itemId) void load() }, [workspaceId, itemId])
 
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      const changedItemId = (event as CustomEvent<{ itemId?: string }>).detail?.itemId
+      if (!changedItemId || changedItemId === itemId) void load()
+    }
+    window.addEventListener('calibre:item-changed', refresh)
+    return () => window.removeEventListener('calibre:item-changed', refresh)
+  }, [workspaceId, itemId])
+
   const activeWork = useMemo(() => work.find((record) => !['complete', 'cancelled'].includes(record.status)) ?? null, [work])
   const totalCost = useMemo(() => costs.reduce((sum, cost) => sum + Number(cost.amount || 0), 0), [costs])
   const currency = valuation?.currency || costs[0]?.currency || 'AUD'
@@ -179,11 +188,11 @@ export default function ItemWorkspaceRoute() {
       {tab === 'details' && (
         <div className="item-v2-stack">
           <section className="section-card">
-            <div className="item-v2-section-heading"><div><p className="eyebrow">OBJECT</p><h2>Identity & observations</h2></div><button type="button" className="secondary small" onClick={() => setEditing(true)}>Edit</button></div>
+            <div className="item-v2-section-heading"><div><p className="eyebrow">CONFIRMED ITEM DETAILS</p><h2>Identity & observations</h2></div><button type="button" className="secondary small" onClick={() => setEditing(true)}>Edit</button></div>
             <dl className="item-v2-detail-grid">
               <div><dt>Maker</dt><dd>{identity?.maker || '—'}</dd></div><div><dt>Model</dt><dd>{identity?.model || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div><div><dt>Country</dt><dd>{identity?.country || '—'}</dd></div><div><dt>Materials</dt><dd>{identity?.materials || '—'}</dd></div><div><dt>Dimensions</dt><dd>{identity?.dimensions_text || '—'}</dd></div>
             </dl>
-            <div className="item-v2-observations"><div><strong>Dial</strong><p>{identity?.dial_markings || 'No dial markings recorded.'}</p></div><div><strong>Case</strong><p>{identity?.case_markings || 'No case markings recorded.'}</p></div><div><strong>Movement</strong><p>{identity?.movement_markings || 'No movement markings recorded.'}</p></div></div>
+            <div className="item-v2-observations"><div><strong>Dial markings</strong><p>{identity?.dial_markings || 'No dial markings recorded.'}</p></div><div><strong>Case markings</strong><p>{identity?.case_markings || 'No case markings recorded.'}</p></div><div><strong>Movement markings</strong><p>{identity?.movement_markings || 'No movement markings recorded.'}</p></div><div><strong>Research notes</strong><p>{identity?.notes || 'No identity / research notes recorded.'}</p></div></div>
           </section>
           <PassportPanel workspaceId={workspaceId} itemId={item.id} />
           <ItemMedia workspaceId={workspaceId} itemId={item.id} />
@@ -195,7 +204,11 @@ export default function ItemWorkspaceRoute() {
       {tab === 'research' && (
         <div className="item-v2-stack">
           <BenchResearchPanel workspaceId={workspaceId} itemId={item.id} workId={activeWork?.id ?? null} onChanged={load} />
-          <section className="section-card"><p className="eyebrow">ITEM EVIDENCE</p><h2>Recorded observations</h2><div className="item-v2-observations"><div><strong>Movement markings</strong><p>{identity?.movement_markings || 'Nothing recorded yet.'}</p></div><div><strong>Identity notes</strong><p>{identity?.notes || 'No identity / research notes yet.'}</p></div><div><strong>Item notes</strong><p>{item.notes || 'No Item notes yet.'}</p></div></div></section>
+          <section className="section-card">
+            <div className="item-v2-section-heading"><div><p className="eyebrow">CURRENT ITEM DETAILS</p><h2>Confirmed facts</h2></div><button type="button" className="secondary small" onClick={() => setTab('details')}>Open full details</button></div>
+            <dl className="item-v2-detail-grid"><div><dt>Maker</dt><dd>{identity?.maker || '—'}</dd></div><div><dt>Model</dt><dd>{identity?.model || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div><div><dt>Country</dt><dd>{identity?.country || '—'}</dd></div><div><dt>Materials</dt><dd>{identity?.materials || '—'}</dd></div><div><dt>Dimensions</dt><dd>{identity?.dimensions_text || '—'}</dd></div></dl>
+            <div className="item-v2-observations"><div><strong>Dial markings</strong><p>{identity?.dial_markings || 'Nothing recorded yet.'}</p></div><div><strong>Case markings</strong><p>{identity?.case_markings || 'Nothing recorded yet.'}</p></div><div><strong>Movement markings</strong><p>{identity?.movement_markings || 'Nothing recorded yet.'}</p></div></div>
+          </section>
           <section className="section-card item-v2-callout"><div><p className="eyebrow">CALIBRE LIBRARY</p><h3>Reusable movement and compatibility knowledge lives in Library.</h3><p className="muted">Item-specific conclusions stay here; reusable technical knowledge stays in the Library.</p></div><button type="button" onClick={() => { window.location.hash = '#/calibre' }}>Open Library</button></section>
         </div>
       )}
