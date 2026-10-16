@@ -17,17 +17,18 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgba(226, 234, 235, 0.14) !important;
+  outline: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.032) 52%, rgba(255, 255, 255, 0.018)),
-    rgba(72, 84, 90, 0.12) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.078), rgba(255, 255, 255, 0.028) 52%, rgba(255, 255, 255, 0.014)),
+    rgba(255, 255, 255, 0.035) !important;
   color: var(--calibre-text, #edf1ee) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.13),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.018),
-    0 4px 12px rgba(0, 0, 0, 0.10);
-  -webkit-backdrop-filter: blur(12px) saturate(112%);
-  backdrop-filter: blur(12px) saturate(112%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.014),
+    0 4px 12px rgba(0, 0, 0, 0.10) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(100%);
+  backdrop-filter: blur(12px) saturate(100%);
 }
 
 :where(
@@ -50,8 +51,8 @@
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 24% 0%, rgba(255,255,255,.075), transparent 46%),
-    linear-gradient(110deg, transparent 0 38%, rgba(255,255,255,.028) 49%, transparent 61%);
+    radial-gradient(circle at 24% 0%, rgba(255,255,255,.06), transparent 46%),
+    linear-gradient(110deg, transparent 0 38%, rgba(255,255,255,.022) 49%, transparent 61%);
 }
 
 .calibre-mobile-nav button.active {
@@ -79,6 +80,6 @@
   ) {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    background: rgba(67, 76, 81, 0.38) !important;
+    background: rgba(255, 255, 255, 0.055) !important;
   }
 }
