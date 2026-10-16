@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './lib/supabase'
 import ResearchProposalReview from './ResearchProposalReview'
 import MarketResearchValues from './MarketResearchValues'
+import TechnicalResearchValues from './TechnicalResearchValues'
+import IdentificationResearchValues from './IdentificationResearchValues'
+import ResearchOutcomePanel from './ResearchOutcomePanel'
+import PartsResearchSummary from './PartsResearchSummary'
 import './bench-guided-job.css'
 
 type ResearchRequest = {
@@ -39,7 +43,7 @@ type Source = {
 }
 
 type FindingSource = { research_finding_id: string; source_id: string }
-type ResearchScope = 'comprehensive' | 'movement' | 'parts' | 'valuation' | 'identify'
+type ResearchScope = 'comprehensive' | 'movement' | 'parts' | 'valuation' | 'identify' | 'history' | 'service'
 
 type ResearchPayload = { finding_count?: number; source_count?: number; summary?: string; error?: string }
 
@@ -49,6 +53,8 @@ const scopes: { key: ResearchScope; label: string; detail: string }[] = [
   { key: 'parts', label: 'Parts', detail: 'Part references, compatibility evidence, donors and availability clues.' },
   { key: 'valuation', label: 'Market', detail: 'Sold comparables, asking prices, condition differences and valuation evidence.' },
   { key: 'identify', label: 'Identification', detail: 'Maker, model, references, calibre, date and variant evidence.' },
+  { key: 'history', label: 'History', detail: 'Brand and model history, production context, variants, provenance clues and collectability.' },
+  { key: 'service', label: 'Service intelligence', detail: 'Known calibre weaknesses, service cautions, common faults, lubrication references and useful bench checks.' },
 ]
 
 function token() { return crypto.randomUUID().replaceAll('-', '').slice(0, 8) }
@@ -131,6 +137,8 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
   const needsInput = useMemo(() => latest && !hasCompletedAutonomousResult(latest) && latest.status === 'needs_input' ? latest : null, [latest])
   const latestStatus = latest ? (hasCompletedAutonomousResult(latest) ? 'complete' : latest.status) : ''
   const latestFindings = useMemo(() => latest ? findings.filter((row) => row.research_request_id === latest.id) : [], [findings, latest])
+  const latestFindingIds = useMemo(() => new Set(latestFindings.map((row) => row.id)), [latestFindings])
+  const latestSourceCount = useMemo(() => new Set(links.filter((row) => latestFindingIds.has(row.research_finding_id)).map((row) => row.source_id)).size, [links, latestFindingIds])
   const sourceById = useMemo(() => new Map(sources.map((row) => [row.id, row])), [sources])
   const sourceIdsByFinding = useMemo(() => {
     const map = new Map<string, string[]>()
@@ -239,7 +247,7 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       photo_count: photos.filter((row) => row.url).length,
       autonomous: true,
       context: workId ? 'work' : 'item',
-      handoff_version: 4,
+      handoff_version: 5,
     }
 
     const insert = await supabase.from('research_requests').insert({ workspace_id: workspaceId, item_id: itemId, work_id: workId ?? null, request_type: scope, requested_scope: requestedScope })
@@ -256,9 +264,11 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     await invokeResearch(created)
   }
 
+  const batchHandled = latest ? ['movement', 'identify', 'comprehensive'].includes(latest.request_type) : false
+
   return <section className="bench-guided-panel bench-research-panel">
     <div className="bench-guided-heading"><div><p className="eyebrow">RESEARCH</p><strong>Autonomous sourced research for this {workId ? 'Work' : 'Item'}</strong></div>{latest && <span>{titleCase(latestStatus)}</span>}</div>
-    <p className="bench-guided-help">Calibre checks existing Movement/Knowledge records first, then uses web research for gaps, corroboration and current market or parts evidence. Results are saved as sourced findings and proposals for review — never silently promoted into canonical Item or Passport data.</p>
+    <p className="bench-guided-help">Choose the kind of decision you need. Calibre gathers sourced evidence first, then presents proposed changes for review instead of silently changing Item data.</p>
 
     <div className="bench-research-scopes">{scopes.map((entry) => <button type="button" key={entry.key} className={scope === entry.key ? 'selected' : ''} onClick={() => setScope(entry.key)} disabled={busy}><strong>{entry.label}</strong><small>{entry.detail}</small></button>)}</div>
     <div className="bench-guided-actions">
@@ -266,9 +276,30 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
       {retryable && !busy && <button type="button" className="secondary" onClick={() => void invokeResearch(retryable)}>Retry research</button>}
       {active && !busy && <button type="button" className="secondary" onClick={() => void load()}>Refresh status</button>}
     </div>
-    {needsInput && <p className="bench-guided-message">This request is waiting for more evidence or confirmation. It is not still running. Review the findings below or run a new research request.</p>}
+    {needsInput && <p className="bench-guided-message">This request is waiting for more evidence or confirmation. It is not still running. Review the research gaps below or run a new request after adding the missing evidence.</p>}
 
-    {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latestStatus)}</small>{autonomousSummary(latest) && <p>{autonomousSummary(latest)}</p>}</div>}
+    {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latestStatus)}</small></div>}
+
+    {latest && latestStatus === 'complete' && <ResearchOutcomePanel request={latest} findings={latestFindings} sourceCount={latestSourceCount} />}
+
+    {latest && latest.request_type === 'movement' && latestStatus === 'complete' && <TechnicalResearchValues
+      workspaceId={workspaceId}
+      itemId={itemId}
+      workId={workId}
+      requestId={latest.id}
+      findings={latestFindings}
+      onChanged={async () => { await load(); await onChanged?.() }}
+    />}
+
+    {latest && ['identify', 'comprehensive'].includes(latest.request_type) && latestStatus === 'complete' && <IdentificationResearchValues
+      workspaceId={workspaceId}
+      itemId={itemId}
+      requestId={latest.id}
+      findings={latestFindings}
+      onChanged={async () => { await load(); await onChanged?.() }}
+    />}
+
+    {latest && latest.request_type === 'parts' && latestStatus === 'complete' && <PartsResearchSummary request={latest} findings={latestFindings} />}
 
     {latest && latest.request_type === 'valuation' && latestStatus === 'complete' && <MarketResearchValues
       workspaceId={workspaceId}
@@ -279,21 +310,19 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     />}
 
     {latestFindings.length > 0 && <div className="bench-research-results">
-      <div className="bench-guided-heading"><div><p className="eyebrow">FINDINGS</p><strong>{latestFindings.length} sourced result{latestFindings.length === 1 ? '' : 's'} · review each proposed detail before it becomes Item data</strong></div></div>
+      <div className="bench-guided-heading"><div><p className="eyebrow">EVIDENCE</p><strong>{latestFindings.length} sourced finding{latestFindings.length === 1 ? '' : 's'} behind this research outcome</strong></div></div>
       {latestFindings.map((finding) => {
         const findingSources = (sourceIdsByFinding.get(finding.id) ?? []).map((id) => sourceById.get(id)).filter(Boolean) as Source[]
         return <article key={finding.id} className="bench-research-finding">
           <div className="bench-research-finding-head"><div><span>{titleCase(finding.category)}</span><strong>{finding.finding}</strong></div><span className={`status-pill status-${finding.confidence}`}>{titleCase(finding.confidence)}</span></div>
           {finding.evidence_note && <p>{finding.evidence_note}</p>}
-          {finding.proposed_destination && finding.proposed_field && <>
-            <div className="bench-research-proposal"><span>PROPOSED UPDATE</span><strong>{titleCase(finding.proposed_destination)} · {titleCase(finding.proposed_field)}</strong><small>{typeof finding.proposed_value === 'object' ? JSON.stringify(finding.proposed_value) : String(finding.proposed_value ?? '')}</small><em>{titleCase(finding.proposal_status)}</em></div>
-            <ResearchProposalReview
-              finding={finding}
-              workspaceId={workspaceId}
-              itemId={itemId}
-              onChanged={async () => { await load(); await onChanged?.() }}
-            />
-          </>}
+          {finding.proposed_destination && finding.proposed_field && <div className="bench-research-proposal"><span>PROPOSED UPDATE</span><strong>{titleCase(finding.proposed_destination)} · {titleCase(finding.proposed_field)}</strong><small>{typeof finding.proposed_value === 'object' ? JSON.stringify(finding.proposed_value) : String(finding.proposed_value ?? '')}</small><em>{titleCase(finding.proposal_status)}</em></div>}
+          {!batchHandled && finding.proposed_destination && finding.proposed_field && <ResearchProposalReview
+            finding={finding}
+            workspaceId={workspaceId}
+            itemId={itemId}
+            onChanged={async () => { await load(); await onChanged?.() }}
+          />}
           {findingSources.length > 0 && <div className="bench-research-sources">{findingSources.map((source) => source.url ? <a key={source.id} href={source.url} target="_blank" rel="noreferrer"><strong>{source.title}</strong><small>{source.publisher || titleCase(source.source_type)} · {titleCase(source.reliability)}</small></a> : <div key={source.id}><strong>{source.title}</strong><small>{source.publisher || titleCase(source.source_type)} · {titleCase(source.reliability)}</small></div>)}</div>}
         </article>
       })}
