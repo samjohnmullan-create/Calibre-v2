@@ -80,6 +80,13 @@ export default function InventoryHubRoute() {
     return cache
   }, [locations])
 
+  const groupedItems = useMemo(() => {
+    const known = itemTypes.map((type) => ({ type, items: items.filter((item) => item.type === type) })).filter((group) => group.items.length > 0)
+    const unknown = items.filter((item) => !itemTypes.includes(item.type))
+    if (unknown.length) known.push({ type: 'other', items: unknown })
+    return known
+  }, [items])
+
   useEffect(() => {
     const sync = () => setActive(isInventoryRoot())
     window.addEventListener('hashchange', sync); sync()
@@ -190,7 +197,7 @@ export default function InventoryHubRoute() {
   return (
     <main className="inventory-hub-page inventory-v2-page">
       <header className="inventory-hub-heading inventory-v2-heading">
-        <div><p className="eyebrow">INVENTORY</p><h1>Inventory</h1><p className="muted">What it is, what is happening to it and where it physically is are kept as separate facts.</p></div>
+        <div><p className="eyebrow">INVENTORY</p><h1>Inventory</h1><p className="muted">Items are grouped by object type; workflow and physical location remain separate facts.</p></div>
         <button type="button" aria-label="Create item">＋ Add Item</button>
       </header>
 
@@ -227,14 +234,17 @@ export default function InventoryHubRoute() {
           {loading && <p className="inventory-empty">Loading inventory…</p>}
           {!loading && items.length === 0 && <div className="inventory-empty"><strong>No Items match this view.</strong><span>{totalItems ? 'Clear a filter or try another search.' : 'Add your first Item or import a purchase through Intake.'}</span></div>}
           <div className="inventory-list">
-            {items.map((item) => <div key={item.id} className="inventory-row-shell">
-              <button type="button" className="inventory-row inventory-row-open" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
-                <span className="inventory-row-number">#{item.item_number}</span>
-                <span className="inventory-row-main"><strong>{item.title}</strong><small>{titleCase(item.type)} · {titleCase(item.purpose)} · {item.storage_location_id ? (pathById.get(item.storage_location_id) || 'Unknown location') : 'Needs put-away'}</small></span>
-                <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
-              </button>
-              <button type="button" className="inventory-row-remove secondary small" onClick={() => setArchiveTarget(item)} aria-label={`Remove Item #${item.item_number}`}>Remove</button>
-            </div>)}
+            {groupedItems.map((group) => <section key={group.type} className="inventory-item-group">
+              <div className="inventory-v2-list-heading"><div><p className="eyebrow">{group.type.toUpperCase()}</p><h2>{group.type === 'accessory' ? 'Accessories' : group.type === 'jewellery' ? 'Jewellery' : `${titleCase(group.type)}s`}</h2></div><span>{group.items.length}</span></div>
+              {group.items.map((item) => <div key={item.id} className="inventory-row-shell">
+                <button type="button" className="inventory-row inventory-row-open" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
+                  <span className="inventory-row-number">#{item.item_number}</span>
+                  <span className="inventory-row-main"><strong>{item.title}</strong><small>{titleCase(item.purpose)} · {item.storage_location_id ? (pathById.get(item.storage_location_id) || 'Unknown location') : 'Needs put-away'}</small></span>
+                  <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
+                </button>
+                <button type="button" className="inventory-row-remove secondary small" onClick={() => setArchiveTarget(item)} aria-label={`Remove Item #${item.item_number}`}>Remove</button>
+              </div>)}
+            </section>)}
           </div>
           {matchCount > pageSize && <div className="inventory-v2-search-row" aria-label="Inventory pagination"><button type="button" className="secondary small" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>Previous</button><span>Page {page + 1} of {totalPages}</span><button type="button" className="secondary small" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button></div>}
         </section>
