@@ -9,10 +9,11 @@ import WorkbenchRoute from './WorkbenchRoute'
 import BusinessRoute from './BusinessRoute'
 import SettingsRoute from './SettingsRoute'
 import TimegrapherRoute from './TimegrapherRoute'
+import ProcedureStudioRoute from './ProcedureStudioRoute'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
 
-type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'calibre' | 'settings' | 'other'
+type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'procedures' | 'calibre' | 'settings' | 'other'
 
 const primaryNav = [
   { key: 'home', label: 'Home', hash: '#/home', icon: '⌂' },
@@ -24,6 +25,7 @@ const primaryNav = [
 
 const secondaryNav = [
   { key: 'timegrapher', label: 'Timegrapher', hash: '#/timegrapher', icon: '◷' },
+  { key: 'procedures', label: 'Procedures', hash: '#/procedures', icon: '≋' },
   { key: 'calibre', label: 'Library', hash: '#/calibre', icon: '◇' },
   { key: 'settings', label: 'Settings', hash: '#/settings', icon: '⚙' },
 ] as const
@@ -32,13 +34,14 @@ function readSection(): ShellSection {
   const raw = window.location.hash.replace(/^#\/?/, '')
   const first = raw.split('/').filter(Boolean)[0] ?? 'items'
   if (first === 'work') return 'items'
-  if (['home', 'intake', 'items', 'workbench', 'business', 'timegrapher', 'calibre', 'settings'].includes(first)) return first as ShellSection
+  if (['home', 'intake', 'items', 'workbench', 'business', 'timegrapher', 'procedures', 'calibre', 'settings'].includes(first)) return first as ShellSection
   return 'other'
 }
 
 function titleFor(section: ShellSection) {
   if (section === 'items') return 'Inventory'
   if (section === 'calibre') return 'Library'
+  if (section === 'procedures') return 'Procedure Studio'
   if (section === 'timegrapher') return 'Timegrapher'
   if (section === 'other') return 'Calibre'
   return section.charAt(0).toUpperCase() + section.slice(1)
@@ -166,6 +169,7 @@ export default function CalibreShell() {
           <WorkbenchRoute />
           <BusinessRoute />
           <TimegrapherRoute />
+          <ProcedureStudioRoute />
           <SettingsRoute />
           <CreateItemFlow />
         </div>
@@ -176,6 +180,7 @@ export default function CalibreShell() {
           <div className="calibre-mobile-more" role="dialog" aria-modal="true" aria-label="More Calibre sections" onClick={(event) => event.stopPropagation()}>
             <div className="calibre-mobile-more-heading"><div><span className="eyebrow">MORE</span><strong>Calibre</strong></div><button type="button" className="secondary small" onClick={() => setMoreOpen(false)}>Close</button></div>
             <button type="button" className={section === 'timegrapher' ? 'active' : ''} onClick={() => navigate('#/timegrapher')}><span>◷</span><div><strong>Timegrapher</strong><small>Live microphone timing and calibration</small></div></button>
+            <button type="button" className={section === 'procedures' ? 'active' : ''} onClick={() => navigate('#/procedures')}><span>≋</span><div><strong>Procedure Studio</strong><small>Design and version guided workshop procedures</small></div></button>
             <button type="button" className={section === 'intake' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>↧</span><div><strong>Intake</strong><small>Invoices, purchases and incoming records</small></div></button>
             <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business')}><span>◎</span><div><strong>Business</strong><small>Stock value, listings, sales and costs</small></div></button>
             <button type="button" className={section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/calibre')}><span>◇</span><div><strong>Library</strong><small>Movement research and compatibility</small></div></button>
@@ -189,7 +194,7 @@ export default function CalibreShell() {
         <button type="button" className={section === 'items' ? 'active' : ''} onClick={() => navigate('#/items')}><span>◫</span><strong>Items</strong></button>
         <button type="button" className="mobile-new" onClick={openNew}><span>＋</span><strong>New</strong></button>
         <button type="button" className={section === 'workbench' ? 'active' : ''} onClick={() => navigate('#/workbench')}><span>⌁</span><strong>Work</strong></button>
-        <button type="button" className={section === 'intake' || section === 'business' || section === 'timegrapher' || section === 'calibre' || section === 'settings' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
+        <button type="button" className={section === 'intake' || section === 'business' || section === 'timegrapher' || section === 'procedures' || section === 'calibre' || section === 'settings' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
       </nav>
     </div>
   )
