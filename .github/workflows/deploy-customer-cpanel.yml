@@ -35,7 +35,7 @@ jobs:
       - name: Deploy to VentraIP cPanel over FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
-          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          server: ftp.calibreco.com.au
           username: ${{ secrets.CPANEL_FTP_USERNAME }}
           password: ${{ secrets.CPANEL_FTP_PASSWORD }}
           protocol: ftps
