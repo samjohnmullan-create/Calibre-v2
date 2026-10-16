@@ -2,7 +2,6 @@
    Keep DeX/desktop behaviour intact; these rules only apply to phone widths. */
 
 @media (max-width: 820px) {
-  /* Compact the session header so long watch titles do not consume the viewport. */
   .bench-mode-overlay,
   .bench-mode-overlay-shell,
   .bench-mode-focus,
@@ -19,47 +18,69 @@
     overflow-x: hidden;
   }
 
+  /* Phone header: status/clock on row one, title on row two. This avoids the
+     desktop flex layout forcing the title and timer to fight for one line. */
   .bench-mode-overlay-shell > header {
-    min-height: 74px;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'session clock'
+      'title title';
+    align-items: center !important;
+    min-height: 68px;
     box-sizing: border-box;
-    padding: 10px 14px !important;
-    gap: 10px;
+    padding: 8px 12px 9px !important;
+    gap: 3px 10px !important;
+    overflow: hidden;
   }
 
   .bench-mode-overlay-shell > header > div:first-child {
-    min-width: 0;
-    flex: 1 1 auto;
+    display: contents;
   }
 
   .bench-mode-overlay-shell > header .eyebrow {
-    margin-bottom: 2px;
-    font-size: 10px;
-    line-height: 1.2;
+    grid-area: session;
+    min-width: 0;
+    margin: 0 !important;
+    font-size: 9px !important;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .bench-mode-overlay-shell > header h2 {
+    grid-area: title;
+    min-width: 0;
     margin: 0 !important;
     max-width: 100%;
-    font-size: 20px !important;
-    line-height: 1.08;
+    font-size: 18px !important;
+    line-height: 1.05;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .bench-mode-live-clock {
-    min-width: 92px;
-    max-width: 104px;
-    gap: 1px;
+    grid-area: clock;
+    position: static !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    display: flex !important;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 7px !important;
+    white-space: nowrap;
   }
 
   .bench-mode-live-clock span {
-    font-size: 9px;
+    font-size: 8px !important;
+    line-height: 1;
   }
 
   .bench-mode-live-clock strong {
-    font-size: 19px !important;
-    line-height: 1.05;
+    font-size: 16px !important;
+    line-height: 1;
   }
 
   /* The guided panel already repeats the active step. Hide the oversized
@@ -68,8 +89,7 @@
     display: none !important;
   }
 
-  /* The four workspace destinations belong in one compact row on phone.
-     Do not float/stick over the guided procedure: let the row scroll away. */
+  /* Compact four-way workspace switcher. */
   .bench-mode-focus > .bench-job-hub,
   .bench-job-hub {
     position: static !important;
@@ -77,9 +97,9 @@
     z-index: auto !important;
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 5px !important;
+    gap: 4px !important;
     margin: 0 !important;
-    padding: 0 0 8px !important;
+    padding: 0 0 7px !important;
     overflow: hidden;
     border-bottom: 1px solid var(--calibre-line, #344447);
     background: transparent !important;
@@ -92,10 +112,10 @@
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    min-height: 48px !important;
+    min-height: 42px !important;
     box-sizing: border-box;
-    padding: 6px 2px !important;
-    border-radius: 10px !important;
+    padding: 5px 2px !important;
+    border-radius: 9px !important;
     grid-template-columns: 1fr !important;
     grid-template-areas: 'icon' 'title' !important;
     justify-items: center !important;
@@ -106,15 +126,15 @@
   }
 
   .bench-job-hub button > span {
-    font-size: .95rem !important;
+    font-size: .84rem !important;
     line-height: 1;
   }
 
   .bench-job-hub button > strong {
     width: 100%;
     min-width: 0;
-    font-size: .65rem !important;
-    line-height: 1.1;
+    font-size: .62rem !important;
+    line-height: 1.05;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -124,13 +144,12 @@
     display: none !important;
   }
 
-  /* Give the guided work most of the usable screen and clamp any desktop
-     min-content sizing that would otherwise widen the whole scroll surface. */
+  /* Guided work owns the available width. */
   .bench-mode-focus {
     grid-template-columns: minmax(0, 1fr) !important;
-    gap: 10px !important;
-    padding: 10px 10px calc(76px + env(safe-area-inset-bottom, 0px)) !important;
-    scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 9px !important;
+    padding: 10px 10px calc(74px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important;
     overflow-x: hidden !important;
   }
 
@@ -163,13 +182,13 @@
     min-height: 0 !important;
   }
 
-  /* Persistent session controls: one shallow row, guaranteed inside viewport. */
+  /* One shallow footer row with a true inset from both viewport edges. */
   .bench-mode-overlay-shell > footer {
     display: grid !important;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, .9fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, .86fr) minmax(0, 1.08fr) !important;
     align-items: stretch;
-    gap: 5px !important;
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 6px !important;
+    padding: 7px 11px calc(7px + env(safe-area-inset-bottom, 0px)) !important;
     overflow: hidden;
     background: rgba(16, 27, 33, .98);
   }
@@ -178,11 +197,11 @@
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    min-height: 46px !important;
+    min-height: 43px !important;
     box-sizing: border-box;
-    padding: 7px 4px !important;
-    font-size: 12px !important;
-    line-height: 1.1;
+    padding: 6px 3px !important;
+    font-size: 11px !important;
+    line-height: 1.05;
     white-space: normal;
     overflow: hidden;
   }
@@ -190,21 +209,24 @@
 
 @media (max-width: 430px) {
   .bench-mode-overlay-shell > header {
-    min-height: 66px;
-    padding: 7px 9px !important;
+    min-height: 64px;
+    padding: 7px 10px 8px !important;
   }
 
   .bench-mode-overlay-shell > header h2 {
-    font-size: 17px !important;
+    font-size: 16px !important;
   }
 
   .bench-mode-live-clock {
-    min-width: 84px;
-    max-width: 90px;
+    gap: 5px !important;
+  }
+
+  .bench-mode-live-clock span {
+    font-size: 7.5px !important;
   }
 
   .bench-mode-live-clock strong {
-    font-size: 16px !important;
+    font-size: 15px !important;
   }
 
   .bench-mode-focus {
@@ -216,22 +238,22 @@
   }
 
   .bench-job-hub button {
-    min-height: 43px !important;
+    min-height: 40px !important;
     padding-inline: 1px !important;
   }
 
   .bench-job-hub button > strong {
-    font-size: .59rem !important;
+    font-size: .57rem !important;
   }
 
   .bench-mode-overlay-shell > footer {
-    gap: 4px !important;
-    padding-inline: 6px !important;
+    gap: 5px !important;
+    padding-inline: 9px !important;
   }
 
   .bench-mode-overlay-shell > footer > button {
-    min-height: 43px !important;
-    padding-inline: 3px !important;
-    font-size: 10.5px !important;
+    min-height: 42px !important;
+    padding-inline: 2px !important;
+    font-size: 10px !important;
   }
 }
