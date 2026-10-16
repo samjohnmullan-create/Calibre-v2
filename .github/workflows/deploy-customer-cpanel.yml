@@ -1,0 +1,46 @@
+name: Deploy Calibre customer site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: customer-cpanel
+  cancel-in-progress: true
+
+jobs:
+  deploy-customer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build customer site
+        env:
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Deploy to VentraIP cPanel over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./
+          security: strict
+          log-level: standard
