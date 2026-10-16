@@ -7,6 +7,7 @@ import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 import HomeRoute from './HomeRoute'
 import WorkbenchRoute from './WorkbenchRoute'
 import BusinessRoute from './BusinessRoute'
+import BusinessFinanceRoute from './BusinessFinanceRoute'
 import SettingsRoute from './SettingsRoute'
 import TimegrapherRoute from './TimegrapherRoute'
 import ProcedureStudioRoute from './ProcedureStudioRoute'
@@ -20,7 +21,7 @@ const primaryNav = [
   { key: 'intake', label: 'Intake', hash: '#/intake', icon: '↧' },
   { key: 'items', label: 'Inventory', hash: '#/items', icon: '◫' },
   { key: 'workbench', label: 'Workbench', hash: '#/workbench', icon: '⌁' },
-  { key: 'business', label: 'Business', hash: '#/business', icon: '◎' },
+  { key: 'business', label: 'Business', hash: '#/business/finance', icon: '◎' },
 ] as const
 
 const secondaryNav = [
@@ -168,6 +169,7 @@ export default function CalibreShell() {
           <ItemWorkspaceRoute />
           <WorkbenchRoute />
           <BusinessRoute />
+          <BusinessFinanceRoute />
           <TimegrapherRoute />
           <ProcedureStudioRoute />
           <SettingsRoute />
@@ -182,7 +184,7 @@ export default function CalibreShell() {
             <button type="button" className={section === 'timegrapher' ? 'active' : ''} onClick={() => navigate('#/timegrapher')}><span>◷</span><div><strong>Timegrapher</strong><small>Live microphone timing and calibration</small></div></button>
             <button type="button" className={section === 'procedures' ? 'active' : ''} onClick={() => navigate('#/procedures')}><span>≋</span><div><strong>Procedure Studio</strong><small>Design and version guided workshop procedures</small></div></button>
             <button type="button" className={section === 'intake' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>↧</span><div><strong>Intake</strong><small>Invoices, purchases and incoming records</small></div></button>
-            <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business')}><span>◎</span><div><strong>Business</strong><small>Stock value, listings, sales and costs</small></div></button>
+            <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business/finance')}><span>◎</span><div><strong>Business</strong><small>Finance intelligence, stock, sales and costs</small></div></button>
             <button type="button" className={section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/calibre')}><span>◇</span><div><strong>Library</strong><small>Movement research and compatibility</small></div></button>
             <button type="button" className={section === 'settings' ? 'active' : ''} onClick={() => navigate('#/settings')}><span>⚙</span><div><strong>Settings</strong><small>Data recovery and system controls</small></div></button>
           </div>
