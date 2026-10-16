@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import ResearchProposalReview from './ResearchProposalReview'
 import './bench-guided-job.css'
 
 type ResearchRequest = {
@@ -219,13 +220,21 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latest.status)}</small>{autonomousSummary(latest) && <p>{autonomousSummary(latest)}</p>}</div>}
 
     {latestFindings.length > 0 && <div className="bench-research-results">
-      <div className="bench-guided-heading"><div><p className="eyebrow">FINDINGS</p><strong>{latestFindings.length} sourced result{latestFindings.length === 1 ? '' : 's'}</strong></div></div>
+      <div className="bench-guided-heading"><div><p className="eyebrow">FINDINGS</p><strong>{latestFindings.length} sourced result{latestFindings.length === 1 ? '' : 's'} · review each proposed detail before it becomes Item data</strong></div></div>
       {latestFindings.map((finding) => {
         const findingSources = (sourceIdsByFinding.get(finding.id) ?? []).map((id) => sourceById.get(id)).filter(Boolean) as Source[]
         return <article key={finding.id} className="bench-research-finding">
           <div className="bench-research-finding-head"><div><span>{titleCase(finding.category)}</span><strong>{finding.finding}</strong></div><span className={`status-pill status-${finding.confidence}`}>{titleCase(finding.confidence)}</span></div>
           {finding.evidence_note && <p>{finding.evidence_note}</p>}
-          {finding.proposed_destination && finding.proposed_field && <div className="bench-research-proposal"><span>PROPOSED UPDATE</span><strong>{titleCase(finding.proposed_destination)} · {titleCase(finding.proposed_field)}</strong><small>{typeof finding.proposed_value === 'object' ? JSON.stringify(finding.proposed_value) : String(finding.proposed_value ?? '')}</small><em>{titleCase(finding.proposal_status)}</em></div>}
+          {finding.proposed_destination && finding.proposed_field && <>
+            <div className="bench-research-proposal"><span>PROPOSED UPDATE</span><strong>{titleCase(finding.proposed_destination)} · {titleCase(finding.proposed_field)}</strong><small>{typeof finding.proposed_value === 'object' ? JSON.stringify(finding.proposed_value) : String(finding.proposed_value ?? '')}</small><em>{titleCase(finding.proposal_status)}</em></div>
+            <ResearchProposalReview
+              finding={finding}
+              workspaceId={workspaceId}
+              itemId={itemId}
+              onChanged={async () => { await load(); await onChanged?.() }}
+            />
+          </>}
           {findingSources.length > 0 && <div className="bench-research-sources">{findingSources.map((source) => source.url ? <a key={source.id} href={source.url} target="_blank" rel="noreferrer"><strong>{source.title}</strong><small>{source.publisher || titleCase(source.source_type)} · {titleCase(source.reliability)}</small></a> : <div key={source.id}><strong>{source.title}</strong><small>{source.publisher || titleCase(source.source_type)} · {titleCase(source.reliability)}</small></div>)}</div>}
         </article>
       })}
