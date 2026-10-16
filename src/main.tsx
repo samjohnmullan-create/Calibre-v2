@@ -59,9 +59,15 @@ import './glass-active-tabs.css'
 import './mobile-ui-v3.css'
 import './research-click-fix.css'
 import './customer-site.css'
+import './customer-publishing.css'
+
+function isCustomerHostname() {
+  const host = window.location.hostname.toLowerCase()
+  return host === 'calibreco.com.au' || host === 'www.calibreco.com.au'
+}
 
 function Root() {
-  if (isCustomerRoute()) return <CustomerSite />
+  if (isCustomerHostname() || isCustomerRoute()) return <CustomerSite />
   return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /></>
 }
 
