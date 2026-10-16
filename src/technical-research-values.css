@@ -1,0 +1,107 @@
+.bench-research-technical-values {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  background: rgba(255,255,255,.025);
+}
+
+.technical-values-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.technical-value-row {
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 12px;
+  background: rgba(255,255,255,.018);
+}
+
+.technical-value-row.replacement {
+  border-color: rgba(255,255,255,.16);
+}
+
+.technical-value-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.technical-value-toggle input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.technical-value-toggle > span {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.technical-value-toggle small,
+.technical-value-compare span,
+.technical-replacement-note {
+  color: var(--calibre-muted, #aab6b7);
+}
+
+.technical-value-toggle small {
+  text-transform: capitalize;
+}
+
+.technical-value-compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.technical-value-compare > div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(0,0,0,.12);
+}
+
+.technical-value-compare span {
+  display: block;
+  margin-bottom: 5px;
+  font-size: .76rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.technical-value-compare strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.technical-value-compare input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 9px;
+  background: rgba(0,0,0,.14);
+  color: inherit;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.technical-value-compare input:disabled {
+  opacity: .55;
+}
+
+.technical-replacement-note {
+  display: block;
+  margin-top: 8px;
+  font-size: .82rem;
+}
+
+@media (max-width: 640px) {
+  .bench-research-technical-values { padding: 13px; }
+  .technical-value-compare { grid-template-columns: 1fr; }
+}
