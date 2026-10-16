@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import WorkInductionPlan from './WorkInductionPlan'
 import WorkOperationsPanel from './WorkOperationsPanel'
+import WorkResumeSnapshot from './WorkResumeSnapshot'
 import './work-workspace.css'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
@@ -168,6 +169,10 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
   if (!work) return <div className="loading-card">This Work record could not be found.</div>
 
   const inductionOpen = work.induction_status !== 'legacy_skipped' && (work.induction_status !== 'complete' || work.job_plan_status !== 'applied')
+  const resumeAction = inductionOpen
+    ? phase === 'Job Plan' ? 'Complete the job plan' : 'Complete workshop induction'
+    : currentStep?.label || (work.status === 'complete' ? 'Review completed Work' : 'Continue to Verification')
+  const activeBlocker = currentStep?.status === 'blocked' ? currentStep.blocked_reason : work.blocker
 
   return (
     <div className="work-workspace-shell">
@@ -181,6 +186,8 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
       </header>
 
       {message && <p className="work-workspace-message">{message}</p>}
+
+      <WorkResumeSnapshot workspaceId={workspaceId} workId={work.id} currentAction={resumeAction} blocker={activeBlocker} />
 
       <div className="work-workspace-grid">
         <nav className="work-workspace-navigator" aria-label="Job navigator">
