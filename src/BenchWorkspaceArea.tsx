@@ -4,6 +4,7 @@ import BenchKnowledgePanel from './BenchKnowledgePanel'
 import BenchTimegrapher from './BenchTimegrapher'
 import WorkTimingWorkflow from './WorkTimingWorkflow'
 import WorkPartsMatcher from './WorkPartsMatcher'
+import BenchDocumentsPanel from './BenchDocumentsPanel'
 import './bench-workspace-area.css'
 import './bench-research.css'
 
@@ -43,7 +44,7 @@ export default function BenchWorkspaceArea({
       <button type="button" className="secondary" onClick={onBack}>← Back to Work</button>
     </div>
 
-    {area === 'research' && <BenchResearchPanel workspaceId={workspaceId} itemId={itemId} workId={workId} onChanged={onChanged} />}
+    {area === 'research' && <div className="bench-tool-stack"><BenchResearchPanel workspaceId={workspaceId} itemId={itemId} workId={workId} onChanged={onChanged} /><BenchDocumentsPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} /></div>}
     {area === 'diagnosis' && <div className="bench-tool-stack"><BenchDiagnosisPanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} onChanged={onChanged} /><BenchKnowledgePanel workspaceId={workspaceId} itemId={itemId} workId={workId} refreshKey={refreshKey} /></div>}
     {area === 'timing' && <div className="bench-tool-stack"><BenchTimegrapher workspaceId={workspaceId} itemId={itemId} workId={workId} defaultCheckpoint={timingCheckpoint} onSaved={onChanged} /><WorkTimingWorkflow workspaceId={workspaceId} itemId={itemId} workId={workId} /></div>}
     {area === 'parts' && <div className="bench-tool-stack"><WorkPartsMatcher workspaceId={workspaceId} itemId={itemId} workId={workId} /></div>}

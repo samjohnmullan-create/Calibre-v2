@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 type ProposalFinding = {
@@ -22,7 +22,7 @@ function titleCase(value: string) {
 }
 
 function displayValue(value: unknown) {
-  if (value == null) return ''
+  if (value == null || value === '') return 'Not set'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
@@ -64,10 +64,12 @@ export default function ResearchProposalReview({
   const field = finding.proposed_field ?? ''
   const canApply = Boolean(destination && field && allowedFields[destination]?.has(field))
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(displayValue(finding.proposed_value))
+  const [draft, setDraft] = useState(displayValue(finding.proposed_value) === 'Not set' ? '' : displayValue(finding.proposed_value))
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [locallyApplied, setLocallyApplied] = useState(false)
+  const [currentValue, setCurrentValue] = useState<unknown>(null)
+  const [currentLoading, setCurrentLoading] = useState(false)
 
   const destinationLabel = useMemo(() => {
     if (destination === 'identity') return 'Item details'
@@ -75,6 +77,24 @@ export default function ResearchProposalReview({
     if (destination === 'item') return 'Item'
     return titleCase(destination || 'Research')
   }, [destination])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadCurrent() {
+      if (!canApply) return
+      setCurrentLoading(true)
+      const table = destination === 'item' ? 'items' : destination === 'identity' ? 'item_identity' : 'passports'
+      let query = supabase.from(table).select(field).eq('workspace_id', workspaceId)
+      query = destination === 'item' ? query.eq('id', itemId) : query.eq('item_id', itemId)
+      const result = await query.maybeSingle()
+      if (!cancelled) {
+        setCurrentLoading(false)
+        if (!result.error) setCurrentValue(result.data ? ((result.data as unknown) as Record<string, unknown>)[field] : null)
+      }
+    }
+    void loadCurrent()
+    return () => { cancelled = true }
+  }, [workspaceId, itemId, destination, field, canApply, finding.proposal_status])
 
   async function writeCanonical(value: unknown) {
     if (!canApply) throw new Error('This research result is not mapped to a safe Item field yet.')
@@ -89,6 +109,7 @@ export default function ResearchProposalReview({
         .maybeSingle()
       if (result.error) throw result.error
       if (!result.data) throw new Error('Item was not updated. The write matched no editable Item row.')
+      setCurrentValue(((result.data as unknown) as Record<string, unknown>)[field])
       return
     }
 
@@ -105,6 +126,7 @@ export default function ResearchProposalReview({
       : await supabase.from(table).insert({ workspace_id: workspaceId, item_id: itemId, ...payload }).select(`item_id,${field}`).maybeSingle()
     if (result.error) throw result.error
     if (!result.data) throw new Error(`${destinationLabel} was not updated. The write matched no editable record.`)
+    setCurrentValue(((result.data as unknown) as Record<string, unknown>)[field])
   }
 
   async function confirm() {
@@ -127,7 +149,7 @@ export default function ResearchProposalReview({
       if (!findingUpdate.data) throw new Error('The Item detail was saved, but the research finding could not be marked applied.')
 
       setLocallyApplied(true)
-      setMessage(`Added to ${destinationLabel}.`)
+      setMessage(`Saved to database · ${destinationLabel} · ${titleCase(field)} = ${displayValue(value)}`)
       setEditing(false)
       setBusy(false)
       window.dispatchEvent(new CustomEvent('calibre:item-changed', { detail: { itemId, destination, field } }))
@@ -150,7 +172,7 @@ export default function ResearchProposalReview({
     }).eq('workspace_id', workspaceId).eq('id', finding.id)
     setBusy(false)
     if (result.error) return setMessage(result.error.message)
-    setMessage('Kept as research evidence only.')
+    setMessage('Kept as research evidence only. No Item or Passport field was changed.')
     void Promise.resolve(onChanged?.()).catch(() => undefined)
   }
 
@@ -165,14 +187,18 @@ export default function ResearchProposalReview({
     }).eq('workspace_id', workspaceId).eq('id', finding.id)
     setBusy(false)
     if (result.error) return setMessage(result.error.message)
-    setMessage('Rejected.')
+    setMessage('Rejected. No database detail was changed.')
     void Promise.resolve(onChanged?.()).catch(() => undefined)
   }
 
   if (!finding.proposed_destination || !finding.proposed_field) return null
 
   if (locallyApplied || finding.proposal_status === 'applied') {
-    return <div className="bench-guided-actions"><span className="status-pill status-complete">✓ Added to {destinationLabel}</span></div>
+    return <div className="bench-research-review">
+      <div className="bench-research-value-compare"><div><span>Current database value</span><strong>{displayValue(currentValue ?? finding.proposed_value)}</strong></div></div>
+      <div className="bench-guided-actions"><span className="status-pill status-complete">✓ Saved to database · {destinationLabel}</span></div>
+      {message && <p className="bench-guided-message">{message}</p>}
+    </div>
   }
   if (finding.proposal_status === 'kept') {
     return <div className="bench-guided-actions"><span className="status-pill">Kept as research only</span></div>
@@ -182,8 +208,12 @@ export default function ResearchProposalReview({
   }
 
   return <div className="bench-research-review">
+    {canApply && <div className="bench-research-value-compare">
+      <div><span>Current</span><strong>{currentLoading ? 'Loading…' : displayValue(currentValue)}</strong></div>
+      <div><span>Proposed</span><strong>{displayValue(editing ? draft : finding.proposed_value)}</strong></div>
+    </div>}
     {editing && <label className="bench-research-edit-value">
-      <span>Edit before adding</span>
+      <span>Edit proposed value before adding</span>
       <textarea rows={3} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={busy} />
     </label>}
     <div className="bench-guided-actions">
