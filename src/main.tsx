@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import CalibreShell from './CalibreShell'
 import BenchModeHost from './BenchModeHost'
+import ProcedurePreviewHost from './ProcedurePreviewHost'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
@@ -58,5 +59,6 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <CalibreShell />
     <BenchModeHost />
+    <ProcedurePreviewHost />
   </StrictMode>,
 )
