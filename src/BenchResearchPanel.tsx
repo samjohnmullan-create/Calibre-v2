@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './lib/supabase'
 import ResearchProposalReview from './ResearchProposalReview'
+import MarketResearchValues from './MarketResearchValues'
 import './bench-guided-job.css'
 
 type ResearchRequest = {
@@ -65,6 +66,12 @@ function autonomousSummary(row: ResearchRequest | null) {
 function hasCompletedAutonomousResult(row: ResearchRequest | null) {
   const result = autonomousResult(row)
   return typeof result?.completed_at === 'string' && Boolean(result.completed_at)
+}
+function marketSuggestion(row: ResearchRequest | null) {
+  const ingestion = row?.requested_scope?.domain_ingestion
+  if (!ingestion || typeof ingestion !== 'object') return null
+  const market = (ingestion as Record<string, unknown>).market
+  return market && typeof market === 'object' ? market as Record<string, unknown> : null
 }
 
 export default function BenchResearchPanel({ workspaceId, itemId, workId, onChanged }: { workspaceId: string; itemId: string; workId?: string | null; onChanged?: () => void | Promise<void> }) {
@@ -262,6 +269,14 @@ export default function BenchResearchPanel({ workspaceId, itemId, workId, onChan
     {needsInput && <p className="bench-guided-message">This request is waiting for more evidence or confirmation. It is not still running. Review the findings below or run a new research request.</p>}
 
     {latest && <div className="bench-research-latest"><span>Latest</span><strong>{requestToken(latest) || titleCase(latest.request_type)}</strong><small>{new Date(latest.requested_at).toLocaleString('en-AU')} · {titleCase(latest.request_type)} · {titleCase(latestStatus)}</small>{autonomousSummary(latest) && <p>{autonomousSummary(latest)}</p>}</div>}
+
+    {latest && latest.request_type === 'valuation' && latestStatus === 'complete' && <MarketResearchValues
+      workspaceId={workspaceId}
+      itemId={itemId}
+      requestId={latest.id}
+      suggested={marketSuggestion(latest)}
+      onChanged={onChanged}
+    />}
 
     {latestFindings.length > 0 && <div className="bench-research-results">
       <div className="bench-guided-heading"><div><p className="eyebrow">FINDINGS</p><strong>{latestFindings.length} sourced result{latestFindings.length === 1 ? '' : 's'} · review each proposed detail before it becomes Item data</strong></div></div>
