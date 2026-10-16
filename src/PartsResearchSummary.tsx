@@ -74,8 +74,8 @@ export default function PartsResearchSummary({ request, findings }: { request: R
           ? `${label(candidate.part_type, 'Part')} · ${label(candidate.part_reference, 'No reference')}`
           : `${label(candidate.maker, 'Movement')} ${label(candidate.calibre, '')}`}</strong>
           <span>{label(candidate.confidence, 'candidate')}</span></div>
-        {candidate.description && <p>{String(candidate.description)}</p>}
-        {candidate.notes && <p>{String(candidate.notes)}</p>}
+        {Boolean(candidate.description) && <p>{String(candidate.description)}</p>}
+        {Boolean(candidate.notes) && <p>{String(candidate.notes)}</p>}
         {candidate.modification_required === true && <small>Modification required</small>}
       </article>)}
     </div>)}
