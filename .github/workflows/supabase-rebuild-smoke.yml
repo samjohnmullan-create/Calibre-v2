@@ -3,6 +3,11 @@ name: Supabase clean rebuild smoke
 on:
   push:
     branches: [test/recover-supabase-baseline]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/database/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-rebuild-smoke.yml'
   pull_request:
     branches: [main]
     paths:
