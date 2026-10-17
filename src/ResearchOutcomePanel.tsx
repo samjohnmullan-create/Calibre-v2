@@ -93,6 +93,7 @@ export default function ResearchOutcomePanel({ request, findings, sourceCount }:
         .select('id')
         .eq('workspace_id', context.data.workspace_id)
         .eq('url', document.url)
+        .limit(1)
         .maybeSingle() : { data: null, error: null }
       if (existing.error) throw new Error(existing.error.message)
 
@@ -118,9 +119,7 @@ export default function ResearchOutcomePanel({ request, findings, sourceCount }:
         documentId = inserted.data.id
       }
 
-      const linked = await supabase.from('knowledge_document_links').upsert({
-        workspace_id: context.data.workspace_id,
-        document_id: documentId,
+      const linkPayload = {
         item_id: context.data.item_id,
         work_id: context.data.work_id,
         research_request_id: request.id,
@@ -128,8 +127,31 @@ export default function ResearchOutcomePanel({ request, findings, sourceCount }:
         relevance_note: document.referenceText || `Found during ${request.request_type} research.`,
         page_from: document.pageFrom,
         page_to: document.pageTo,
-      }, { onConflict: 'document_id,item_id,work_id,research_request_id,link_kind' })
-      if (linked.error) throw new Error(linked.error.message)
+      }
+      const existingLink = await supabase.from('knowledge_document_links')
+        .select('id')
+        .eq('workspace_id', context.data.workspace_id)
+        .eq('document_id', documentId)
+        .eq('research_request_id', request.id)
+        .eq('link_kind', 'research_evidence')
+        .limit(1)
+        .maybeSingle()
+      if (existingLink.error) throw new Error(existingLink.error.message)
+
+      if (existingLink.data?.id) {
+        const updated = await supabase.from('knowledge_document_links')
+          .update(linkPayload)
+          .eq('id', existingLink.data.id)
+          .eq('workspace_id', context.data.workspace_id)
+        if (updated.error) throw new Error(updated.error.message)
+      } else {
+        const linked = await supabase.from('knowledge_document_links').insert({
+          workspace_id: context.data.workspace_id,
+          document_id: documentId,
+          ...linkPayload,
+        })
+        if (linked.error) throw new Error(linked.error.message)
+      }
 
       setSaved((current) => ({ ...current, [document.key]: true }))
       setMessage('✓ Reference saved to Calibre Library and linked to this research.')
