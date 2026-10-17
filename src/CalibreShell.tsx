@@ -10,6 +10,7 @@ import BusinessFinanceRoute from './BusinessFinanceRoute'
 import SettingsRoute from './SettingsRoute'
 import TimegrapherRoute from './TimegrapherRoute'
 import CustomerPublishingRoute from './CustomerPublishingRoute'
+import KnowledgePage from './KnowledgePage'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
 import CalibreBrandMark from './CalibreBrandMark'
@@ -61,7 +62,7 @@ function resetViewport() {
 
 export default function CalibreShell() {
   const initial = useMemo(readSection, [])
-  const { signOut } = useWorkshopSession()
+  const { signOut, workspace } = useWorkshopSession()
   const [section, setSection] = useState<ShellSection>(initial)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newOpen, setNewOpen] = useState(false)
@@ -197,6 +198,7 @@ export default function CalibreShell() {
           <BusinessRoute />
           <BusinessFinanceRoute />
           <TimegrapherRoute />
+          {section === 'calibre' && <KnowledgePage workspaceId={workspace.id} />}
           <CustomerPublishingRoute />
           <SettingsRoute />
           <CreateItemFlow />
