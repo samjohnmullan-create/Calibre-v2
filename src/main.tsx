@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import CalibreShell from './CalibreShell'
 import BenchModeHost from './BenchModeHost'
 import ProcedurePreviewHost from './ProcedurePreviewHost'
+import CustomerPackHost from './CustomerPackHost'
 import CustomerSite, { isCustomerRoute } from './CustomerSite'
 import './styles.css'
 import './workbench-dex.css'
@@ -75,7 +76,7 @@ function isWorkshopHostname() {
 }
 
 function WorkshopApp() {
-  return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /></>
+  return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /><CustomerPackHost /></>
 }
 
 function Root() {
