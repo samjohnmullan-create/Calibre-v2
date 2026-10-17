@@ -4,6 +4,7 @@ import CalibreShell from './CalibreShell'
 import BenchModeHost from './BenchModeHost'
 import ProcedurePreviewHost from './ProcedurePreviewHost'
 import CustomerPackHost from './CustomerPackHost'
+import CustomerDocumentLinks from './CustomerDocumentLinks'
 import CustomerSite, { isCustomerRoute } from './CustomerSite'
 import './styles.css'
 import './workbench-dex.css'
@@ -79,14 +80,18 @@ function WorkshopApp() {
   return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /><CustomerPackHost /></>
 }
 
+function CustomerApp() {
+  return <><CustomerSite /><CustomerDocumentLinks /></>
+}
+
 function Root() {
   // Production hostnames are authoritative. The workshop host must never be
   // switched into the customer catalogue by a hash route or stale bookmark.
-  if (isCustomerHostname()) return <CustomerSite />
+  if (isCustomerHostname()) return <CustomerApp />
   if (isWorkshopHostname()) return <WorkshopApp />
 
   // Keep customer hash routes available only on non-production preview hosts.
-  if (isCustomerRoute()) return <CustomerSite />
+  if (isCustomerRoute()) return <CustomerApp />
   return <WorkshopApp />
 }
 
