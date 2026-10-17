@@ -1,8 +1,9 @@
 name: Deploy Calibre v2
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Verify Calibre v2"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -16,20 +17,32 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout verified commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
 
-      - name: Build
+      - name: Verify manual deployment
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run verify
+
+      - name: Build verified commit
+        if: ${{ github.event_name == 'workflow_run' }}
         env:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
