@@ -1,0 +1,106 @@
+.library-evidence {
+  margin-top: 10px;
+  border-top: 1px solid rgba(135,151,156,.16);
+  padding-top: 9px;
+}
+
+.library-evidence > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  color: #d8bd98;
+  font-weight: 700;
+  list-style: none;
+}
+
+.library-evidence > summary::-webkit-details-marker { display: none; }
+.library-evidence > summary small { color: var(--calibre-muted, #9aa7ab); font-weight: 500; }
+
+.library-evidence-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.library-evidence-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(135,151,156,.17);
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+}
+
+.library-evidence-row.status-accepted { border-color: rgba(216,189,152,.30); background: rgba(216,189,152,.045); }
+.library-evidence-row.status-rejected { opacity: .58; }
+
+.library-evidence-top,
+.library-evidence-review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.library-evidence-top > span,
+.library-evidence-row > small,
+.library-evidence-review > span {
+  color: var(--calibre-muted, #9aa7ab);
+  font-size: 10px;
+}
+
+.library-evidence-row > p { margin: 0; line-height: 1.45; }
+.library-evidence-review { padding-top: 3px; }
+.library-evidence-review > div { display: flex; gap: 6px; }
+.library-evidence-review button { min-height: 34px; }
+
+.bench-page-evidence {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(135,151,156,.14);
+}
+
+.bench-page-evidence-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bench-page-evidence-heading > span {
+  color: var(--calibre-muted, #9aa7ab);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.bench-page-evidence-row {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(216,189,152,.18);
+  border-radius: 10px;
+  background: rgba(216,189,152,.035);
+}
+
+.bench-page-evidence-row > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bench-page-evidence-row p { margin: 0; line-height: 1.45; }
+.bench-page-evidence-row small { color: var(--calibre-muted, #9aa7ab); }
+
+@media (max-width: 700px) {
+  .library-evidence-top,
+  .library-evidence-review,
+  .bench-page-evidence-row > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
