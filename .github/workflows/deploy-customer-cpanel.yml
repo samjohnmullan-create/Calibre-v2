@@ -15,6 +15,9 @@ concurrency:
 jobs:
   deploy-customer:
     runs-on: ubuntu-latest
+    env:
+      CPANEL_FTP_USERNAME: ${{ secrets.CPANEL_FTP_USERNAME }}
+      CPANEL_FTP_PASSWORD: ${{ secrets.CPANEL_FTP_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,12 +35,17 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
 
+      - name: Customer deploy credentials unavailable
+        if: ${{ env.CPANEL_FTP_USERNAME == '' || env.CPANEL_FTP_PASSWORD == '' }}
+        run: echo "::warning::Customer FTPS deployment skipped because CPANEL_FTP_USERNAME and/or CPANEL_FTP_PASSWORD are not configured."
+
       - name: Deploy to VentraIP cPanel over FTPS
+        if: ${{ env.CPANEL_FTP_USERNAME != '' && env.CPANEL_FTP_PASSWORD != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ftp.calibreco.com.au
-          username: ${{ secrets.CPANEL_FTP_USERNAME }}
-          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          username: ${{ env.CPANEL_FTP_USERNAME }}
+          password: ${{ env.CPANEL_FTP_PASSWORD }}
           protocol: ftps
           port: 21
           local-dir: ./dist/
