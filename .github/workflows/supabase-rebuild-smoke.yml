@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/tests/database/**'
       - 'supabase/config.toml'
       - '.github/workflows/supabase-rebuild-smoke.yml'
   workflow_dispatch:
@@ -42,6 +43,9 @@ jobs:
 
       - name: Rebuild schema from committed migrations
         run: supabase db reset
+
+      - name: Run transactional workshop safety tests
+        run: supabase test db
 
       - name: Stop disposable local Supabase
         if: always()
