@@ -4,7 +4,7 @@
 alter table public.knowledge_technical_documents
   add column if not exists workspace_id uuid references public.workspaces(id) on delete cascade,
   add column if not exists item_id uuid references public.items(id) on delete set null,
-  add column if not exists work_id uuid references public.work(id) on delete set null,
+  add column if not exists work_id uuid references public.work_records(id) on delete set null,
   add column if not exists research_request_id uuid references public.research_requests(id) on delete set null,
   add column if not exists publisher text not null default '',
   add column if not exists author text not null default '',
@@ -24,7 +24,7 @@ create table if not exists public.knowledge_document_links (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   document_id uuid not null references public.knowledge_technical_documents(id) on delete cascade,
   item_id uuid references public.items(id) on delete cascade,
-  work_id uuid references public.work(id) on delete cascade,
+  work_id uuid references public.work_records(id) on delete cascade,
   movement_id uuid references public.knowledge_movements(id) on delete cascade,
   research_request_id uuid references public.research_requests(id) on delete set null,
   link_kind text not null default 'reference',
