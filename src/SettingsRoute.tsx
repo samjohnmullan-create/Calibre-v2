@@ -2,59 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuditHistoryPanel from './AuditHistoryPanel'
 import { exportWorkspaceStorageArchive } from './storageArchive'
-
-type ExportTable = {
-  name: string
-  label: string
-  order: string[]
-}
-
-const exportTables: ExportTable[] = [
-  { name: 'items', label: 'Items', order: ['id'] },
-  { name: 'item_identity', label: 'Item identity', order: ['item_id'] },
-  { name: 'passports', label: 'Passports', order: ['item_id'] },
-  { name: 'item_facts', label: 'Item facts', order: ['id'] },
-  { name: 'item_fact_sources', label: 'Item fact sources', order: ['item_fact_id', 'source_id'] },
-  { name: 'item_relationships', label: 'Item relationships', order: ['id'] },
-  { name: 'media_assets', label: 'Media manifest', order: ['id'] },
-  { name: 'sources', label: 'Sources', order: ['id'] },
-  { name: 'research_requests', label: 'Research requests', order: ['id'] },
-  { name: 'research_findings', label: 'Research findings', order: ['id'] },
-  { name: 'research_finding_sources', label: 'Research finding sources', order: ['research_finding_id', 'source_id'] },
-  { name: 'acquisition_invoices', label: 'Acquisition invoices', order: ['id'] },
-  { name: 'acquisition_invoice_lines', label: 'Acquisition invoice lines', order: ['id'] },
-  { name: 'purchases', label: 'Purchases', order: ['id'] },
-  { name: 'purchase_lots', label: 'Purchase lots', order: ['purchase_id', 'id'] },
-  { name: 'purchase_item_links', label: 'Purchase Item links', order: ['purchase_id', 'purchase_lot_id', 'id'] },
-  { name: 'purchase_stock_links', label: 'Purchase stock links', order: ['purchase_id', 'purchase_lot_id', 'id'] },
-  { name: 'purchase_receiving_exceptions', label: 'Purchase receiving exceptions', order: ['purchase_id', 'purchase_lot_id', 'id'] },
-  { name: 'cost_entries', label: 'Item costs', order: ['id'] },
-  { name: 'valuations', label: 'Valuations', order: ['id'] },
-  { name: 'offers', label: 'Offers', order: ['id'] },
-  { name: 'sales', label: 'Sales', order: ['id'] },
-  { name: 'business_ledger_entries', label: 'Business ledger', order: ['id'] },
-  { name: 'work_records', label: 'Work records', order: ['id'] },
-  { name: 'work_events', label: 'Work events', order: ['id'] },
-  { name: 'work_templates', label: 'Work templates', order: ['id'] },
-  { name: 'work_template_steps', label: 'Work template steps', order: ['id'] },
-  { name: 'work_checklist_steps', label: 'Work checklist steps', order: ['id'] },
-  { name: 'work_part_needs', label: 'Work part needs', order: ['id'] },
-  { name: 'work_qc_checks', label: 'Work QC checks', order: ['id'] },
-  { name: 'measurements', label: 'Measurements', order: ['id'] },
-  { name: 'timing_runs', label: 'Timing runs', order: ['id'] },
-  { name: 'parts', label: 'Parts', order: ['id'] },
-  { name: 'part_applications', label: 'Part applications', order: ['id'] },
-  { name: 'part_allocations', label: 'Part allocations', order: ['id'] },
-  { name: 'part_fit_evidence', label: 'Part fit evidence', order: ['id'] },
-  { name: 'part_fit_verifications', label: 'Part fit verifications', order: ['id'] },
-  { name: 'tools', label: 'Tools', order: ['id'] },
-  { name: 'consumables', label: 'Consumables', order: ['id'] },
-  { name: 'storage_locations', label: 'Storage locations', order: ['id'] },
-  { name: 'storage_location_events', label: 'Storage movement history', order: ['moved_at', 'id'] },
-  { name: 'audit_events', label: 'Audit events', order: ['id'] },
-]
+import { useWorkshopSession } from './WorkshopSessionGate'
+import { workspaceBackupTables, type ExportTable } from './workspaceBackupTables'
 
 const exportBatchSize = 500
+const structuredBackupVersion = '2.0'
 
 function isSettings() {
   return window.location.hash.replace(/\/$/, '') === '#/settings'
@@ -71,9 +23,10 @@ async function sha256(text: string) {
 }
 
 export default function SettingsRoute() {
+  const { workspace } = useWorkshopSession()
+  const workspaceId = workspace.id
+  const workspaceName = workspace.name || 'Calibre workspace'
   const [active, setActive] = useState(isSettings)
-  const [workspaceId, setWorkspaceId] = useState('')
-  const [workspaceName, setWorkspaceName] = useState('Calibre workspace')
   const [exporting, setExporting] = useState(false)
   const [archivingStorage, setArchivingStorage] = useState(false)
   const [progress, setProgress] = useState('')
@@ -82,7 +35,7 @@ export default function SettingsRoute() {
   const [lastExport, setLastExport] = useState(() => localStorage.getItem('calibre:last-structured-export') ?? '')
   const [lastStorageExport, setLastStorageExport] = useState(() => localStorage.getItem('calibre:last-storage-export') ?? '')
 
-  const exportScopeLabel = useMemo(() => `${exportTables.length} structured data domains`, [])
+  const exportScopeLabel = useMemo(() => `${workspaceBackupTables.length} workspace tables`, [])
 
   useEffect(() => {
     const sync = () => setActive(isSettings())
@@ -90,22 +43,6 @@ export default function SettingsRoute() {
     sync()
     return () => window.removeEventListener('hashchange', sync)
   }, [])
-
-  useEffect(() => {
-    if (!active) return
-    let cancelled = false
-    ;(async () => {
-      const result = await supabase.from('workspaces').select('id,name').order('created_at', { ascending: true }).limit(1).maybeSingle()
-      if (cancelled) return
-      if (result.error || !result.data) {
-        setMessage(`Data & Recovery unavailable: ${result.error?.message ?? 'No workspace found.'}`)
-        return
-      }
-      setWorkspaceId(result.data.id)
-      setWorkspaceName(result.data.name || 'Calibre workspace')
-    })()
-    return () => { cancelled = true }
-  }, [active])
 
   async function readWholeTable(definition: ExportTable) {
     const rows: unknown[] = []
@@ -139,9 +76,9 @@ export default function SettingsRoute() {
       const tables: Record<string, unknown[]> = {}
       const counts: Record<string, number> = {}
 
-      for (let index = 0; index < exportTables.length; index += 1) {
-        const definition = exportTables[index]
-        setProgress(`Exporting ${index + 1} of ${exportTables.length}: ${definition.label}`)
+      for (let index = 0; index < workspaceBackupTables.length; index += 1) {
+        const definition = workspaceBackupTables[index]
+        setProgress(`Exporting ${index + 1} of ${workspaceBackupTables.length}: ${definition.label}`)
         const rows = await readWholeTable(definition)
         tables[definition.name] = rows
         counts[definition.name] = rows.length
@@ -152,20 +89,26 @@ export default function SettingsRoute() {
       const checksum = await sha256(tableJson)
       const exportedAt = new Date().toISOString()
       const payload = {
-        calibre_export_version: '1.0',
+        calibre_export_version: structuredBackupVersion,
         export_kind: 'workspace_structured_backup',
         exported_at: exportedAt,
         workspace: {
           id: workspaceId,
           name: workspaceName,
+          slug: workspace.slug,
+          owner_id: workspace.owner_id,
         },
         integrity: {
           algorithm: 'SHA-256',
           tables_checksum: checksum,
+          checksum_scope: 'JSON.stringify(tables)',
         },
         scope: {
-          structured_tables: exportTables.map((entry) => entry.name),
+          coverage_model: 'all current public base tables scoped by workspace_id',
+          structured_table_count: workspaceBackupTables.length,
+          structured_tables: workspaceBackupTables.map((entry) => entry.name),
           row_counts: counts,
+          includes_workspace_membership_metadata: true,
           includes_storage_binaries: false,
           includes_auth_credentials: false,
         },
@@ -185,7 +128,7 @@ export default function SettingsRoute() {
       localStorage.setItem('calibre:last-structured-export', exportedAt)
       setLastExport(exportedAt)
       setProgress('')
-      setMessage(`Structured backup created successfully. ${Object.values(counts).reduce((sum, count) => sum + count, 0).toLocaleString()} rows exported.`)
+      setMessage(`Structured backup v${structuredBackupVersion} created successfully. ${workspaceBackupTables.length} tables and ${Object.values(counts).reduce((sum, count) => sum + count, 0).toLocaleString()} rows exported.`)
     } catch (error) {
       setProgress('')
       setMessage(`Backup export failed: ${error instanceof Error ? error.message : 'Unknown error.'}`)
@@ -234,12 +177,13 @@ export default function SettingsRoute() {
           <div>
             <p className="eyebrow">DATA & RECOVERY</p>
             <h2>Portable workspace backup</h2>
-            <p>Create two owner-controlled files: a versioned JSON export of structured records and a TAR archive containing the private Storage binaries referenced by those records.</p>
+            <p>Create two owner-controlled files: a versioned JSON export of every current workspace-scoped table and a TAR archive containing the Storage binaries referenced by those records.</p>
           </div>
 
           <div className="settings-v2-backup-facts">
             <div><span>Workspace</span><strong>{workspaceName}</strong></div>
             <div><span>Structured scope</span><strong>{exportScopeLabel}</strong></div>
+            <div><span>Backup format</span><strong>v{structuredBackupVersion}</strong></div>
             <div><span>Last structured export</span><strong>{lastExport ? new Date(lastExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
             <div><span>Last Storage export</span><strong>{lastStorageExport ? new Date(lastStorageExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
           </div>
@@ -256,12 +200,15 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">WHAT THIS BACKS UP</p>
           <h2>Records plus the real files</h2>
-          <p className="muted">The JSON contains business records, acquisition lineage, physical-storage history and the Storage manifest. The separate TAR archive downloads referenced private images and documents from <code>calibre-media</code>, preserves their bucket-relative paths and writes a SHA-256 checksum for every file into the archive manifest.</p>
-          <div className="settings-v2-status good"><strong>Structured records</strong><span>JSON export available</span></div>
+          <p className="muted">The JSON now covers every current workspace-scoped base table, including workshop sessions, induction, diagnosis, job-plan history, component state, Library evidence, customer publications and acquisition-cost lineage. The separate TAR archive preserves referenced Storage files with SHA-256 checksums.</p>
+          <div className="settings-v2-status good"><strong>All workspace-scoped structured tables</strong><span>{workspaceBackupTables.length} included</span></div>
+          <div className="settings-v2-status good"><strong>Workshop sessions & diagnostic history</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Library documents & page evidence</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Customer publication records</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Acquisition & receiving lineage</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Physical-storage move history</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Structured integrity checksum</strong><span>Included</span></div>
-          <div className="settings-v2-status good"><strong>Image/PDF binary files</strong><span>Separate TAR archive available</span></div>
+          <div className="settings-v2-status good"><strong>Referenced binary files</strong><span>Separate TAR archive</span></div>
           <div className="settings-v2-status good"><strong>Per-file binary checksums</strong><span>Included in TAR manifest</span></div>
           <div className="settings-v2-status pending"><strong>Auth credentials</strong><span>Intentionally excluded</span></div>
         </article>
@@ -269,7 +216,7 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">RESTORE</p>
           <h2>Restore stays locked for now.</h2>
-          <p className="muted">Creating backups is safe. Importing them can overwrite or duplicate real business records, so Calibre will not expose a Restore button until we have tested the restore path against a disposable environment and documented the rollback procedure.</p>
+          <p className="muted">Creating backups is safe. Importing them can overwrite or duplicate real business records, so Calibre will not expose a Restore button until we have tested the v{structuredBackupVersion} restore path against a disposable environment and documented the rollback procedure.</p>
           <div className="settings-v2-status pending"><strong>Restore importer</strong><span>Planned</span></div>
           <div className="settings-v2-status pending"><strong>Disposable restore drill</strong><span>Required before release gate</span></div>
         </article>
@@ -277,7 +224,7 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">RECOVERY MODEL</p>
           <h2>One backup is not enough.</h2>
-          <p className="muted">The release target is layered recovery: versioned database migrations, managed database backups where available, Calibre portable exports, and an owner-controlled archive of private Storage files. The restore drill is still the test that decides whether recovery is actually proven.</p>
+          <p className="muted">The release target is layered recovery: versioned database migrations, managed database backups where available, Calibre portable exports, and an owner-controlled archive of Storage files. The restore drill is still the test that decides whether recovery is actually proven.</p>
         </article>
 
         {workspaceId && <AuditHistoryPanel workspaceId={workspaceId} />}
