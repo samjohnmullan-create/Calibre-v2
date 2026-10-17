@@ -34,7 +34,7 @@ type MovementRow = {
 }
 type MovementSourceRow = { source_id: string; evidence_class: string; reference_text: string; notes: string }
 type SourceRow = { id: string; title: string; source_type: string; publisher: string; url: string; reference_text: string; reliability: string; verification_status: string; origin_kind: string }
-type DocRow = { id: string; title: string; document_type: string; url: string; reference_text: string; source_id: string | null; notes: string; verification_status: string; origin_kind: string }
+type DocRow = { id: string; title: string; document_type: string; url: string; reference_text: string; source_id: string | null; notes: string; verification_status: string; origin_kind: string; movement_id: string | null }
 type DocumentFinding = { id:string; document_id:string; topic:string; finding:string; page_from:number; page_to:number; confidence:string; evidence_note:string; review_status:'candidate'|'accepted'|'rejected' }
 type ApplicationRow = { id: string; part_ref_id: string; evidence_class: string; source_id: string | null; notes: string; confidence: number | null; condition_text: string; verification_status: string; origin_kind: string }
 type PartRefRow = { id: string; manufacturer: string; part_type: string; part_reference: string; description: string; source_id: string | null; notes: string; verification_status: string; evidence_grade: string; origin_kind: string }
@@ -48,6 +48,9 @@ type Suggestion = {
   relation: string
   source?: SourceRow | null
   url?: string
+  documentId?: string
+  documentMovementId?: string | null
+  acceptedEvidenceCount?: number
 }
 
 const text = (value: unknown) => String(value ?? '').trim()
@@ -100,6 +103,7 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
   const [documentEvidence, setDocumentEvidence] = useState<DocumentFinding[]>([])
   const [applications, setApplications] = useState<ApplicationRow[]>([])
   const [partRefs, setPartRefs] = useState<Map<string, PartRefRow>>(new Map())
+  const [promotingDocumentId, setPromotingDocumentId] = useState<string | null>(null)
 
   async function loadEvidence(nextDocuments: DocRow[]) {
     const ids = nextDocuments.map((row) => row.id)
@@ -126,7 +130,7 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
       supabase.from('passports').select('movement_maker,calibre,calibre_family,knowledge_movement_id,movement_identification_status').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
       supabase.from('work_records').select('blocker,diagnosis').eq('workspace_id', workspaceId).eq('id', workId).maybeSingle(),
       supabase.from('work_part_needs').select('id,part_type,description,status').eq('workspace_id', workspaceId).eq('work_record_id', workId),
-      supabase.from('knowledge_technical_documents').select('id,title,document_type,url,reference_text,source_id,notes,verification_status,origin_kind').eq('workspace_id', workspaceId).or(`item_id.eq.${itemId},work_id.eq.${workId}`).limit(12),
+      supabase.from('knowledge_technical_documents').select('id,title,document_type,url,reference_text,source_id,notes,verification_status,origin_kind,movement_id').eq('workspace_id', workspaceId).or(`item_id.eq.${itemId},work_id.eq.${workId}`).limit(12),
     ])
     const baseError = passportResult.error ?? workResult.error ?? needsResult.error ?? contextDocsResult.error
     if (baseError) {
@@ -196,7 +200,7 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
 
     const [movementSourceResult, movementDocResult, applicationResult] = await Promise.all([
       supabase.from('knowledge_movement_sources').select('source_id,evidence_class,reference_text,notes').eq('movement_id', nextMovement.id),
-      supabase.from('knowledge_technical_documents').select('id,title,document_type,url,reference_text,source_id,notes,verification_status,origin_kind').eq('workspace_id', workspaceId).eq('movement_id', nextMovement.id).limit(12),
+      supabase.from('knowledge_technical_documents').select('id,title,document_type,url,reference_text,source_id,notes,verification_status,origin_kind,movement_id').eq('workspace_id', workspaceId).eq('movement_id', nextMovement.id).limit(12),
       supabase.from('knowledge_part_applications').select('id,part_ref_id,evidence_class,source_id,notes,confidence,condition_text,verification_status,origin_kind').eq('movement_id', nextMovement.id).limit(100),
     ])
     const knowledgeError = movementSourceResult.error ?? movementDocResult.error ?? applicationResult.error
@@ -249,6 +253,78 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
     setLoading(false)
   }
 
+  const confirmedMovementId = passport?.movement_identification_status?.toLowerCase() === 'confirmed' ? passport.knowledge_movement_id : null
+
+  async function promoteDocument(documentId: string) {
+    if (promotingDocumentId) return
+    if (!confirmedMovementId || !movement || movement.id !== confirmedMovementId) {
+      setMessage('Movement knowledge can only be promoted from a confirmed Passport linked to a Knowledge movement.')
+      return
+    }
+
+    const document = documents.find((row) => row.id === documentId)
+    if (!document) return
+    const acceptedCount = documentEvidence.filter((row) => row.document_id === documentId && row.review_status === 'accepted').length
+    if (!acceptedCount) {
+      setMessage('Review and accept at least one page finding in Calibre Library before linking this document to the confirmed movement.')
+      return
+    }
+
+    setPromotingDocumentId(documentId)
+    setMessage('Linking reviewed evidence to the confirmed movement…')
+    try {
+      const current = await supabase.from('knowledge_technical_documents')
+        .select('movement_id')
+        .eq('workspace_id', workspaceId)
+        .eq('id', documentId)
+        .maybeSingle()
+      if (current.error || !current.data) throw new Error(current.error?.message || 'Library document could not be reloaded.')
+      if (current.data.movement_id && current.data.movement_id !== confirmedMovementId) throw new Error('This document is already linked to a different movement record. Calibre will not overwrite that link automatically.')
+
+      if (!current.data.movement_id) {
+        const updated = await supabase.from('knowledge_technical_documents')
+          .update({ movement_id: confirmedMovementId })
+          .eq('workspace_id', workspaceId)
+          .eq('id', documentId)
+          .is('movement_id', null)
+        if (updated.error) throw new Error(updated.error.message)
+
+        const verification = await supabase.from('knowledge_technical_documents')
+          .select('movement_id')
+          .eq('workspace_id', workspaceId)
+          .eq('id', documentId)
+          .maybeSingle()
+        if (verification.error || verification.data?.movement_id !== confirmedMovementId) throw new Error(verification.error?.message || 'Movement link could not be verified after saving.')
+      }
+
+      const existingLink = await supabase.from('knowledge_document_links')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .eq('document_id', documentId)
+        .eq('movement_id', confirmedMovementId)
+        .eq('link_kind', 'movement_reference')
+        .maybeSingle()
+      if (existingLink.error) throw new Error(existingLink.error.message)
+      if (!existingLink.data) {
+        const inserted = await supabase.from('knowledge_document_links').insert({
+          workspace_id: workspaceId,
+          document_id: documentId,
+          movement_id: confirmedMovementId,
+          link_kind: 'movement_reference',
+          relevance_note: `Promoted from a confirmed Passport after ${acceptedCount} accepted page finding${acceptedCount === 1 ? '' : 's'}.`,
+        })
+        if (inserted.error) throw new Error(inserted.error.message)
+      }
+
+      setMessage(`✓ ${document.title || 'Library document'} is now reusable evidence for ${movement.maker} ${movement.calibre}.`)
+      await load()
+    } catch (error) {
+      setMessage(`Movement link could not be saved: ${error instanceof Error ? error.message : 'Unknown error.'}`)
+    } finally {
+      setPromotingDocumentId(null)
+    }
+  }
+
   useEffect(() => { void load() }, [workspaceId, itemId, workId, refreshKey])
 
   const suggestions = useMemo(() => {
@@ -269,6 +345,7 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
 
     for (const doc of documents.slice(0, 4)) {
       const source = doc.source_id ? sources.get(doc.source_id) ?? null : null
+      const acceptedEvidenceCount = documentEvidence.filter((row) => row.document_id === doc.id && row.review_status === 'accepted').length
       rows.push({
         key: `doc-${doc.id}`,
         kind: 'document',
@@ -278,6 +355,9 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
         relation: contextTrigger ? 'Relevant Item, Work or exact-calibre document. Relevance does not prove the cause of the current workshop finding.' : 'Technical evidence related to this Item, Work record or exact movement.',
         source,
         url: doc.url || source?.url,
+        documentId: doc.id,
+        documentMovementId: doc.movement_id,
+        acceptedEvidenceCount,
       })
     }
 
@@ -304,7 +384,7 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
     }
 
     return rows.slice(0, 8)
-  }, [movement, movementLinked, documents, needs, applications, partRefs, sources, work])
+  }, [movement, movementLinked, documents, documentEvidence, needs, applications, partRefs, sources, work])
 
   const evidenceDocuments = useMemo(() => new Map(documents.map((doc) => [doc.id, doc])), [documents])
   const visibleEvidence = useMemo(() => documentEvidence.slice(0, 8), [documentEvidence])
@@ -315,7 +395,7 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
     <section className="bench-knowledge">
       <div className="bench-knowledge-heading">
         <div><p className="eyebrow">BENCH KNOWLEDGE</p><strong>Sourced references for this Item and movement</strong></div>
-        {movement && <span>{movementLinked ? 'Passport linked' : 'Exact calibre'}</span>}
+        {movement && <span>{confirmedMovementId === movement.id ? 'Confirmed movement' : movementLinked ? 'Passport linked' : 'Exact calibre'}</span>}
       </div>
       {message && <p className="bench-knowledge-message">{message}</p>}
       {suggestions.length > 0 && <div className="bench-knowledge-list">
@@ -329,6 +409,9 @@ export default function BenchKnowledgePanel({ workspaceId, itemId, workId, refre
             <strong>{row.source?.title || row.source?.reference_text || 'Technical reference'}</strong>
             {row.source && <small>{[row.source.publisher, row.source.reliability && `${titleCase(row.source.reliability)} reliability`, row.source.verification_status && titleCase(row.source.verification_status)].filter(Boolean).join(' · ')}</small>}
             {row.url && <a href={row.url} target="_blank" rel="noreferrer">Open source ↗</a>}
+          </div>}
+          {row.kind === 'document' && row.documentId && confirmedMovementId && movement?.id === confirmedMovementId && <div className="bench-knowledge-promotion">
+            {row.documentMovementId === confirmedMovementId ? <span>✓ Reusable reference for this confirmed movement</span> : row.documentMovementId ? <span>Linked to a different movement record — not changed automatically</span> : (row.acceptedEvidenceCount ?? 0) > 0 ? <><button type="button" disabled={Boolean(promotingDocumentId)} onClick={() => void promoteDocument(row.documentId!)}>{promotingDocumentId === row.documentId ? 'Linking…' : 'Link to confirmed movement'}</button><small>{row.acceptedEvidenceCount} accepted page finding{row.acceptedEvidenceCount === 1 ? '' : 's'} reviewed.</small></> : <small>Accept at least one page finding in Library before making this a reusable movement reference.</small>}
           </div>}
         </article>)}
       </div>}
