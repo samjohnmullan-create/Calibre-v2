@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
+import { useWorkshopSession } from './WorkshopSessionGate'
 
 type Props = { open: boolean; onClose: () => void }
 type SearchKind = 'item' | 'work' | 'part' | 'invoice'
@@ -24,6 +25,19 @@ type SearchIndexRow = {
   href: string
 }
 
+type WorkSearchRow = {
+  id: string
+  item_id: string
+  work_number: number
+  item_number: number
+  item_title: string
+  title: string
+  type: string
+  status: string
+  next_action: string
+  diagnosis: string
+}
+
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -46,7 +60,8 @@ function scoreResult(row: SearchIndexRow, term: string, numeric: number | null) 
 }
 
 export default function GlobalSearch({ open, onClose }: Props) {
-  const [workspaceId, setWorkspaceId] = useState('')
+  const { workspace } = useWorkshopSession()
+  const workspaceId = workspace.id
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -66,21 +81,6 @@ export default function GlobalSearch({ open, onClose }: Props) {
       window.removeEventListener('keydown', onKey)
     }
   }, [open, onClose])
-
-  useEffect(() => {
-    if (!open || workspaceId) return
-    let active = true
-    ;(async () => {
-      const { data, error } = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
-      if (!active) return
-      if (error || !data) {
-        setMessage(error?.message ?? 'No workspace found.')
-        return
-      }
-      setWorkspaceId(data.id)
-    })()
-    return () => { active = false }
-  }, [open, workspaceId])
 
   useEffect(() => {
     if (!open) {
@@ -113,24 +113,32 @@ export default function GlobalSearch({ open, onClose }: Props) {
       const pattern = `%${searchTerm}%`
       const fields = 'kind,record_id,item_id,record_number,title,subtitle,meta,href'
 
-      function categoryQuery(kind: SearchKind, limit: number) {
+      function categoryQuery(kind: Exclude<SearchKind, 'work'>, limit: number) {
         let request = supabase
           .from('calibre_search_index')
           .select(fields)
           .eq('workspace_id', workspaceId)
           .eq('kind', kind)
 
-        if (numeric != null && (kind === 'item' || kind === 'work')) {
-          request = request.or(`record_number.eq.${numeric},search_text.ilike.${pattern}`)
-        } else {
-          request = request.ilike('search_text', pattern)
-        }
+        if (numeric != null && kind === 'item') request = request.or(`record_number.eq.${numeric},search_text.ilike.${pattern}`)
+        else request = request.ilike('search_text', pattern)
         return request.limit(limit)
+      }
+
+      let workRequest = supabase
+        .from('workbench_jobs')
+        .select('id,item_id,work_number,item_number,item_title,title,type,status,next_action,diagnosis')
+        .eq('workspace_id', workspaceId)
+
+      if (numeric != null) {
+        workRequest = workRequest.or(`work_number.eq.${numeric},item_number.eq.${numeric},item_title.ilike.${pattern},title.ilike.${pattern},next_action.ilike.${pattern},diagnosis.ilike.${pattern}`)
+      } else {
+        workRequest = workRequest.or(`item_title.ilike.${pattern},title.ilike.${pattern},type.ilike.${pattern},status.ilike.${pattern},next_action.ilike.${pattern},diagnosis.ilike.${pattern}`)
       }
 
       const [itemsResult, workResult, partsResult, invoicesResult] = await Promise.all([
         categoryQuery('item', 12),
-        categoryQuery('work', 12),
+        workRequest.limit(12),
         categoryQuery('part', 12),
         categoryQuery('invoice', 10),
       ])
@@ -145,12 +153,23 @@ export default function GlobalSearch({ open, onClose }: Props) {
         return
       }
 
+      const workRows = ((workResult.data ?? []) as WorkSearchRow[]).map<SearchIndexRow>((row) => ({
+        kind: 'work',
+        record_id: row.id,
+        item_id: row.item_id,
+        record_number: row.work_number,
+        title: `Work #${row.work_number} · ${row.item_title || row.title}`,
+        subtitle: [row.title, row.next_action || row.diagnosis || 'Review Work'].filter(Boolean).join(' · '),
+        meta: row.status,
+        href: `#/workbench/${encodeURIComponent(row.id)}`,
+      }))
+
       const rows = [
-        ...(itemsResult.data ?? []),
-        ...(workResult.data ?? []),
-        ...(partsResult.data ?? []),
-        ...(invoicesResult.data ?? []),
-      ] as SearchIndexRow[]
+        ...((itemsResult.data ?? []) as SearchIndexRow[]),
+        ...workRows,
+        ...((partsResult.data ?? []) as SearchIndexRow[]),
+        ...((invoicesResult.data ?? []) as SearchIndexRow[]),
+      ]
 
       const mapped = rows
         .map((row) => ({
@@ -206,7 +225,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
           <div className="global-search-empty">
             <p className="eyebrow">GLOBAL SEARCH</p>
             <h2>Find anything without hunting through menus.</h2>
-            <p>Search Item numbers, titles, makers, references, serials, Work numbers, diagnosis, parts and invoices.</p>
+            <p>Search Item numbers, titles, makers, references, serials, Work numbers, calculated next actions, diagnosis, parts and invoices.</p>
           </div>
         )}
 
