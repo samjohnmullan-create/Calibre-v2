@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import App from './App'
 import CreateItemFlow from './CreateItemFlow'
 import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
@@ -14,6 +13,7 @@ import CustomerPublishingRoute from './CustomerPublishingRoute'
 import GlobalSearch from './GlobalSearch'
 import UniversalNewMenu from './UniversalNewMenu'
 import CalibreBrandMark from './CalibreBrandMark'
+import { useWorkshopSession } from './WorkshopSessionGate'
 import './brand-mark-test.css'
 
 type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'calibre' | 'customer' | 'settings' | 'other'
@@ -35,7 +35,7 @@ const secondaryNav = [
 
 function readSection(): ShellSection {
   const raw = window.location.hash.replace(/^#\/?/, '')
-  const first = raw.split('/').filter(Boolean)[0] ?? 'items'
+  const first = raw.split('/').filter(Boolean)[0] ?? 'home'
   if (first === 'work') return 'items'
   if (['home', 'intake', 'items', 'workbench', 'business', 'timegrapher', 'calibre', 'customer', 'settings'].includes(first)) return first as ShellSection
   if (first === 'procedures') return 'workbench'
@@ -61,12 +61,17 @@ function resetViewport() {
 
 export default function CalibreShell() {
   const initial = useMemo(readSection, [])
+  const { signOut } = useWorkshopSession()
   const [section, setSection] = useState<ShellSection>(initial)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newOpen, setNewOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
 
   useEffect(() => {
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/home`)
+      setSection('home')
+    }
     const sync = () => {
       if (window.location.hash.replace(/^#\/?/, '').split('/')[0] === 'procedures') {
         window.location.hash = '#/workbench'
@@ -146,6 +151,9 @@ export default function CalibreShell() {
               <span aria-hidden="true">{entry.icon}</span><strong>{entry.label}</strong>
             </button>
           ))}
+          <button type="button" onClick={() => void signOut()} title="Sign out of Calibre">
+            <span aria-hidden="true">⇥</span><strong>Sign out</strong>
+          </button>
         </div>
       </aside>
 
@@ -173,7 +181,6 @@ export default function CalibreShell() {
         <UniversalNewMenu open={newOpen} onClose={() => setNewOpen(false)} />
 
         <div className="calibre-content-host">
-          <div className="calibre-legacy-host"><App /></div>
           <HomeRoute />
           <IntakeRoute />
           <InventoryHubRoute />
@@ -198,6 +205,7 @@ export default function CalibreShell() {
             <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business/finance')}><span>◎</span><div><strong>Business</strong><small>Finance intelligence, stock, sales and costs</small></div></button>
             <button type="button" className={section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/calibre')}><span>◇</span><div><strong>Library</strong><small>Movement research and compatibility</small></div></button>
             <button type="button" className={section === 'settings' ? 'active' : ''} onClick={() => navigate('#/settings')}><span>⚙</span><div><strong>Settings</strong><small>Data recovery and system controls</small></div></button>
+            <button type="button" onClick={() => void signOut()}><span>⇥</span><div><strong>Sign out</strong><small>End this Calibre session</small></div></button>
           </div>
         </div>
       )}
