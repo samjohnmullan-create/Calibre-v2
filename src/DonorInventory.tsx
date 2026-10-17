@@ -24,6 +24,7 @@ type DonorPart = {
 
 type DonorPassport = {
   item_id: string
+  knowledge_movement_id: string | null
   movement_maker: string
   calibre: string
   calibre_family: string
@@ -43,6 +44,15 @@ type StorageLocation = {
   code: string | null
 }
 
+type RebuildPair = {
+  left: DonorItem
+  right: DonorItem
+  score: number
+  level: 'strong' | 'possible' | 'lead'
+  label: string
+  reasons: string[]
+}
+
 function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -50,6 +60,59 @@ function titleCase(value: string) {
 function display(value: string | number | null | undefined, suffix = '') {
   if (value === null || value === undefined || value === '') return '—'
   return `${value}${suffix}`
+}
+
+function norm(value: string | null | undefined) {
+  return (value ?? '').trim().toLowerCase()
+}
+
+function sameText(a: string | null | undefined, b: string | null | undefined) {
+  const left = norm(a)
+  const right = norm(b)
+  return Boolean(left && right && left === right)
+}
+
+function scorePair(left: DonorPassport | undefined, right: DonorPassport | undefined) {
+  if (!left || !right) return { score: 0, reasons: [] as string[] }
+  let score = 0
+  const reasons: string[] = []
+
+  if (left.knowledge_movement_id && left.knowledge_movement_id === right.knowledge_movement_id) {
+    score += 100
+    reasons.push('Same identified Knowledge movement')
+  } else if (sameText(left.calibre, right.calibre)) {
+    score += sameText(left.movement_maker, right.movement_maker) ? 88 : 72
+    reasons.push(sameText(left.movement_maker, right.movement_maker) ? 'Same maker and exact Passport calibre' : 'Exact Passport calibre')
+  } else if (sameText(left.calibre_family, right.calibre_family)) {
+    score += sameText(left.movement_maker, right.movement_maker) ? 56 : 44
+    reasons.push('Same calibre family')
+  }
+
+  if (sameText(left.movement_maker, right.movement_maker)) {
+    score += 8
+    reasons.push('Same movement maker')
+  }
+  if (sameText(left.movement_type, right.movement_type)) score += 3
+  if (sameText(left.setting_system, right.setting_system)) {
+    score += 4
+    reasons.push('Same setting system')
+  }
+  if (left.beat_rate && right.beat_rate && left.beat_rate === right.beat_rate) {
+    score += 4
+    reasons.push(`Same beat rate (${left.beat_rate} BPH)`)
+  }
+  if (left.movement_diameter_mm != null && right.movement_diameter_mm != null) {
+    const delta = Math.abs(left.movement_diameter_mm - right.movement_diameter_mm)
+    if (delta <= 0.05) {
+      score += 8
+      reasons.push('Movement diameter effectively identical')
+    } else if (delta <= 0.15) {
+      score += 4
+      reasons.push('Movement diameter within 0.15 mm')
+    }
+  }
+
+  return { score: Math.min(score, 100), reasons }
 }
 
 export default function DonorInventory({ workspaceId }: { workspaceId: string }) {
@@ -80,7 +143,7 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
           .is('archived_at', null)
           .order('created_at', { ascending: false }),
         supabase.from('passports')
-          .select('item_id,movement_maker,calibre,calibre_family,movement_type,movement_diameter_mm,setting_system,jewels,beat_rate,escapement,technical_notes')
+          .select('item_id,knowledge_movement_id,movement_maker,calibre,calibre_family,movement_type,movement_diameter_mm,setting_system,jewels,beat_rate,escapement,technical_notes')
           .eq('workspace_id', workspaceId),
         supabase.from('storage_locations')
           .select('id,parent_id,name,code')
@@ -132,6 +195,28 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
     }
     return grouped
   }, [parts])
+
+  const rebuildPairs = useMemo<RebuildPair[]>(() => {
+    const rows: RebuildPair[] = []
+    for (let i = 0; i < donors.length; i += 1) {
+      for (let j = i + 1; j < donors.length; j += 1) {
+        const left = donors[i]
+        const right = donors[j]
+        const scored = scorePair(passportByItemId.get(left.id), passportByItemId.get(right.id))
+        if (scored.score < 50) continue
+        const level: RebuildPair['level'] = scored.score >= 85 ? 'strong' : scored.score >= 65 ? 'possible' : 'lead'
+        rows.push({
+          left,
+          right,
+          score: scored.score,
+          level,
+          label: level === 'strong' ? 'Strong rebuild pair' : level === 'possible' ? 'Possible rebuild pair' : 'Same-family lead',
+          reasons: scored.reasons,
+        })
+      }
+    }
+    return rows.sort((a, b) => b.score - a.score).slice(0, 12)
+  }, [donors, passportByItemId])
 
   const visibleDonors = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -187,8 +272,37 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
         <div><span>Donor watches</span><strong>{donors.length}</strong></div>
         <div><span>Still complete</span><strong>{completeDonors}</strong></div>
         <div><span>Movement identified</span><strong>{identifiedDonors}</strong></div>
-        <div><span>Harvested part units</span><strong>{totalUnits}</strong></div>
+        <div><span>Rebuild leads</span><strong>{rebuildPairs.length}</strong></div>
       </div>
+
+      {!loading && rebuildPairs.length > 0 && (
+        <section className="inventory-list-panel">
+          <div className="inventory-v2-list-heading">
+            <div>
+              <p className="eyebrow">REBUILD INTELLIGENCE</p>
+              <h2>Potential donor combinations</h2>
+              <p className="muted">Calibre has found donor watches that may be worth combining into one better watch. These are evidence-ranked leads, not automatic proof that every component interchanges.</p>
+            </div>
+            <span>{rebuildPairs.length} lead{rebuildPairs.length === 1 ? '' : 's'}</span>
+          </div>
+          <div className="inventory-list">
+            {rebuildPairs.map((pair) => (
+              <div className="inventory-row" key={`${pair.left.id}-${pair.right.id}`}>
+                <span className="inventory-row-number">{pair.score}</span>
+                <span className="inventory-row-main">
+                  <strong>{pair.label}: #{pair.left.item_number} {pair.left.title} + #{pair.right.item_number} {pair.right.title}</strong>
+                  <small>{pair.reasons.join(' · ')}</small>
+                  <small>Verify component condition, dimensions and interchangeability before harvesting either donor.</small>
+                </span>
+                <span className="inventory-row-actions">
+                  <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(pair.left.id)}` }}>Open #{pair.left.item_number}</button>
+                  <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(pair.right.id)}` }}>Open #{pair.right.item_number}</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="parts-controls">
         <input
