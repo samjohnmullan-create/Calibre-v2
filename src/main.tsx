@@ -61,14 +61,32 @@ import './research-click-fix.css'
 import './customer-site.css'
 import './customer-publishing.css'
 
+function hostname() {
+  return window.location.hostname.toLowerCase()
+}
+
 function isCustomerHostname() {
-  const host = window.location.hostname.toLowerCase()
+  const host = hostname()
   return host === 'calibreco.com.au' || host === 'www.calibreco.com.au'
 }
 
-function Root() {
-  if (isCustomerHostname() || isCustomerRoute()) return <CustomerSite />
+function isWorkshopHostname() {
+  return hostname() === 'app.calibreco.com.au'
+}
+
+function WorkshopApp() {
   return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /></>
+}
+
+function Root() {
+  // Production hostnames are authoritative. The workshop host must never be
+  // switched into the customer catalogue by a hash route or stale bookmark.
+  if (isCustomerHostname()) return <CustomerSite />
+  if (isWorkshopHostname()) return <WorkshopApp />
+
+  // Keep customer hash routes available only on non-production preview hosts.
+  if (isCustomerRoute()) return <CustomerSite />
+  return <WorkshopApp />
 }
 
 createRoot(document.getElementById('root')!).render(
