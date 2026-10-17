@@ -1,1 +1,302 @@
-.customer-site{min-height:100vh;background:#0d1112;color:#e9ece8;font-family:IBM Plex Sans,system-ui,sans-serif}.customer-header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:18px clamp(18px,4vw,56px);border-bottom:1px solid rgba(255,255,255,.09);background:rgba(13,17,18,.92);backdrop-filter:blur(18px)}.customer-brand{display:flex;align-items:center;gap:13px;background:none;border:0;color:inherit;text-align:left}.customer-brand-mark{width:34px;height:34px}.customer-brand span{display:grid;gap:2px}.customer-brand strong{font-family:Cormorant Garamond,Georgia,serif;font-size:22px;font-weight:600}.customer-brand small{color:#9ba6a2;font-size:11px;letter-spacing:.06em}.customer-header nav{display:flex;gap:8px}.customer-header nav button{border:0;background:transparent;color:#c9cfcc;padding:10px 12px;border-radius:999px}.customer-header nav button:hover{background:rgba(255,255,255,.06);color:#fff}.customer-main,.passport-page{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:56px 0 90px}.customer-home-hero{min-height:70vh;display:grid;align-content:center;max-width:900px;padding:70px 0}.customer-home-hero h1{font:500 clamp(58px,9vw,112px)/.9 Cormorant Garamond,Georgia,serif;letter-spacing:-.045em;margin:12px 0 24px}.customer-home-hero>p:not(.eyebrow){max-width:720px;color:#aeb7b3;font-size:20px;line-height:1.75}.customer-home-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.customer-home-actions button{padding:13px 18px;border-radius:999px;border:1px solid #87a89f;background:#87a89f;color:#08100e;font-weight:700}.customer-home-actions .secondary-public{background:transparent;color:#d6dcda;border-color:rgba(255,255,255,.16)}.customer-home-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin:15px 0 70px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.08);border-radius:22px;overflow:hidden}.customer-home-strip article{background:#101516;padding:28px}.customer-home-strip strong{display:block;font:500 30px/1.05 Cormorant Garamond,Georgia,serif;margin:8px 0}.customer-home-strip p{color:#9ea8a4;line-height:1.65;margin:0}.customer-home-feature{padding:56px 0;border-top:1px solid rgba(255,255,255,.08)}.customer-home-feature-heading{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:24px}.customer-home-feature-heading h2{font:500 48px/1 Cormorant Garamond,Georgia,serif;margin:7px 0 0}.customer-home-feature-heading button{border:0;background:transparent;color:#a9c7bf;font-weight:700}.customer-home-manifesto{display:grid;grid-template-columns:.8fr 1.2fr;gap:60px;padding:70px 0;border-top:1px solid rgba(255,255,255,.08)}.customer-home-manifesto h2{font:500 48px/1.02 Cormorant Garamond,Georgia,serif;margin:8px 0}.customer-home-manifesto>div:last-child{display:grid;gap:20px}.customer-home-manifesto p{color:#acb5b1;font-size:17px;line-height:1.8;margin:0}.customer-hero{max-width:760px;padding:46px 0 58px}.customer-hero h1,.passport-public-heading h1,.certificate-sheet h1{font-family:Cormorant Garamond,Georgia,serif;font-weight:500;letter-spacing:-.025em}.customer-hero h1{font-size:clamp(46px,7vw,82px);line-height:.98;margin:10px 0 18px}.customer-hero>p:last-child{max-width:650px;color:#aeb7b3;font-size:18px;line-height:1.7}.customer-site .eyebrow{margin:0;color:#7fa69d;font-size:11px;font-weight:700;letter-spacing:.17em}.catalogue-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}.catalogue-card{overflow:hidden;border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(180deg,#151a1b,#101415);cursor:pointer;transition:transform .2s ease,border-color .2s ease}.catalogue-card:hover{transform:translateY(-4px);border-color:rgba(148,190,181,.35)}.catalogue-card-image{position:relative;aspect-ratio:1/1;background:#171d1e}.catalogue-card-image img,.passport-public-image img,.passport-gallery img{width:100%;height:100%;object-fit:cover}.catalogue-image-placeholder{display:grid;place-items:center;width:100%;height:100%;color:#52615e}.catalogue-image-placeholder svg{width:76px;height:76px}.availability-pill{position:absolute;right:14px;top:14px;padding:7px 10px;border-radius:999px;background:rgba(9,13,14,.8);border:1px solid rgba(255,255,255,.12);font-size:10px;text-transform:uppercase;letter-spacing:.11em}.catalogue-card-copy{padding:20px}.catalogue-card-copy h2{font-family:Cormorant Garamond,Georgia,serif;font-size:30px;line-height:1.05;margin:7px 0}.catalogue-card-copy>p:not(.eyebrow){min-height:44px;color:#9fa9a5;line-height:1.5}.catalogue-card-footer{display:flex;justify-content:space-between;gap:14px;margin-top:18px;padding-top:15px;border-top:1px solid rgba(255,255,255,.07);color:#9fa9a5;font-size:13px}.catalogue-card-footer strong{color:#e8ece9}.customer-empty{display:grid;justify-items:center;text-align:center;gap:9px;padding:80px 20px;color:#9fa9a5}.customer-empty svg{width:48px;height:48px;color:#65716e}.customer-empty h2{margin:2px 0;color:#ecefec;font:500 34px/1.1 Cormorant Garamond,Georgia,serif}.passport-public-hero{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(320px,.98fr);gap:54px;align-items:center;padding:22px 0 70px}.passport-public-image{overflow:hidden;aspect-ratio:1/1;border-radius:28px;background:#171d1e;border:1px solid rgba(255,255,255,.08)}.passport-public-heading h1{font-size:clamp(50px,7vw,84px);line-height:.96;margin:12px 0 20px}.passport-public-heading>p:not(.eyebrow){color:#aeb7b3;font-size:18px;line-height:1.7}.passport-public-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}.passport-public-meta span{padding:8px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.11);color:#bfc8c4;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.passport-public-section{padding:44px 0;border-top:1px solid rgba(255,255,255,.09)}.section-heading h2,.passport-public-section.split h2{font:500 38px/1.05 Cormorant Garamond,Georgia,serif;margin:8px 0 24px}.passport-spec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);border-radius:18px;overflow:hidden}.passport-spec-grid div{background:#111617;padding:18px}.passport-spec-grid dt{color:#778480;font-size:10px;text-transform:uppercase;letter-spacing:.11em}.passport-spec-grid dd{margin:7px 0 0;font-size:16px}.passport-public-section.split{display:grid;grid-template-columns:minmax(220px,.7fr) minmax(0,1.3fr);gap:50px}.passport-public-section.split>p{margin:0;color:#b6bfbb;font-size:17px;line-height:1.8}.passport-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.passport-gallery img{aspect-ratio:1/1;border-radius:14px;background:#171d1e}.passport-actions{display:flex;gap:12px;padding-top:34px}.passport-actions button{padding:13px 18px;border:1px solid #87a89f;background:#87a89f;color:#08100e;border-radius:999px;font-weight:700}.passport-actions .secondary-public{background:transparent;color:#d6dcda;border-color:rgba(255,255,255,.16)}.certificate-page{min-height:calc(100vh - 75px);padding:44px 18px 80px;background:#d9d8d1;color:#17201e}.certificate-sheet{width:min(860px,100%);margin:auto;padding:clamp(32px,7vw,74px);background:#f3f0e7;box-shadow:0 22px 80px rgba(0,0,0,.25);border:1px solid #c9c5b9}.certificate-mark svg{width:52px;height:52px}.certificate-sheet .eyebrow{margin-top:18px;color:#526b65}.certificate-sheet h1{font-size:64px;margin:8px 0 14px}.certificate-intro{max-width:640px;color:#59615f;line-height:1.7}.certificate-watch{display:grid;gap:5px;margin:40px 0 26px;padding:20px 0;border-top:1px solid #c5c1b7;border-bottom:1px solid #c5c1b7}.certificate-watch strong{font:500 32px/1.1 Cormorant Garamond,Georgia,serif}.certificate-watch span{color:#666e6b}.certificate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px}.certificate-grid div{padding-bottom:12px;border-bottom:1px solid #d2cec4}.certificate-grid dt{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#69716e}.certificate-grid dd{margin:6px 0 0}.certificate-note{margin-top:30px;padding:18px;border:1px solid #cfcabf;background:#ebe8de}.certificate-note p{margin-bottom:0;line-height:1.65}.certificate-sheet footer{display:flex;justify-content:space-between;gap:20px;margin-top:46px;padding-top:16px;border-top:1px solid #bbb7ac;color:#6f7774;font-size:12px}@media(max-width:900px){.catalogue-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.customer-home-strip{grid-template-columns:1fr}.customer-home-manifesto{grid-template-columns:1fr;gap:20px}.passport-public-hero{grid-template-columns:1fr;gap:28px}.passport-public-image{max-height:70vh}.passport-spec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.customer-header{padding:13px 16px}.customer-brand small{display:none}.customer-header nav button{padding:8px}.customer-header nav button:first-child{display:none}.customer-main,.passport-page{width:min(100% - 24px,1180px);padding-top:28px}.customer-home-hero{min-height:62vh;padding:42px 0}.customer-home-hero h1{font-size:58px}.customer-home-feature-heading{align-items:flex-start;flex-direction:column}.customer-home-feature-heading h2,.customer-home-manifesto h2{font-size:40px}.customer-hero{padding:28px 0 38px}.catalogue-grid{grid-template-columns:1fr}.passport-public-hero{padding-bottom:42px}.passport-public-heading h1{font-size:52px}.passport-public-section.split{grid-template-columns:1fr;gap:10px}.passport-spec-grid{grid-template-columns:1fr 1fr}.passport-gallery{grid-template-columns:1fr 1fr}.passport-actions{flex-direction:column}.certificate-sheet h1{font-size:46px}.certificate-grid{grid-template-columns:1fr}.certificate-sheet footer{flex-direction:column}.customer-brand strong{font-size:19px}}@media print{.customer-header{display:none}.certificate-page{padding:0;background:#fff}.certificate-sheet{width:100%;min-height:100vh;box-shadow:none;border:0}}
+/* Customer-facing Calibre & Co. experience.
+ * Same design family as the workshop app, presented as a quieter editorial archive.
+ */
+.customer-site{
+  --public-bg-deep:#172026;
+  --public-bg:#202a31;
+  --public-panel:#26313a;
+  --public-panel-raised:#2b3741;
+  --public-line:rgba(116,141,146,.22);
+  --public-line-strong:rgba(116,141,146,.38);
+  --public-text:#d3d9d4;
+  --public-text-strong:#f0eee9;
+  --public-muted:#9daeb0;
+  --public-bronze:#d5bea1;
+  --public-bronze-pale:#eadbc8;
+  --public-bronze-line:rgba(213,190,161,.36);
+  min-height:100vh;
+  color:var(--public-text);
+  font-family:"IBM Plex Sans",Inter,ui-sans-serif,system-ui,sans-serif;
+  background:
+    radial-gradient(ellipse at 54% 0%,rgba(18,78,102,.32) 0%,rgba(18,78,102,.14) 26%,transparent 60%),
+    radial-gradient(ellipse at 92% 48%,rgba(18,78,102,.065) 0%,transparent 44%),
+    linear-gradient(180deg,#202a31 0%,#192228 58%,#172026 100%);
+  background-attachment:fixed;
+}
+
+.customer-header{
+  position:sticky;
+  top:0;
+  z-index:20;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  min-height:68px;
+  padding:0 clamp(18px,4vw,54px);
+  border-bottom:1px solid var(--public-line);
+  background:rgba(24,33,39,.9);
+  box-shadow:0 10px 34px rgba(4,10,14,.14);
+  backdrop-filter:blur(18px);
+}
+.customer-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+}
+.customer-brand-mark{width:32px;height:32px;color:var(--public-bronze-pale)}
+.customer-brand-mark .moon{border-color:var(--public-bronze-pale)}
+.customer-brand-mark .star{color:#dfc9ae;text-shadow:0 0 7px rgba(213,190,161,.14)}
+.customer-brand span{display:grid;gap:1px}
+.customer-brand strong{
+  color:var(--public-text-strong);
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:22px;
+  font-weight:600;
+  letter-spacing:.005em;
+}
+.customer-brand small{color:#91a2a4;font-size:10px;letter-spacing:.08em}
+.customer-header nav{display:flex;align-items:center;gap:2px}
+.customer-header nav button{
+  position:relative;
+  padding:11px 13px;
+  border:0;
+  background:transparent;
+  color:#aebbbc;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.035em;
+}
+.customer-header nav button::after{
+  content:"";
+  position:absolute;
+  left:13px;
+  right:13px;
+  bottom:4px;
+  height:1px;
+  background:transparent;
+}
+.customer-header nav button:hover{color:#f0ece7;background:transparent}
+.customer-header nav button:hover::after{background:var(--public-bronze-line)}
+
+.customer-main,.passport-page{width:min(1180px,calc(100% - 40px));margin:0 auto;padding:58px 0 96px}
+.customer-site .eyebrow{
+  margin:0;
+  color:#c9b69f;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+
+/* Home */
+.customer-home-hero{
+  position:relative;
+  display:grid;
+  align-content:center;
+  min-height:66vh;
+  max-width:930px;
+  padding:72px 0 82px;
+}
+.customer-home-hero::before{
+  content:"CALIBRE / ARCHIVE";
+  position:absolute;
+  right:0;
+  top:78px;
+  color:rgba(213,190,161,.22);
+  font:500 10px/1 "IBM Plex Mono",ui-monospace,monospace;
+  letter-spacing:.2em;
+  writing-mode:vertical-rl;
+}
+.customer-home-hero h1{
+  max-width:880px;
+  margin:15px 0 25px;
+  color:var(--public-text-strong);
+  font:600 clamp(54px,7.7vw,92px)/.94 "Cormorant Garamond",Georgia,serif;
+  letter-spacing:-.035em;
+}
+.customer-home-hero>p:not(.eyebrow){
+  max-width:690px;
+  margin:0;
+  color:#aab8b8;
+  font-size:18px;
+  line-height:1.78;
+}
+.customer-home-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px}
+.customer-home-actions button,.passport-actions button{
+  padding:12px 17px;
+  border:1px solid rgba(213,190,161,.42);
+  border-radius:10px;
+  color:#f0ece7;
+  background:linear-gradient(180deg,rgba(46,57,68,.94),rgba(31,42,49,.96));
+  box-shadow:inset 0 0 0 1px rgba(234,219,200,.035),0 4px 12px rgba(7,10,12,.14);
+  font-weight:600;
+}
+.customer-home-actions button:hover,.passport-actions button:hover{border-color:rgba(234,219,200,.62);background:linear-gradient(180deg,rgba(52,64,74,.97),rgba(35,46,54,.98))}
+.customer-home-actions .secondary-public,.passport-actions .secondary-public{border-color:var(--public-line-strong);background:rgba(38,49,58,.45);color:#cbd4d1}
+
+.customer-home-strip{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  margin:0 0 76px;
+  border-top:1px solid var(--public-line);
+  border-bottom:1px solid var(--public-line);
+  background:transparent;
+}
+.customer-home-strip article{position:relative;padding:30px 34px 32px;background:rgba(38,49,58,.3)}
+.customer-home-strip article+article{border-left:1px solid var(--public-line)}
+.customer-home-strip article::before{content:"";position:absolute;left:0;top:-1px;width:38px;height:1px;background:var(--public-bronze)}
+.customer-home-strip strong{display:block;margin:10px 0 10px;color:#e8e6e1;font:600 27px/1.08 "Cormorant Garamond",Georgia,serif}
+.customer-home-strip p{margin:0;color:#96a7a8;line-height:1.68}
+
+.customer-home-feature{padding:62px 0 72px;border-top:1px solid var(--public-line)}
+.customer-home-feature-heading{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:27px}
+.customer-home-feature-heading h2,.customer-home-manifesto h2{margin:8px 0 0;color:var(--public-text-strong);font:600 46px/1 "Cormorant Garamond",Georgia,serif;letter-spacing:-.02em}
+.customer-home-feature-heading button{padding:8px 0;border:0;border-bottom:1px solid var(--public-bronze-line);background:transparent;color:#d1c2ae;font-weight:600}
+.customer-home-manifesto{display:grid;grid-template-columns:.76fr 1.24fr;gap:72px;padding:76px 0 20px;border-top:1px solid var(--public-line)}
+.customer-home-manifesto>div:last-child{display:grid;gap:22px;max-width:720px}
+.customer-home-manifesto p{margin:0;color:#a9b6b5;font-size:16px;line-height:1.86}
+
+/* Catalogue */
+.customer-hero{max-width:790px;padding:40px 0 60px}
+.customer-hero h1,.passport-public-heading h1,.certificate-sheet h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;letter-spacing:-.025em}
+.customer-hero h1{margin:12px 0 20px;color:var(--public-text-strong);font-size:clamp(46px,6vw,72px);line-height:.98}
+.customer-hero>p:last-child{max-width:650px;margin:0;color:#a8b6b6;font-size:17px;line-height:1.76}
+.catalogue-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.catalogue-card{
+  position:relative;
+  overflow:hidden;
+  border:1px solid var(--public-line);
+  border-radius:14px;
+  background:linear-gradient(145deg,rgba(116,141,146,.035),transparent 42%),rgba(38,49,58,.82);
+  box-shadow:0 16px 34px rgba(5,11,15,.1);
+  cursor:pointer;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.catalogue-card::after{content:"";position:absolute;left:18px;right:18px;bottom:0;height:1px;background:transparent;transition:background .2s ease}
+.catalogue-card:hover{transform:translateY(-3px);border-color:rgba(213,190,161,.28);box-shadow:0 20px 42px rgba(5,11,15,.16)}
+.catalogue-card:hover::after{background:linear-gradient(90deg,transparent,var(--public-bronze),transparent)}
+.catalogue-card-image{position:relative;aspect-ratio:1/1;background:#1a2329;border-bottom:1px solid var(--public-line)}
+.catalogue-card-image img,.passport-public-image img,.passport-gallery img{width:100%;height:100%;object-fit:cover}
+.catalogue-image-placeholder{display:grid;place-items:center;width:100%;height:100%;color:#687a7c;background:radial-gradient(circle at 50% 45%,rgba(18,78,102,.2),transparent 58%)}
+.catalogue-image-placeholder svg{width:72px;height:72px}
+.availability-pill{
+  position:absolute;
+  right:12px;
+  top:12px;
+  padding:7px 9px;
+  border:1px solid rgba(213,190,161,.26);
+  border-radius:8px;
+  background:rgba(23,32,38,.82);
+  color:#d9cec0;
+  font:500 9px/1 "IBM Plex Mono",ui-monospace,monospace;
+  text-transform:uppercase;
+  letter-spacing:.11em;
+  backdrop-filter:blur(8px);
+}
+.catalogue-card-copy{padding:19px 20px 20px}
+.catalogue-card-copy h2{margin:8px 0 8px;color:#ebe9e4;font:600 29px/1.06 "Cormorant Garamond",Georgia,serif;letter-spacing:-.015em}
+.catalogue-card-copy>p:not(.eyebrow){min-height:42px;margin:0;color:#9aabad;line-height:1.55}
+.catalogue-card-footer{display:flex;justify-content:space-between;gap:14px;margin-top:18px;padding-top:14px;border-top:1px solid var(--public-line);color:#91a3a5;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px}
+.catalogue-card-footer strong{color:#ded8cf;font-weight:600}
+
+.customer-empty{display:grid;justify-items:center;text-align:center;gap:9px;padding:86px 20px;color:#98aaab}
+.customer-empty svg{width:46px;height:46px;color:#cdb89f}
+.customer-empty h2{margin:4px 0;color:#ece9e4;font:600 34px/1.1 "Cormorant Garamond",Georgia,serif}
+.customer-empty>p:last-child{max-width:520px;line-height:1.7}
+
+/* Public Passport: a digital dossier rather than a product page. */
+.passport-public-hero{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(320px,.96fr);gap:58px;align-items:center;padding:18px 0 74px}
+.passport-public-image{overflow:hidden;aspect-ratio:1/1;border:1px solid var(--public-line);border-radius:16px;background:#1b242a;box-shadow:0 24px 60px rgba(5,11,15,.17)}
+.passport-public-heading{position:relative;padding-left:4px}
+.passport-public-heading::before{content:"";display:block;width:46px;height:1px;margin-bottom:22px;background:var(--public-bronze)}
+.passport-public-heading h1{margin:12px 0 20px;color:var(--public-text-strong);font-size:clamp(48px,6.4vw,78px);line-height:.96}
+.passport-public-heading>p:not(.eyebrow){margin:0;color:#aab8b8;font-size:17px;line-height:1.76}
+.passport-public-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px}
+.passport-public-meta span{padding:8px 10px;border:1px solid var(--public-line-strong);border-radius:8px;background:rgba(38,49,58,.35);color:#b9c5c3;font:500 10px/1 "IBM Plex Mono",ui-monospace,monospace;text-transform:uppercase;letter-spacing:.07em}
+.passport-public-section{padding:48px 0;border-top:1px solid var(--public-line)}
+.section-heading h2,.passport-public-section.split h2{margin:8px 0 24px;color:#e9e6e1;font:600 37px/1.06 "Cormorant Garamond",Georgia,serif}
+.passport-spec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--public-line);border-radius:12px;overflow:hidden;background:rgba(116,141,146,.05)}
+.passport-spec-grid div{padding:18px 19px;background:rgba(29,40,47,.72);border-right:1px solid var(--public-line);border-bottom:1px solid var(--public-line)}
+.passport-spec-grid div:nth-child(3n){border-right:0}
+.passport-spec-grid dt{color:#829699;font:500 9px/1.2 "IBM Plex Mono",ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em}
+.passport-spec-grid dd{margin:8px 0 0;color:#d6ddda;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px}
+.passport-public-section.split{display:grid;grid-template-columns:minmax(220px,.67fr) minmax(0,1.33fr);gap:58px}
+.passport-public-section.split>p{max-width:720px;margin:0;color:#b1bdbc;font-size:16px;line-height:1.86}
+.passport-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.passport-gallery img{aspect-ratio:1/1;border:1px solid var(--public-line);border-radius:10px;background:#1b242a}
+.passport-actions{display:flex;gap:10px;padding-top:36px;border-top:1px solid var(--public-line)}
+
+/* Certificate remains deliberately paper-like for print. */
+.certificate-page{min-height:calc(100vh - 68px);padding:48px 18px 82px;background:#d3d1c9;color:#17201e}
+.certificate-sheet{width:min(860px,100%);margin:auto;padding:clamp(32px,7vw,74px);background:#f3f0e7;box-shadow:0 22px 80px rgba(0,0,0,.24);border:1px solid #c5c0b5}
+.certificate-mark svg{width:52px;height:52px}
+.certificate-sheet .eyebrow{margin-top:18px;color:#6c5c4f}
+.certificate-sheet h1{margin:8px 0 14px;color:#202522;font-size:62px}
+.certificate-intro{max-width:640px;color:#59615f;line-height:1.7}
+.certificate-watch{display:grid;gap:5px;margin:40px 0 26px;padding:20px 0;border-top:1px solid #bdb7aa;border-bottom:1px solid #bdb7aa}
+.certificate-watch strong{font:600 32px/1.1 "Cormorant Garamond",Georgia,serif}
+.certificate-watch span{color:#666e6b}
+.certificate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px}
+.certificate-grid div{padding-bottom:12px;border-bottom:1px solid #d2cec4}
+.certificate-grid dt{font:500 9px/1.2 "IBM Plex Mono",ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#69716e}
+.certificate-grid dd{margin:6px 0 0}
+.certificate-note{margin-top:30px;padding:18px;border:1px solid #c7c1b5;background:#ebe8de}
+.certificate-note p{margin-bottom:0;line-height:1.65}
+.certificate-sheet footer{display:flex;justify-content:space-between;gap:20px;margin-top:46px;padding-top:16px;border-top:1px solid #b7b0a4;color:#6f7774;font:500 10px/1.4 "IBM Plex Mono",ui-monospace,monospace;text-transform:uppercase;letter-spacing:.06em}
+
+@media(max-width:900px){
+  .catalogue-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .customer-home-strip{grid-template-columns:1fr}
+  .customer-home-strip article+article{border-left:0;border-top:1px solid var(--public-line)}
+  .customer-home-manifesto{grid-template-columns:1fr;gap:24px}
+  .passport-public-hero{grid-template-columns:1fr;gap:32px}
+  .passport-public-image{max-height:70vh}
+  .passport-spec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .passport-spec-grid div:nth-child(3n){border-right:1px solid var(--public-line)}
+  .passport-spec-grid div:nth-child(2n){border-right:0}
+}
+
+@media(max-width:620px){
+  .customer-site{background-attachment:scroll}
+  .customer-header{min-height:60px;padding:0 14px}
+  .customer-brand-mark{width:28px;height:28px}
+  .customer-brand small{display:none}
+  .customer-brand strong{font-size:19px}
+  .customer-header nav{gap:0}
+  .customer-header nav button{padding:9px 7px;font-size:11px}
+  .customer-header nav button:first-child{display:none}
+  .customer-main,.passport-page{width:min(100% - 24px,1180px);padding:30px 0 72px}
+  .customer-home-hero{min-height:58vh;padding:42px 0 54px}
+  .customer-home-hero::before{display:none}
+  .customer-home-hero h1{font-size:54px}
+  .customer-home-hero>p:not(.eyebrow){font-size:16px;line-height:1.72}
+  .customer-home-feature-heading{align-items:flex-start;flex-direction:column}
+  .customer-home-feature-heading h2,.customer-home-manifesto h2{font-size:39px}
+  .customer-home-strip article{padding:25px 22px}
+  .customer-hero{padding:26px 0 42px}
+  .catalogue-grid{grid-template-columns:1fr}
+  .catalogue-card-copy>p:not(.eyebrow){min-height:0}
+  .passport-public-hero{padding-bottom:44px}
+  .passport-public-heading h1{font-size:50px}
+  .passport-public-section{padding:38px 0}
+  .passport-public-section.split{grid-template-columns:1fr;gap:10px}
+  .passport-spec-grid{grid-template-columns:1fr 1fr}
+  .passport-gallery{grid-template-columns:1fr 1fr}
+  .passport-actions{flex-direction:column}
+  .certificate-sheet h1{font-size:46px}
+  .certificate-grid{grid-template-columns:1fr}
+  .certificate-sheet footer{flex-direction:column}
+}
+
+@media print{
+  .customer-header{display:none}
+  .certificate-page{padding:0;background:#fff}
+  .certificate-sheet{width:100%;min-height:100vh;box-shadow:none;border:0}
+}
