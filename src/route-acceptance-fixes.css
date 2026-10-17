@@ -5,17 +5,6 @@
  * new visual theme.
  */
 
-/*
- * Inventory v2 renders after the legacy App host. The legacy Items contents are
- * hidden while this route is active, but the signed-in .app-shell still carried
- * min-height: 100dvh and left an invisible full-screen spacer above Inventory.
- * Hide only the signed-in legacy shell so login/setup states remain available.
- */
-body.inventory-hub-route-active .calibre-legacy-host > .app-shell {
-  display: none !important;
-  min-height: 0 !important;
-}
-
 /* Restore the intended Calibre Classic sunburst focal point. */
 body {
   background:
