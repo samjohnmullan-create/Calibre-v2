@@ -29,10 +29,6 @@ begin
 end
 $$;
 
-update public.knowledge_technical_documents
-set publisher = coalesce(nullif(publisher, ''), publisher_or_issuer, '')
-where coalesce(publisher, '') = '';
-
 create table if not exists public.knowledge_document_links (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -105,28 +101,25 @@ drop policy if exists "knowledge_technical_documents_read" on public.knowledge_t
 drop policy if exists "knowledge_technical_documents_manage" on public.knowledge_technical_documents;
 create policy "knowledge_technical_documents_read" on public.knowledge_technical_documents
   for select to authenticated using (
-    (workspace_id is not null and exists (
+    workspace_id is not null and exists (
       select 1 from public.workspace_members wm
       where wm.workspace_id = knowledge_technical_documents.workspace_id
         and wm.user_id = auth.uid()
-    ))
-    or (workspace_id is null and owner_id = auth.uid())
+    )
   );
 create policy "knowledge_technical_documents_manage" on public.knowledge_technical_documents
   for all to authenticated using (
-    (workspace_id is not null and exists (
+    workspace_id is not null and exists (
       select 1 from public.workspace_members wm
       where wm.workspace_id = knowledge_technical_documents.workspace_id
         and wm.user_id = auth.uid()
-    ))
-    or (workspace_id is null and owner_id = auth.uid())
+    )
   ) with check (
-    (workspace_id is not null and exists (
+    workspace_id is not null and exists (
       select 1 from public.workspace_members wm
       where wm.workspace_id = knowledge_technical_documents.workspace_id
         and wm.user_id = auth.uid()
-    ))
-    or (workspace_id is null and owner_id = auth.uid())
+    )
   );
 
 drop policy if exists "knowledge_document_links_read" on public.knowledge_document_links;
