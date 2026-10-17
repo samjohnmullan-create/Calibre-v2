@@ -6,6 +6,7 @@ import ProcedurePreviewHost from './ProcedurePreviewHost'
 import CustomerPackHost from './CustomerPackHost'
 import CustomerDocumentLinks from './CustomerDocumentLinks'
 import CustomerSite, { isCustomerRoute } from './CustomerSite'
+import WorkshopSessionGate from './WorkshopSessionGate'
 import './styles.css'
 import './workbench-dex.css'
 import './workbench-controls.css'
@@ -77,7 +78,14 @@ function isWorkshopHostname() {
 }
 
 function WorkshopApp() {
-  return <><CalibreShell /><BenchModeHost /><ProcedurePreviewHost /><CustomerPackHost /></>
+  return (
+    <WorkshopSessionGate>
+      <CalibreShell />
+      <BenchModeHost />
+      <ProcedurePreviewHost />
+      <CustomerPackHost />
+    </WorkshopSessionGate>
+  )
 }
 
 function CustomerApp() {
