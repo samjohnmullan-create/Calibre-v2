@@ -1,0 +1,44 @@
+name: Supabase clean rebuild smoke
+
+on:
+  push:
+    branches: [test/recover-supabase-baseline]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-rebuild-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialise local Supabase config when absent
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
+
+      - name: Start disposable local Supabase
+        run: supabase start
+
+      - name: Rebuild schema from committed migrations
+        run: supabase db reset
+
+      - name: Stop disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
