@@ -6,6 +6,7 @@ import WorkJobCard from './WorkJobCard'
 import ItemSalePanel from './ItemSalePanel'
 import ItemStoragePanel from './ItemStoragePanel'
 import BenchResearchPanel from './BenchResearchPanel'
+import { useWorkshopSession } from './WorkshopSessionGate'
 
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; acquired_at: string | null; created_at: string }
 type Identity = { maker: string; model: string; reference: string; serial: string; era: string; country: string; materials: string; dimensions_text: string; dial_markings: string; case_markings: string; movement_markings: string; notes: string }
@@ -36,8 +37,9 @@ function routeItemId() {
 }
 
 export default function ItemWorkspaceRoute() {
+  const { workspace } = useWorkshopSession()
+  const workspaceId = workspace.id
   const [itemId, setItemId] = useState(routeItemId)
-  const [workspaceId, setWorkspaceId] = useState('')
   const [item, setItem] = useState<Item | null>(null)
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [work, setWork] = useState<Work[]>([])
@@ -62,25 +64,13 @@ export default function ItemWorkspaceRoute() {
     return () => document.body.classList.remove('item-workspace-v2-active')
   }, [itemId])
 
-  useEffect(() => {
-    if (!itemId) return
-    let active = true
-    ;(async () => {
-      const result = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
-      if (!active) return
-      if (result.error || !result.data) { setMessage(result.error?.message ?? 'Workspace unavailable.'); return }
-      setWorkspaceId(result.data.id)
-    })()
-    return () => { active = false }
-  }, [itemId])
-
   async function load() {
     if (!itemId || !workspaceId) return
     setLoading(true)
     const [itemResult, identityResult, workResult, valuationResult, costsResult] = await Promise.all([
       supabase.from('items').select('id,item_number,type,purpose,status,title,notes,acquired_at,created_at').eq('workspace_id', workspaceId).eq('id', itemId).maybeSingle(),
       supabase.from('item_identity').select('maker,model,reference,serial,era,country,materials,dimensions_text,dial_markings,case_markings,movement_markings,notes').eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
-      supabase.from('work_records').select('id,work_number,title,type,status,next_action,diagnosis,opened_at,completed_at').eq('workspace_id', workspaceId).eq('item_id', itemId).order('work_number', { ascending: false }),
+      supabase.from('workbench_jobs').select('id,work_number,title,type,status,next_action,diagnosis,opened_at,completed_at').eq('workspace_id', workspaceId).eq('item_id', itemId).order('work_number', { ascending: false }),
       supabase.from('valuations').select('low_value,expected_value,high_value,target_value,minimum_value,currency,confidence,basis').eq('workspace_id', workspaceId).eq('item_id', itemId).order('valued_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('cost_entries').select('category,amount,currency,notes,incurred_at').eq('workspace_id', workspaceId).eq('item_id', itemId).order('incurred_at', { ascending: false }),
     ])
@@ -176,7 +166,7 @@ export default function ItemWorkspaceRoute() {
 
           <div className="item-v2-summary-grid">
             <section className="section-card"><p className="eyebrow">IDENTITY</p><h3>{identity?.maker || 'Maker unresolved'}</h3><dl className="item-v2-facts"><div><dt>Model</dt><dd>{identity?.model || '—'}</dd></div><div><dt>Reference</dt><dd>{identity?.reference || '—'}</dd></div><div><dt>Serial</dt><dd>{identity?.serial || '—'}</dd></div><div><dt>Era</dt><dd>{identity?.era || '—'}</dd></div></dl><button type="button" className="text-button" onClick={() => setTab('details')}>Open details →</button></section>
-            <section className="section-card"><p className="eyebrow">WORK</p><h3>{activeWork ? `Work #${activeWork.work_number}` : 'Not on Workbench'}</h3><p>{activeWork?.title || 'Move this Item to Workbench when you are ready to assess, repair or service it.'}</p>{activeWork && <dl className="item-v2-facts"><div><dt>Status</dt><dd>{titleCase(activeWork.status)}</dd></div><div><dt>Next</dt><dd>{activeWork.next_action || '—'}</dd></div></dl>}<button type="button" className="text-button" onClick={() => void moveToWorkbench()}>{activeWork ? 'Open in Workbench →' : 'Move to Workbench →'}</button></section>
+            <section className="section-card"><p className="eyebrow">WORK</p><h3>{activeWork ? `Work #${activeWork.work_number}` : 'Not on Workbench'}</h3><p>{activeWork?.title || 'Move this Item to Workbench when you are ready to assess, repair or service it.'}</p>{activeWork && <dl className="item-v2-facts"><div><dt>Status</dt><dd>{titleCase(activeWork.status)}</dd></div><div><dt>Next</dt><dd>{activeWork.next_action || 'Review Work'}</dd></div></dl>}<button type="button" className="text-button" onClick={() => void moveToWorkbench()}>{activeWork ? 'Open in Workbench →' : 'Move to Workbench →'}</button></section>
             <ItemStoragePanel workspaceId={workspaceId} itemId={item.id} onMoved={load} />
             <section className="section-card"><p className="eyebrow">SALE POSITION</p><h3>{money(target, currency)} target</h3><dl className="item-v2-facts"><div><dt>Recorded cost</dt><dd>{money(totalCost, currency)}</dd></div><div><dt>Potential gross</dt><dd>{money(potential, currency)}</dd></div><div><dt>Purpose</dt><dd>{titleCase(item.purpose)}</dd></div></dl><button type="button" className="text-button" onClick={() => setTab('sale')}>Open sale record →</button></section>
             <section className="section-card"><p className="eyebrow">RESEARCH</p><h3>{identity?.movement_markings ? 'Evidence recorded' : 'Research available'}</h3><p>{identity?.movement_markings || identity?.notes || 'Run sourced research before or during workshop work.'}</p><button type="button" className="text-button" onClick={() => setTab('research')}>Research this Item →</button></section>
