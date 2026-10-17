@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test tests/*.test.mjs",
+    "check:contracts": "node scripts/check-migration-integrity.mjs && node scripts/check-critical-contracts.mjs",
     "build": "tsc -b && vite build",
+    "verify": "npm run check:contracts && npm test && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {
