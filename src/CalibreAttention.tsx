@@ -107,8 +107,9 @@ export default function CalibreAttention({ workspaceId }: { workspaceId: string 
     }
 
     const nextWork = (workResult.data ?? []) as WorkRow[]
-    const nextNeeds = (needResult.data ?? []) as NeedRow[]
-    const nextQc = (qcResult.data ?? []) as QcRow[]
+    const activeWorkIds = new Set(nextWork.map((row) => row.id))
+    const nextNeeds = ((needResult.data ?? []) as NeedRow[]).filter((row) => activeWorkIds.has(row.work_record_id))
+    const nextQc = ((qcResult.data ?? []) as QcRow[]).filter((row) => activeWorkIds.has(row.work_id))
     setWork(nextWork)
     setNeeds(nextNeeds)
     setFailedQc(nextQc)
@@ -151,7 +152,6 @@ export default function CalibreAttention({ workspaceId }: { workspaceId: string 
 
   const entries = useMemo(() => {
     const rows: AttentionEntry[] = []
-    const workById = new Map(work.map((row) => [row.id, row]))
     const needsByWork = new Map<string, NeedRow[]>()
     const qcByWork = new Map<string, QcRow[]>()
 
