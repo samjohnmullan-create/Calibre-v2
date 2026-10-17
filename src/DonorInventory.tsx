@@ -22,6 +22,20 @@ type DonorPart = {
   storage_location_id: string | null
 }
 
+type DonorPassport = {
+  item_id: string
+  movement_maker: string
+  calibre: string
+  calibre_family: string
+  movement_type: string
+  movement_diameter_mm: number | null
+  setting_system: string
+  jewels: number | null
+  beat_rate: number | null
+  escapement: string
+  technical_notes: string
+}
+
 type StorageLocation = {
   id: string
   parent_id: string | null
@@ -33,9 +47,15 @@ function titleCase(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function display(value: string | number | null | undefined, suffix = '') {
+  if (value === null || value === undefined || value === '') return '—'
+  return `${value}${suffix}`
+}
+
 export default function DonorInventory({ workspaceId }: { workspaceId: string }) {
   const [donors, setDonors] = useState<DonorItem[]>([])
   const [parts, setParts] = useState<DonorPart[]>([])
+  const [passports, setPassports] = useState<DonorPassport[]>([])
   const [locations, setLocations] = useState<StorageLocation[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -46,7 +66,7 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
     let cancelled = false
     ;(async () => {
       setLoading(true)
-      const [donorResult, partResult, locationResult] = await Promise.all([
+      const [donorResult, partResult, passportResult, locationResult] = await Promise.all([
         supabase.from('items')
           .select('id,item_number,title,type,status,storage_location_id')
           .eq('workspace_id', workspaceId)
@@ -59,19 +79,23 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
           .not('donor_item_id', 'is', null)
           .is('archived_at', null)
           .order('created_at', { ascending: false }),
+        supabase.from('passports')
+          .select('item_id,movement_maker,calibre,calibre_family,movement_type,movement_diameter_mm,setting_system,jewels,beat_rate,escapement,technical_notes')
+          .eq('workspace_id', workspaceId),
         supabase.from('storage_locations')
           .select('id,parent_id,name,code')
           .eq('workspace_id', workspaceId),
       ])
       if (cancelled) return
       setLoading(false)
-      const error = donorResult.error ?? partResult.error ?? locationResult.error
+      const error = donorResult.error ?? partResult.error ?? passportResult.error ?? locationResult.error
       if (error) {
         setMessage(`Donor inventory failed to load: ${error.message}`)
         return
       }
       setDonors((donorResult.data ?? []) as DonorItem[])
       setParts((partResult.data ?? []) as DonorPart[])
+      setPassports((passportResult.data ?? []) as DonorPassport[])
       setLocations((locationResult.data ?? []) as StorageLocation[])
       setMessage('')
     })()
@@ -96,6 +120,8 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
     return cache
   }, [locations])
 
+  const passportByItemId = useMemo(() => new Map(passports.map((passport) => [passport.item_id, passport])), [passports])
+
   const partsByDonor = useMemo(() => {
     const grouped = new Map<string, DonorPart[]>()
     for (const part of parts) {
@@ -112,41 +138,56 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
     if (!term) return donors
     return donors.filter((donor) => {
       const donorParts = partsByDonor.get(donor.id) ?? []
+      const passport = passportByItemId.get(donor.id)
       const searchable = [
         donor.item_number,
         donor.title,
         donor.type,
         donor.status,
+        passport?.movement_maker,
+        passport?.calibre,
+        passport?.calibre_family,
+        passport?.movement_type,
+        passport?.movement_diameter_mm,
+        passport?.setting_system,
+        passport?.jewels,
+        passport?.beat_rate,
+        passport?.escapement,
+        passport?.technical_notes,
         ...donorParts.flatMap((part) => [part.part_type, part.manufacturer, part.reference, part.description, part.condition]),
-      ].join(' ').toLowerCase()
+      ].filter((value) => value !== null && value !== undefined).join(' ').toLowerCase()
       return searchable.includes(term)
     })
-  }, [donors, partsByDonor, query])
+  }, [donors, partsByDonor, passportByItemId, query])
 
   const totalUnits = useMemo(() => parts.reduce((sum, part) => sum + Math.max(0, Number(part.quantity) || 0), 0), [parts])
   const donorsWithHarvestedParts = useMemo(() => new Set(parts.filter((part) => part.donor_item_id).map((part) => part.donor_item_id)).size, [parts])
+  const completeDonors = Math.max(0, donors.length - donorsWithHarvestedParts)
+  const identifiedDonors = useMemo(() => donors.filter((donor) => {
+    const passport = passportByItemId.get(donor.id)
+    return Boolean(passport?.calibre || passport?.calibre_family || passport?.movement_maker)
+  }).length, [donors, passportByItemId])
 
-  function openPartsForHarvest() {
+  function openPartsInventory() {
     window.dispatchEvent(new CustomEvent('calibre:inventory-view', { detail: 'parts' }))
-    window.setTimeout(() => window.dispatchEvent(new Event('calibre:add-part')), 0)
   }
 
   return (
     <section className="parts-workspace-card">
       <div className="parts-heading">
         <div>
-          <p className="eyebrow">DONOR STOCK</p>
-          <h2>Donor watches & harvested parts</h2>
-          <p className="muted">Donor watches remain permanent Items. Harvested parts stay in the normal Parts inventory and retain a link back to their source donor.</p>
+          <p className="eyebrow">DONOR WATCHES</p>
+          <h2>Complete donors first</h2>
+          <p className="muted">A donor stays a complete watch until you physically remove something. Its Passport provides calibre and movement data for compatibility searches; only removed components become Parts records.</p>
         </div>
-        <button type="button" onClick={openPartsForHarvest}>Add harvested part</button>
+        <button type="button" className="secondary" onClick={openPartsInventory}>Open loose parts</button>
       </div>
 
       <div className="parts-stats">
         <div><span>Donor watches</span><strong>{donors.length}</strong></div>
-        <div><span>Harvested part records</span><strong>{parts.length}</strong></div>
-        <div><span>Parts in stock</span><strong>{totalUnits}</strong></div>
-        <div><span>Donors harvested</span><strong>{donorsWithHarvestedParts}</strong></div>
+        <div><span>Still complete</span><strong>{completeDonors}</strong></div>
+        <div><span>Movement identified</span><strong>{identifiedDonors}</strong></div>
+        <div><span>Harvested part units</span><strong>{totalUnits}</strong></div>
       </div>
 
       <div className="parts-controls">
@@ -154,22 +195,24 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search donor, calibre clue, part, reference…"
+          placeholder="Search donor, maker, calibre, family, diameter, part…"
           aria-label="Search donor inventory"
         />
       </div>
 
       {message && <p className="inventory-message">{message}</p>}
-      {loading && <p className="inventory-empty">Loading donor stock…</p>}
+      {loading && <p className="inventory-empty">Loading donor watches…</p>}
       {!loading && visibleDonors.length === 0 && (
         <div className="inventory-empty">
-          <strong>{donors.length ? 'No donor stock matches this search.' : 'No donor watches yet.'}</strong>
-          <span>Move a watch to Donor from Inventory, then harvest parts into the Parts inventory as you strip it.</span>
+          <strong>{donors.length ? 'No donor watches match this search.' : 'No donor watches yet.'}</strong>
+          <span>Move a watch to Donor from Inventory. It can remain complete until you actually need a component.</span>
         </div>
       )}
 
       {!loading && visibleDonors.map((donor) => {
         const donorParts = partsByDonor.get(donor.id) ?? []
+        const passport = passportByItemId.get(donor.id)
+        const isComplete = donorParts.length === 0
         const availableUnits = donorParts.reduce((sum, part) => sum + Math.max(0, Number(part.quantity) || 0), 0)
         return (
           <section key={donor.id} className="inventory-list-panel">
@@ -177,27 +220,50 @@ export default function DonorInventory({ workspaceId }: { workspaceId: string })
               <div>
                 <p className="eyebrow">DONOR ITEM #{donor.item_number}</p>
                 <h2>{donor.title}</h2>
-                <p className="muted">{titleCase(donor.type)} · {titleCase(donor.status)} · {donor.storage_location_id ? (pathById.get(donor.storage_location_id) || 'Unknown location') : 'Needs put-away'}</p>
+                <p className="muted">{titleCase(donor.type)} · {isComplete ? 'Complete donor' : 'Partially harvested'} · {donor.storage_location_id ? (pathById.get(donor.storage_location_id) || 'Unknown location') : 'Needs put-away'}</p>
               </div>
-              <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(donor.id)}` }}>Open Item</button>
+              <button type="button" className="secondary small" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(donor.id)}` }}>Open donor</button>
             </div>
 
-            {donorParts.length === 0 ? (
-              <div className="inventory-empty"><span>No harvested parts recorded from this donor yet.</span></div>
-            ) : (
-              <div className="inventory-list">
-                {donorParts.map((part) => (
-                  <div key={part.id} className="inventory-row">
-                    <span className="inventory-row-number">{part.quantity}×</span>
-                    <span className="inventory-row-main">
-                      <strong>{part.description || titleCase(part.part_type)}</strong>
-                      <small>{[part.manufacturer, part.reference, titleCase(part.condition), part.storage_location_id ? (pathById.get(part.storage_location_id) || 'Unknown location') : 'Needs put-away'].filter(Boolean).join(' · ')}</small>
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <div className="item-v2-detail-grid">
+              <div><dt>Movement maker</dt><dd>{display(passport?.movement_maker)}</dd></div>
+              <div><dt>Calibre</dt><dd>{display(passport?.calibre)}</dd></div>
+              <div><dt>Calibre family</dt><dd>{display(passport?.calibre_family)}</dd></div>
+              <div><dt>Movement type</dt><dd>{display(passport?.movement_type)}</dd></div>
+              <div><dt>Diameter</dt><dd>{display(passport?.movement_diameter_mm, passport?.movement_diameter_mm ? ' mm' : '')}</dd></div>
+              <div><dt>Setting system</dt><dd>{display(passport?.setting_system)}</dd></div>
+              <div><dt>Jewels</dt><dd>{display(passport?.jewels)}</dd></div>
+              <div><dt>Beat rate</dt><dd>{display(passport?.beat_rate, passport?.beat_rate ? ' BPH' : '')}</dd></div>
+            </div>
+
+            {!passport?.calibre && !passport?.calibre_family && !passport?.movement_maker && (
+              <p className="inventory-message">Movement identity is not recorded yet. Open the donor and complete its Passport to improve future compatibility matching.</p>
             )}
-            <p className="muted">{donorParts.length} harvested record{donorParts.length === 1 ? '' : 's'} · {availableUnits} unit{availableUnits === 1 ? '' : 's'} currently in stock</p>
+
+            {isComplete ? (
+              <div className="inventory-empty">
+                <strong>Complete donor watch</strong>
+                <span>No parts have been removed. Keep it intact until a repair needs something from it.</span>
+              </div>
+            ) : (
+              <>
+                <div className="inventory-v2-list-heading">
+                  <div><p className="eyebrow">REMOVED COMPONENTS</p><h3>Harvested from this donor</h3></div>
+                  <span>{availableUnits} unit{availableUnits === 1 ? '' : 's'}</span>
+                </div>
+                <div className="inventory-list">
+                  {donorParts.map((part) => (
+                    <div key={part.id} className="inventory-row">
+                      <span className="inventory-row-number">{part.quantity}×</span>
+                      <span className="inventory-row-main">
+                        <strong>{part.description || titleCase(part.part_type)}</strong>
+                        <small>{[part.manufacturer, part.reference, titleCase(part.condition), part.storage_location_id ? (pathById.get(part.storage_location_id) || 'Unknown location') : 'Needs put-away'].filter(Boolean).join(' · ')}</small>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
         )
       })}
