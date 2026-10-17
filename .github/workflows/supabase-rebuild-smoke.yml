@@ -38,7 +38,7 @@ jobs:
           fi
 
       - name: Start disposable database stack
-        run: supabase start --runtime native --exclude studio,mail,analytics,realtime,functions,rest,pooler
+        run: supabase start --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
       - name: Rebuild schema from committed migrations
         run: supabase db reset
