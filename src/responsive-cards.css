@@ -26,7 +26,12 @@
 .movement-detail,
 .passport-movement-proposal,
 .passport-linked-movement,
-.passport-finder-bridge {
+.passport-finder-bridge,
+.library-v2-intro-card,
+.library-v2-evidence,
+.library-document-card,
+.library-evidence-row,
+.evidence-review-card {
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
@@ -40,7 +45,10 @@
 .knowledge-summary-card,
 .knowledge-safety-card,
 .movement-library-card,
-.movement-finder-card {
+.movement-finder-card,
+.library-documents,
+.library-document-grid,
+.evidence-review-queue {
   width: 100%;
   min-width: 0;
 }
@@ -60,7 +68,10 @@
 .movement-candidate,
 .movement-detail,
 .passport-movement-proposal,
-.passport-linked-movement {
+.passport-linked-movement,
+.library-document-card,
+.library-evidence-row,
+.evidence-review-card {
   overflow-wrap: anywhere;
 }
 
@@ -78,7 +89,13 @@
 .movement-search-layout > *,
 .movement-spec-grid > *,
 .candidate-specs > *,
-.media-gallery > * {
+.media-gallery > *,
+.library-v2-intro > *,
+.library-v2-evidence-grid > *,
+.library-document-grid > *,
+.library-document-toolbar > *,
+.evidence-review-toolbar > *,
+.evidence-review-source > * {
   min-width: 0;
 }
 
@@ -109,7 +126,9 @@
   .knowledge-summary-card,
   .knowledge-safety-card,
   .movement-library-card,
-  .movement-finder-card {
+  .movement-finder-card,
+  .library-document-card,
+  .evidence-review-card {
     width: 100%;
     max-width: 100%;
   }
@@ -121,7 +140,11 @@
   .research-form-grid,
   .research-proposal-values,
   .passport-grid,
-  .passport-measure-grid {
+  .passport-measure-grid,
+  .library-document-grid,
+  .library-document-toolbar,
+  .evidence-review-toolbar,
+  .evidence-review-source {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
@@ -144,7 +167,10 @@
   .passport-proposal-heading,
   .movement-library-heading,
   .movement-finder-heading,
-  .movement-detail-header {
+  .movement-detail-header,
+  .library-document-meta,
+  .library-document-tags,
+  .evidence-review-card-top {
     min-width: 0;
     flex-wrap: wrap;
   }
@@ -163,7 +189,10 @@
   .passport-proposal-actions,
   .research-proposal-actions,
   .research-decisions,
-  .media-card-actions {
+  .media-card-actions,
+  .bench-guided-actions,
+  .evidence-review-actions,
+  .evidence-review-decisions {
     width: 100%;
   }
 }
@@ -178,7 +207,9 @@
 
   .passport-proposal-actions button,
   .research-proposal-actions button,
-  .research-decisions button {
+  .research-decisions button,
+  .bench-guided-actions button,
+  .evidence-review-decisions button {
     flex: 1 1 100%;
     width: 100%;
   }

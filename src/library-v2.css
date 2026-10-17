@@ -50,6 +50,7 @@
 .library-v2-panel {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .library-v2-intro {
@@ -65,6 +66,7 @@
   border-radius: 16px;
   background: var(--panel, rgba(255,255,255,.03));
   padding: 18px;
+  min-width: 0;
 }
 
 .library-v2-intro-card h2,
@@ -83,6 +85,7 @@
   padding: 12px;
   border-radius: 12px;
   border: 1px solid var(--line, rgba(255,255,255,.08));
+  min-width: 0;
 }
 
 .library-v2-evidence-grid strong,
@@ -123,9 +126,199 @@
 }
 
 @media (max-width: 820px) {
-  .knowledge-page.library-v2-page { width: min(100% - 24px, 1280px); padding-top: 20px; }
-  .library-v2-modebar { grid-template-columns: 1fr; }
-  .library-v2-modebar button { min-height: 0; }
-  .library-v2-intro { grid-template-columns: 1fr; }
-  .library-v2-evidence-grid { grid-template-columns: 1fr; }
+  /* One phone gutter only. Previously Library had an outer width inset plus the
+     global knowledge-page padding, which made the document area feel squeezed. */
+  .knowledge-page.library-v2-page {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 16px 12px 88px !important;
+  }
+
+  .library-v2-heading {
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .library-v2-heading h1 {
+    font-size: clamp(30px, 9vw, 42px);
+  }
+
+  /* Keep six Library modes compact on phone instead of stacking six large cards. */
+  .library-v2-modebar {
+    display: flex;
+    gap: 8px;
+    margin: 0 -12px 16px;
+    padding: 0 12px 4px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .library-v2-modebar::-webkit-scrollbar { display: none; }
+
+  .library-v2-modebar button {
+    flex: 0 0 min(164px, 46vw);
+    min-width: 0;
+    min-height: 58px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    scroll-snap-align: start;
+  }
+
+  .library-v2-modebar button strong { font-size: .88rem; }
+  .library-v2-modebar button span { font-size: .69rem; line-height: 1.3; }
+
+  .library-v2-intro {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .library-v2-intro-card,
+  .library-v2-evidence {
+    padding: 14px;
+    border-radius: 13px;
+  }
+
+  .library-v2-evidence-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  /* Documents: force every surface to honour the phone viewport. */
+  .library-documents,
+  .library-document-toolbar,
+  .library-document-grid,
+  .library-document-card,
+  .library-document-card > *,
+  .library-document-meta,
+  .library-document-tags,
+  .bench-guided-actions {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .library-documents,
+  .library-document-grid {
+    width: 100%;
+  }
+
+  .library-document-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 9px !important;
+    align-items: stretch !important;
+  }
+
+  .library-document-toolbar label,
+  .library-document-toolbar input,
+  .library-document-toolbar select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .library-document-count {
+    width: 100%;
+    min-width: 0;
+    display: flex !important;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .library-document-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .library-document-card {
+    width: 100%;
+    padding: 14px !important;
+    border-radius: 13px !important;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .library-document-card h3,
+  .library-document-card p,
+  .library-document-card small,
+  .library-document-card strong,
+  .library-document-card span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .library-document-card h3 {
+    line-height: 1.28;
+  }
+
+  .library-document-meta,
+  .library-document-tags {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+
+  .library-document-meta > span,
+  .library-document-tags > span {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .bench-guided-actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .bench-guided-actions > button,
+  .bench-guided-actions > a {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .bench-guided-message {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 480px) {
+  .knowledge-page.library-v2-page {
+    padding: 14px 10px 94px !important;
+  }
+
+  .library-v2-modebar {
+    margin-inline: -10px;
+    padding-inline: 10px;
+  }
+
+  .library-v2-modebar button {
+    flex-basis: min(148px, 44vw);
+    min-height: 54px;
+    padding: 10px 11px;
+  }
+
+  .library-v2-modebar button span {
+    display: none;
+  }
+
+  .library-v2-intro-card,
+  .library-v2-evidence,
+  .library-document-card {
+    padding: 12px !important;
+  }
+
+  .library-document-toolbar input,
+  .library-document-toolbar select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .library-document-card h3 {
+    font-size: 1rem;
+  }
 }
