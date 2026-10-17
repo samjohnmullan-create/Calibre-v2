@@ -1,4 +1,5 @@
-import { FormEvent, ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 
@@ -63,8 +64,7 @@ export default function WorkshopSessionGate({ children }: { children: ReactNode 
     }
   }, [])
 
-  async function loadWorkspace(activeSession: Session = session as Session) {
-    if (!activeSession) return
+  async function loadWorkspace(activeSession: Session) {
     setConnection('checking')
     const result = await supabase
       .from('workspaces')
@@ -118,12 +118,7 @@ export default function WorkshopSessionGate({ children }: { children: ReactNode 
 
   useEffect(() => {
     if (!session) return
-    let active = true
-    ;(async () => {
-      await loadWorkspace(session)
-      if (!active) return
-    })()
-    return () => { active = false }
+    void loadWorkspace(session)
   }, [session?.user.id])
 
   async function sendOtp(event: FormEvent) {
@@ -256,12 +251,12 @@ export default function WorkshopSessionGate({ children }: { children: ReactNode 
     )
   }
 
-  const contextValue = useMemo<WorkshopSessionContextValue>(() => ({
+  const contextValue: WorkshopSessionContextValue = {
     session,
     workspace,
     signOut,
     refreshWorkspace: () => loadWorkspace(session),
-  }), [session, workspace])
+  }
 
   return <WorkshopSessionContext.Provider value={contextValue}>{children}</WorkshopSessionContext.Provider>
 }
