@@ -3,7 +3,7 @@ import CreateItemFlow from './CreateItemFlow'
 import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
 import ItemWorkspaceRoute from './ItemWorkspaceRoute'
-import HomeRoute from './HomeRoute'
+import WorkbenchAttention from './WorkbenchAttention'
 import WorkbenchRoute from './WorkbenchRoute'
 import BusinessRoute from './BusinessRoute'
 import BusinessFinanceRoute from './BusinessFinanceRoute'
@@ -16,13 +16,12 @@ import CalibreBrandMark from './CalibreBrandMark'
 import { useWorkshopSession } from './WorkshopSessionGate'
 import './brand-mark-test.css'
 
-type ShellSection = 'home' | 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'calibre' | 'customer' | 'settings' | 'other'
+type ShellSection = 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'calibre' | 'customer' | 'settings' | 'other'
 
 const primaryNav = [
-  { key: 'home', label: 'Home', hash: '#/home', icon: '⌂' },
+  { key: 'workbench', label: 'Workbench', hash: '#/workbench', icon: '⌁' },
   { key: 'intake', label: 'Intake', hash: '#/intake', icon: '↧' },
   { key: 'items', label: 'Inventory', hash: '#/items', icon: '◫' },
-  { key: 'workbench', label: 'Workbench', hash: '#/workbench', icon: '⌁' },
   { key: 'business', label: 'Business', hash: '#/business/finance', icon: '◎' },
 ] as const
 
@@ -35,9 +34,10 @@ const secondaryNav = [
 
 function readSection(): ShellSection {
   const raw = window.location.hash.replace(/^#\/?/, '')
-  const first = raw.split('/').filter(Boolean)[0] ?? 'home'
+  const first = raw.split('/').filter(Boolean)[0] ?? 'workbench'
+  if (first === 'home') return 'workbench'
   if (first === 'work') return 'items'
-  if (['home', 'intake', 'items', 'workbench', 'business', 'timegrapher', 'calibre', 'customer', 'settings'].includes(first)) return first as ShellSection
+  if (['intake', 'items', 'workbench', 'business', 'timegrapher', 'calibre', 'customer', 'settings'].includes(first)) return first as ShellSection
   if (first === 'procedures') return 'workbench'
   return 'other'
 }
@@ -69,11 +69,19 @@ export default function CalibreShell() {
 
   useEffect(() => {
     if (!window.location.hash) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/home`)
-      setSection('home')
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/workbench`)
+      setSection('workbench')
     }
     const sync = () => {
-      if (window.location.hash.replace(/^#\/?/, '').split('/')[0] === 'procedures') {
+      const first = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)[0]
+      if (first === 'home') {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/workbench`)
+        setSection('workbench')
+        setMoreOpen(false)
+        resetViewport()
+        return
+      }
+      if (first === 'procedures') {
         window.location.hash = '#/workbench'
         return
       }
@@ -132,7 +140,7 @@ export default function CalibreShell() {
   return (
     <div className="calibre-os" data-shell-section={section}>
       <aside className="calibre-rail" aria-label="Primary navigation">
-        <button className="calibre-rail-brand" type="button" onClick={() => navigate('#/home')} aria-label="Calibre home">
+        <button className="calibre-rail-brand" type="button" onClick={() => navigate('#/workbench')} aria-label="Open Calibre Workbench">
           <span className="calibre-rail-mark" aria-hidden="true"><CalibreBrandMark /></span>
           <span className="calibre-rail-brand-copy"><strong>Calibre</strong><small>& Co.</small></span>
         </button>
@@ -165,7 +173,7 @@ export default function CalibreShell() {
             <strong>{titleFor(section)}</strong>
           </div>
           <div className="calibre-utility-actions">
-            {section === 'home' && (
+            {section === 'workbench' && (
               <a className="calibre-new-button" href="https://calibreco.com.au/#/catalogue" target="_blank" rel="noreferrer" title="Open customer-facing catalogue">Catalogue ↗</a>
             )}
             <button className="calibre-search-button" type="button" onClick={openSearch} aria-expanded={searchOpen} aria-label="Search Calibre" title="Search Calibre · Ctrl/⌘ K">
@@ -181,10 +189,10 @@ export default function CalibreShell() {
         <UniversalNewMenu open={newOpen} onClose={() => setNewOpen(false)} />
 
         <div className="calibre-content-host">
-          <HomeRoute />
           <IntakeRoute />
           <InventoryHubRoute />
           <ItemWorkspaceRoute />
+          <WorkbenchAttention />
           <WorkbenchRoute />
           <BusinessRoute />
           <BusinessFinanceRoute />
@@ -202,7 +210,6 @@ export default function CalibreShell() {
             <button type="button" className={section === 'customer' ? 'active' : ''} onClick={() => navigate('#/customer')}><span>◉</span><div><strong>Customer</strong><small>Catalogue, Passports and Certificates</small></div></button>
             <button type="button" className={section === 'timegrapher' ? 'active' : ''} onClick={() => navigate('#/timegrapher')}><span>◷</span><div><strong>Timegrapher</strong><small>Live microphone timing and calibration</small></div></button>
             <button type="button" className={section === 'intake' ? 'active' : ''} onClick={() => navigate('#/intake')}><span>↧</span><div><strong>Intake</strong><small>Invoices, purchases and incoming records</small></div></button>
-            <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business/finance')}><span>◎</span><div><strong>Business</strong><small>Finance intelligence, stock, sales and costs</small></div></button>
             <button type="button" className={section === 'calibre' ? 'active' : ''} onClick={() => navigate('#/calibre')}><span>◇</span><div><strong>Library</strong><small>Movement research and compatibility</small></div></button>
             <button type="button" className={section === 'settings' ? 'active' : ''} onClick={() => navigate('#/settings')}><span>⚙</span><div><strong>Settings</strong><small>Data recovery and system controls</small></div></button>
             <button type="button" onClick={() => void signOut()}><span>⇥</span><div><strong>Sign out</strong><small>End this Calibre session</small></div></button>
@@ -211,11 +218,11 @@ export default function CalibreShell() {
       )}
 
       <nav className="calibre-mobile-nav" aria-label="Mobile navigation">
-        <button type="button" className={section === 'home' ? 'active' : ''} onClick={() => navigate('#/home')}><span>⌂</span><strong>Home</strong></button>
+        <button type="button" className={section === 'workbench' ? 'active' : ''} onClick={() => navigate('#/workbench')}><span>⌁</span><strong>Work</strong></button>
         <button type="button" className={section === 'items' ? 'active' : ''} onClick={() => navigate('#/items')}><span>◫</span><strong>Items</strong></button>
         <button type="button" className="mobile-new" onClick={openNew}><span>＋</span><strong>New</strong></button>
-        <button type="button" className={section === 'workbench' ? 'active' : ''} onClick={() => navigate('#/workbench')}><span>⌁</span><strong>Work</strong></button>
-        <button type="button" className={section === 'intake' || section === 'business' || section === 'timegrapher' || section === 'calibre' || section === 'customer' || section === 'settings' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
+        <button type="button" className={section === 'business' ? 'active' : ''} onClick={() => navigate('#/business/finance')}><span>◎</span><strong>Business</strong></button>
+        <button type="button" className={section === 'intake' || section === 'timegrapher' || section === 'calibre' || section === 'customer' || section === 'settings' || moreOpen ? 'active' : ''} onClick={() => { setSearchOpen(false); setNewOpen(false); setMoreOpen((value) => !value) }} aria-expanded={moreOpen}><span>•••</span><strong>More</strong></button>
       </nav>
     </div>
   )
