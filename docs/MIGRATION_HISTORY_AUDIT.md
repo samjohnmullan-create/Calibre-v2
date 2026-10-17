@@ -40,6 +40,29 @@ The recovery branch now keeps `supabase/migrations/` as a replayable-only direct
 
 The archive is intentionally non-executable. It preserves provenance without affecting clean rebuild order.
 
+## Recovered untracked workshop prehistory
+
+After the filename normalisation, disposable rebuild run `39066638189` successfully replayed the recovered foundation and every normalised migration through `20261013094614_allow_shared_invoice_document_links`, then failed at `20261013103521_harden_work_indexes_and_history` because `work_records.template_id` did not yet exist.
+
+A live migration-history search proved that no applied migration before `20261013103521` creates:
+
+- `work_templates`;
+- `work_template_steps`;
+- `work_checklist_steps`;
+- `work_records.template_id`;
+- `initialize_work_checklist`.
+
+The recorded `20261013103521` migration nevertheless immediately creates indexes and triggers against those objects. This proves the versioned Work checklist foundation existed in production as **untracked schema state** before that migration was recorded.
+
+The repository still contained the historical SQL that created this system under `supabase/migration-history/legacy/20261013_add_versioned_work_checklists.sql`, plus the corresponding completion-gate trigger in `20261013_add_repair_template_and_work_completion_gate.sql`.
+
+To repair replay without inventing a new production migration version:
+
+- the exact originally-recorded `20261013103521` SQL is preserved under `supabase/migration-history/live-applied/`;
+- the executable `20261013103521_harden_work_indexes_and_history.sql` now reconstructs the missing schema/RLS/privileges/`initialize_work_checklist`/completion trigger first, then executes the original recorded hardening SQL unchanged;
+- template seed rows are not part of the replay repair because a clean database contains no workspaces at migration time, so those historical inserts would be no-ops anyway;
+- production is not modified: version `20261013103521` is already recorded as applied remotely, and the replay repair exists only to reconstruct the state that production already had.
+
 ## Invoice-document migration equivalence
 
 The live database records:
@@ -52,21 +75,30 @@ The historical repository file was:
 
 Content equivalence has been proven. The live SQL, with the repository file's final newline, hashes to Git blob SHA `32b3d92862644e4d58a5fb166e540ca6d3af26ae`, exactly matching the historical repository blob. The active migration is now named with the live timestamp and live migration name.
 
-## Clean rebuild gate
+## Clean rebuild and database safety gate
 
 A dedicated workflow, `.github/workflows/supabase-rebuild-smoke.yml`, now creates a disposable local Supabase environment and runs `supabase db reset` against the committed migration chain.
 
-The first run failed usefully because of the legacy filename ordering described above. A subsequent run is validating the normalised chain. The gate remains **not accepted** until a disposable rebuild reaches a successful completion.
+After a successful rebuild it runs `supabase test db`. The first transactional pgTAP suite covers high-risk workshop guarantees:
+
+- inventory Archive is soft and retains the physical record;
+- `test_clear` cannot erase a real Work record;
+- one physical Part cannot be double-reserved;
+- consuming a reservation decrements stock once;
+- repair Work cannot complete without Release sign-off;
+- a non-member cannot read another workspace's Items through RLS.
+
+The gate remains **not accepted** until the latest disposable rebuild and safety-test run complete successfully.
 
 ## Remaining acceptance work
 
 Before the Release Candidate gate can mark clean migration rebuild as passed:
 
 1. complete a successful disposable rebuild from the committed migration chain;
-2. reconcile any later timestamp/content drift surfaced by that rebuild;
-3. compare key schema objects and workshop contracts with production;
-4. add pgTAP tests for destructive and state-transition behaviour;
-5. run those tests automatically after every clean rebuild.
+2. reconcile any additional historical schema drift surfaced by that rebuild;
+3. pass the transactional workshop pgTAP suite;
+4. compare key reconstructed schema objects and workshop contracts with production;
+5. add authenticated browser smoke coverage for phone and DeX layouts.
 
 ## Acceptance rule
 
