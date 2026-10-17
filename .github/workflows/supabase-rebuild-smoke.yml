@@ -37,8 +37,8 @@ jobs:
             supabase init
           fi
 
-      - name: Start disposable local Supabase
-        run: supabase start
+      - name: Start disposable database stack
+        run: supabase start --runtime native --exclude studio,mail,analytics,realtime,functions,rest,pooler
 
       - name: Rebuild schema from committed migrations
         run: supabase db reset
