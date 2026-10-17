@@ -1,0 +1,203 @@
+.workbench-attention {
+  margin: 0 auto 24px;
+  max-width: 1480px;
+  padding: 18px;
+  border: 1px solid rgba(112, 142, 149, .2);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(31, 66, 78, .18), rgba(16, 24, 29, .88));
+}
+
+.workbench-attention-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.workbench-attention-heading h2 {
+  margin: 0;
+  font-size: clamp(22px, 2.4vw, 32px);
+}
+
+.workbench-attention-snapshot {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.workbench-attention-snapshot button {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(116, 141, 146, .18);
+  border-radius: 12px;
+  background: rgba(10, 16, 20, .44);
+  color: inherit;
+  text-align: left;
+}
+
+.workbench-attention-snapshot button:hover {
+  border-color: rgba(126, 166, 177, .35);
+  background: rgba(24, 39, 46, .62);
+}
+
+.workbench-attention-snapshot button.hot {
+  border-color: rgba(204, 118, 94, .38);
+  background: rgba(98, 42, 31, .18);
+}
+
+.workbench-attention-snapshot span {
+  display: block;
+  color: var(--muted, #8fa0a5);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.workbench-attention-snapshot strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 22px;
+}
+
+.workbench-attention-message {
+  margin: 10px 0 0;
+  color: #c49a86;
+  font-size: 12px;
+}
+
+.workbench-attention-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workbench-attention-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(110, 137, 143, .16);
+  border-radius: 12px;
+  background: rgba(7, 13, 16, .38);
+  color: inherit;
+  text-decoration: none;
+}
+
+.workbench-attention-row:hover {
+  border-color: rgba(132, 166, 175, .32);
+  background: rgba(18, 31, 36, .62);
+}
+
+.workbench-attention-row.critical {
+  border-left: 3px solid rgba(211, 117, 90, .82);
+}
+
+.workbench-attention-row.warning {
+  border-left: 3px solid rgba(207, 160, 86, .76);
+}
+
+.workbench-attention-row.action {
+  border-left: 3px solid rgba(80, 151, 171, .8);
+}
+
+.workbench-attention-row.info {
+  border-left: 3px solid rgba(112, 147, 157, .54);
+}
+
+.workbench-attention-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(116, 146, 154, .12);
+  color: #d6e1e3;
+  font-weight: 800;
+}
+
+.workbench-attention-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 3px;
+  color: #86979c;
+  font-size: 10px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.workbench-attention-row > div > strong {
+  display: block;
+  font-size: 13px;
+}
+
+.workbench-attention-row p {
+  margin: 3px 0 0;
+  color: #94a0a3;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.workbench-attention-row > b {
+  color: #b8c8cc;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.workbench-attention-clear {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border: 1px dashed rgba(105, 144, 153, .24);
+  border-radius: 12px;
+  color: #9caaad;
+  font-size: 12px;
+}
+
+.workbench-attention-clear strong {
+  color: #cad4d6;
+}
+
+@media (max-width: 900px) {
+  .workbench-attention {
+    margin: 0 0 18px;
+    padding: 14px;
+    border-radius: 15px;
+  }
+
+  .workbench-attention-snapshot {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workbench-attention-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workbench-attention-row > b {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .workbench-attention-heading {
+    align-items: start;
+  }
+
+  .workbench-attention-snapshot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workbench-attention-row {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .workbench-attention-clear {
+    display: grid;
+  }
+}
