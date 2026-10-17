@@ -5,6 +5,7 @@ import ItemMedia from './ItemMedia'
 import PassportPanel from './PassportPanel'
 import KnowledgePage from './KnowledgePage'
 import WorkJobCard from './WorkJobCard'
+import CalibreAttention from './CalibreAttention'
 
 type Workspace = { id: string; name: string; slug: string; owner_id: string }
 type Item = { id: string; item_number: number; type: string; purpose: string; status: string; title: string; notes: string; created_at: string }
@@ -72,11 +73,11 @@ function workStatusLabel(status: WorkStatus) {
 
 function readRoute(): RouteState {
   const raw = window.location.hash.replace(/^#\/?/, '')
-  const [first = 'items', second] = raw.split('/').filter(Boolean)
+  const [first = 'home', second] = raw.split('/').filter(Boolean)
   if (first === 'items') return { section: 'items', itemId: second ? decodeURIComponent(second) : null, workId: null }
   if (first === 'work') return { section: 'items', itemId: null, workId: second ? decodeURIComponent(second) : null }
   if (sections.includes(first as Section)) return { section: first as Section, itemId: null, workId: null }
-  return { section: 'items', itemId: null, workId: null }
+  return { section: 'home', itemId: null, workId: null }
 }
 
 function routeHash(section: Section, itemId?: string | null, workId?: string | null) {
@@ -139,7 +140,7 @@ export default function App() {
 
   useEffect(() => {
     if (!window.location.hash) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/items`)
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/home`)
     }
     const syncRoute = () => applyRoute(readRoute())
     syncRoute()
@@ -487,6 +488,8 @@ export default function App() {
         <button className="profile-chip" onClick={signOut} title="Sign out">SM</button>
       </header>
 
+      {section === 'home' && <CalibreAttention workspaceId={workspace.id} />}
+
       {section === 'items' && (
         <main className="items-layout">
           <aside className="items-pane">
@@ -526,12 +529,12 @@ export default function App() {
         <Workbench work={allWork} itemsById={itemsById} loading={workLoading} savingWorkId={savingWorkId} onStatusChange={updateWorkStatus} onSaveDetails={updateWorkDetails} onOpenItem={openWorkItem} />
       )}
 
-      {section === 'calibre' && <KnowledgePage />}
+      {section === 'calibre' && <KnowledgePage workspaceId={workspace.id} />}
 
-      {!['items', 'workbench', 'calibre'].includes(section) && (
+      {!['home', 'items', 'workbench', 'calibre'].includes(section) && (
         <main className="placeholder-page">
           <p className="eyebrow">{titleCase(section)}</p>
-          <h2>{section === 'home' ? 'Calibre v2' : `${titleCase(section)} is next.`}</h2>
+          <h2>{`${titleCase(section)} is next.`}</h2>
           <p className="muted">The operating system is being built around one object lifecycle: acquisition, identity, work, commerce and permanent history.</p>
           <button onClick={() => navigate('items', selectedId)}>Open Items</button>
         </main>
