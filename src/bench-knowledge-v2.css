@@ -120,6 +120,50 @@
   text-decoration: none;
 }
 
+.bench-knowledge-promotion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(216,189,152,.14);
+}
+
+.bench-knowledge-promotion > span,
+.bench-knowledge-promotion > small {
+  color: var(--calibre-muted, #9aa7ab);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.bench-knowledge-promotion > span {
+  color: #dec6a7;
+  font-weight: 700;
+}
+
+.bench-knowledge-promotion > button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(216,189,152,.28);
+  border-radius: 9px;
+  background: rgba(216,189,152,.08);
+  color: #dec6a7;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bench-knowledge-promotion > button:hover:not(:disabled) {
+  background: rgba(216,189,152,.13);
+}
+
+.bench-knowledge-promotion > button:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
 .bench-knowledge-footnote,
 .bench-knowledge-message {
   margin: 0;
@@ -142,5 +186,14 @@
   .bench-knowledge-source > a {
     grid-column: 1;
     grid-row: auto;
+  }
+
+  .bench-knowledge-promotion {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bench-knowledge-promotion > button {
+    width: 100%;
   }
 }
