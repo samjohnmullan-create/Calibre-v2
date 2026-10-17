@@ -157,6 +157,9 @@ export default function CalibreShell() {
             <strong>{titleFor(section)}</strong>
           </div>
           <div className="calibre-utility-actions">
+            {section === 'home' && (
+              <a className="calibre-new-button" href="https://calibreco.com.au/#/catalogue" target="_blank" rel="noreferrer" title="Open customer-facing catalogue">Catalogue ↗</a>
+            )}
             <button className="calibre-search-button" type="button" onClick={openSearch} aria-expanded={searchOpen} aria-label="Search Calibre" title="Search Calibre · Ctrl/⌘ K">
               <span className="calibre-search-icon" aria-hidden="true">⌕</span>
               <span className="calibre-search-label">Search Calibre</span>
