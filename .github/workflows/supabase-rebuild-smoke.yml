@@ -5,15 +5,19 @@ on:
     branches: [test/recover-supabase-baseline]
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/migration-history/live-applied-manifest.txt'
       - 'supabase/tests/database/**'
       - 'supabase/config.toml'
+      - 'scripts/check-live-migration-manifest.mjs'
       - '.github/workflows/supabase-rebuild-smoke.yml'
   pull_request:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/migration-history/live-applied-manifest.txt'
       - 'supabase/tests/database/**'
       - 'supabase/config.toml'
+      - 'scripts/check-live-migration-manifest.mjs'
       - '.github/workflows/supabase-rebuild-smoke.yml'
   workflow_dispatch:
 
@@ -31,6 +35,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify production migration history is represented
+        run: node scripts/check-live-migration-manifest.mjs
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
