@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import './record-health.css'
 
 type LocationRow = { id: string; parent_id: string | null; name: string; code: string | null; location_type: string; sort_order: number; notes: string }
 type EntityType = 'item' | 'part' | 'tool' | 'consumable'
-type StoredEntity = { id: string; entityType: EntityType; label: string; detail: string; storageLocationId: string | null }
+type RecordHealth = { completion_pct: number; health_state: string; missing_labels: string[] }
+type StoredEntity = { id: string; entityType: EntityType; label: string; detail: string; storageLocationId: string | null; health?: RecordHealth }
 type MoveEvent = { id: string; entity_type: EntityType; entity_id: string; entity_label: string; from_location_id: string | null; to_location_id: string | null; note: string; moved_at: string }
 type LocationCounts = { items: number; parts: number; tools: number; consumables: number }
 type PutAwayFilter = 'all' | EntityType
@@ -13,6 +15,11 @@ const entityTypes: EntityType[] = ['item', 'part', 'tool', 'consumable']
 
 function titleCase(value: string) { return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) }
 function cleanSearch(value: string) { return value.replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim() }
+function healthSummary(health?: RecordHealth) {
+  if (!health) return ''
+  if (!health.missing_labels.length) return 'Record complete'
+  return `Needs ${health.missing_labels.slice(0, 3).join(' · ')}${health.missing_labels.length > 3 ? ` · +${health.missing_labels.length - 3}` : ''}`
+}
 
 export default function StorageManager({ workspaceId }: { workspaceId: string }) {
   const [locations, setLocations] = useState<LocationRow[]>([])
@@ -94,17 +101,19 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
   async function loadContents() {
     if (!workspaceId) return
     setLoading(true)
-    const [itemResult, partResult, toolResult, consumableResult] = await Promise.all([
+    const [itemResult, partResult, toolResult, consumableResult, healthResult] = await Promise.all([
       locationFilter(supabase.from('items').select('id,item_number,title,type,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
       locationFilter(supabase.from('parts').select('id,part_type,manufacturer,reference,quantity,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
       locationFilter(supabase.from('tools').select('id,name,category,manufacturer,model,quantity,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
       locationFilter(supabase.from('consumables').select('id,name,category,quantity,unit,storage_location_id', { count: 'exact' }).eq('workspace_id', workspaceId).is('archived_at', null)).order('updated_at', { ascending: false }).limit(100),
+      locationFilter(supabase.from('item_record_health').select('item_id,completion_pct,health_state,missing_labels,storage_location_id').eq('workspace_id', workspaceId)).limit(100),
     ])
     setLoading(false)
-    const error = itemResult.error ?? partResult.error ?? toolResult.error ?? consumableResult.error
+    const error = itemResult.error ?? partResult.error ?? toolResult.error ?? consumableResult.error ?? healthResult.error
     if (error) { setMessage(`Storage contents failed to load: ${error.message}`); return }
+    const healthByItem = new Map((healthResult.data ?? []).map((row) => [row.item_id, { completion_pct: row.completion_pct, health_state: row.health_state, missing_labels: row.missing_labels ?? [] } as RecordHealth]))
     const rows: StoredEntity[] = []
-    for (const row of itemResult.data ?? []) rows.push({ id: row.id, entityType: 'item', label: `#${row.item_number} ${row.title}`, detail: titleCase(row.type), storageLocationId: row.storage_location_id })
+    for (const row of itemResult.data ?? []) rows.push({ id: row.id, entityType: 'item', label: `#${row.item_number} ${row.title}`, detail: titleCase(row.type), storageLocationId: row.storage_location_id, health: healthByItem.get(row.id) })
     for (const row of partResult.data ?? []) rows.push({ id: row.id, entityType: 'part', label: [row.part_type, row.manufacturer, row.reference].filter(Boolean).join(' · '), detail: `Qty ${row.quantity}`, storageLocationId: row.storage_location_id })
     for (const row of toolResult.data ?? []) rows.push({ id: row.id, entityType: 'tool', label: row.name, detail: [row.category, row.manufacturer, row.model].filter(Boolean).join(' · '), storageLocationId: row.storage_location_id })
     for (const row of consumableResult.data ?? []) rows.push({ id: row.id, entityType: 'consumable', label: row.name, detail: `${row.quantity}${row.unit ? ` ${row.unit}` : ''}${row.category ? ` · ${row.category}` : ''}`, storageLocationId: row.storage_location_id })
@@ -205,10 +214,11 @@ export default function StorageManager({ workspaceId }: { workspaceId: string })
 
       <div className="storage-main">
         <section className={`panel storage-location-detail ${isPutAwayQueue ? 'storage-put-away' : ''}`}>
-          <div className="storage-location-detail-head"><div><p className="eyebrow">{selectedLocation ? titleCase(selectedLocation.location_type) : 'PUT-AWAY QUEUE'}</p><h3>{selectedLocation ? pathById.get(selectedLocation.id) : 'Received stock waiting for a home'}</h3>{isPutAwayQueue && <p className="muted">Pick a type, tap Move and allocate it without leaving the queue. Your last put-away destination is remembered for the next item.</p>}</div><strong>{totalWaiting}</strong></div>
+          <div className="storage-location-detail-head"><div><p className="eyebrow">{selectedLocation ? titleCase(selectedLocation.location_type) : 'PUT-AWAY QUEUE'}</p><h3>{selectedLocation ? pathById.get(selectedLocation.id) : 'Received stock waiting for a home'}</h3>{isPutAwayQueue && <p className="muted">Pick a type, tap Put away and allocate it without leaving the queue. Your last destination is remembered for the next item.</p>}</div><strong>{totalWaiting}</strong></div>
+          {isPutAwayQueue && locations.length <= 1 && <p className="storage-setup-note">You currently have {locations.length === 1 ? 'one storage location' : 'no storage locations'}. Add drawers, trays or shelves as you need them — Calibre will preserve the full move history.</p>}
           <div className="storage-counts"><button type="button" className={putAwayFilter === 'all' ? 'active' : ''} onClick={() => isPutAwayQueue && setPutAwayFilter('all')}><strong>{totalWaiting}</strong><small>{isPutAwayQueue ? 'All waiting' : 'Total'}</small></button><button type="button" className={putAwayFilter === 'item' ? 'active' : ''} onClick={() => isPutAwayQueue && setPutAwayFilter('item')}><strong>{counts.items}</strong><small>Items</small></button><button type="button" className={putAwayFilter === 'part' ? 'active' : ''} onClick={() => isPutAwayQueue && setPutAwayFilter('part')}><strong>{counts.parts}</strong><small>Parts</small></button><button type="button" className={putAwayFilter === 'tool' ? 'active' : ''} onClick={() => isPutAwayQueue && setPutAwayFilter('tool')}><strong>{counts.tools}</strong><small>Tools</small></button><button type="button" className={putAwayFilter === 'consumable' ? 'active' : ''} onClick={() => isPutAwayQueue && setPutAwayFilter('consumable')}><strong>{counts.consumables}</strong><small>Consumables</small></button></div>
           {loading && <p className="muted">Loading contents…</p>}{!loading && visibleContents.length === 0 && <p className="muted">{isPutAwayQueue ? 'Nothing waiting in this view.' : 'Nothing is stored here yet.'}</p>}
-          <div className="storage-contents-list">{visibleContents.map((entity) => <div key={`${entity.entityType}-${entity.id}`} className={`storage-entity-card ${isMoveTarget(entity) ? 'expanded' : ''}`}><div className="storage-entity-row"><span className="storage-entity-type">{titleCase(entity.entityType)}</span><span><strong>{entity.label}</strong><small>{entity.detail || 'No extra detail'}</small></span><button type="button" className={isMoveTarget(entity) ? 'secondary' : ''} onClick={() => chooseMove(entity)}>{isMoveTarget(entity) ? 'Close' : isPutAwayQueue ? 'Put away' : 'Move'}</button></div>{renderMoveForm(entity)}</div>)}</div>
+          <div className="storage-contents-list">{visibleContents.map((entity) => <div key={`${entity.entityType}-${entity.id}`} className={`storage-entity-card ${isMoveTarget(entity) ? 'expanded' : ''}`}><div className="storage-entity-row"><span className="storage-entity-type">{titleCase(entity.entityType)}</span><span><strong>{entity.label}</strong><small>{entity.detail || 'No extra detail'}</small>{entity.health && <span className={`storage-health state-${entity.health.health_state}`}><span className="record-health-compact-head"><span>Record health</span><strong>{entity.health.completion_pct}%</strong></span><span className="record-health-track"><span style={{ width: `${entity.health.completion_pct}%` }} /></span><small>{healthSummary(entity.health)}</small></span>}</span><button type="button" className={isMoveTarget(entity) ? 'secondary' : ''} onClick={() => chooseMove(entity)}>{isMoveTarget(entity) ? 'Close' : isPutAwayQueue ? 'Put away' : 'Move'}</button></div>{renderMoveForm(entity)}</div>)}</div>
         </section>
 
         <section className="panel storage-quick-move"><div><p className="eyebrow">QUICK MOVE</p><h3>Find it, tap it, put it away.</h3><p className="muted">Search results expand in place, so the thing you are moving stays in context.</p></div><div className="storage-search-controls"><select value={entityType} onChange={(event) => setEntityType(event.target.value as EntityType)}>{entityTypes.map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}</select><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${entityType}s…`} /></div>{query.trim() && searchResults.length === 0 ? <p className="muted">No matches.</p> : null}<div className="storage-search-results">{searchResults.map((entity) => <div key={`${entity.entityType}-${entity.id}`} className={`storage-search-result-card ${isMoveTarget(entity) ? 'expanded' : ''}`}><button className="storage-search-result-row" type="button" onClick={() => chooseMove(entity)}><span><strong>{entity.label}</strong><small>{entity.detail || titleCase(entity.entityType)}</small></span><span><small>Currently</small><strong>{currentPath(entity.storageLocationId)}</strong></span></button>{renderMoveForm(entity)}</div>)}</div></section>
