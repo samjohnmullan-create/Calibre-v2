@@ -1,0 +1,94 @@
+name: Recover exact Supabase migration history
+
+on:
+  push:
+    branches:
+      - test/recover-supabase-baseline
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    if: ${{ github.event.head_commit.message != 'Restore exact production migration history' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify production migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          pass='calibre-migration-recovery-v1'
+
+          recover() {
+            version="$1"
+            name="$2"
+            old="$3"
+            expected="$4"
+
+            payload="supabase/migration-recovery/text/${version}_${name}.pgp.b64"
+            target="supabase/migrations/${version}_${name}.sql"
+            archive="supabase/migration-history/legacy/drifted/${old}"
+            packet="/tmp/${version}.pgp"
+
+            test -f "$payload"
+            test -f "supabase/migrations/${old}"
+
+            base64 --decode "$payload" > "$packet"
+            mkdir -p "$(dirname "$target")" "$(dirname "$archive")"
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$pass" \
+              --output "$target" --decrypt "$packet"
+
+            actual="$(git hash-object "$target")"
+            echo "${version}_${name}: ${actual}"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::Migration SHA mismatch for ${version}_${name}: expected ${expected}, got ${actual}"
+              exit 1
+            fi
+
+            git mv "supabase/migrations/${old}" "$archive"
+          }
+
+          recover 20261015053844 workshop_induction_and_job_plans \
+            20261015053047_workshop_induction_and_job_plans.sql \
+            e9ea854e56d8dfd892365ad0f823f454f785ba95
+
+          recover 20261015201345 consolidate_final_verification_release \
+            20261016072500_consolidate_final_verification_release.sql \
+            0daded56d7e67af88573ff3dc0da8adb2d5588d5
+
+          recover 20261015202630 procedure_versioning_foundation \
+            20261016075500_procedure_versioning_foundation.sql \
+            b53b61570358ab6118f6bef96a2ad801211e108e
+
+          recover 20261015223157 route_completed_research_to_knowledge \
+            20261015223000_route_completed_research_to_knowledge.sql \
+            768cf0d50688e407887cfd8d46f82714df945af1
+
+          recover 20261017095008 reconcile_calibre_library_evidence \
+            20261017094626_reconcile_calibre_library_evidence.sql \
+            3dc43c678f2b056c16ef7bfb0b5458c1590156db
+
+          recover 20261017095244 optimize_calibre_library_rls \
+            20261017095130_optimize_calibre_library_rls.sql \
+            b7ac41cf5cd213eac473ae51e853e1d5e76a154b
+
+          rm -rf supabase/migration-recovery
+          rm -f .github/workflows/recover-supabase-history.yml
+
+          git status --short
+
+      - name: Commit exact recovered history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Restore exact production migration history'
+          git push origin HEAD:test/recover-supabase-baseline
