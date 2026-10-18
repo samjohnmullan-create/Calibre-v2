@@ -1,61 +1,47 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import CustomerSite from './CustomerSite'
 import './styles.css'
 import './customer-site.css'
 import './customer-enquiry-public.css'
-
-const PUBLIC_OBJECT_PATH = '/storage/v1/object/public/calibre-public/'
-const PUBLIC_RENDER_PATH = '/storage/v1/render/image/public/calibre-public/'
-
-function optimisePublicImageUrl(source: string, width: number) {
-  if (!source || !source.includes(PUBLIC_OBJECT_PATH)) return source
-  try {
-    const url = new URL(source, window.location.href)
-    url.pathname = url.pathname.replace(PUBLIC_OBJECT_PATH, PUBLIC_RENDER_PATH)
-    url.searchParams.set('width', String(width))
-    url.searchParams.set('quality', '76')
-    url.searchParams.set('resize', 'contain')
-    return url.toString()
-  } catch {
-    return source
-  }
-}
-
-function optimiseImage(image: HTMLImageElement) {
-  if (image.dataset.calibreOptimised === '1') return
-  const source = image.currentSrc || image.src
-  if (!source.includes(PUBLIC_OBJECT_PATH)) return
-
-  const isCard = Boolean(image.closest('.catalogue-card, .customer-home-feature'))
-  const width = isCard ? 900 : 1800
-  const optimised = optimisePublicImageUrl(source, width)
-  if (optimised === source) return
-
-  image.dataset.calibreOptimised = '1'
-  image.decoding = 'async'
-  if (isCard) image.loading = 'lazy'
-  image.src = optimised
-}
+import './customer-lightbox.css'
 
 export default function CustomerEntry() {
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
+
   useEffect(() => {
-    const optimiseAll = (root: ParentNode = document) => {
-      root.querySelectorAll<HTMLImageElement>('img').forEach(optimiseImage)
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLImageElement)) return
+      if (!target.closest('.passport-public-image, .passport-gallery')) return
+      if (!target.src) return
+      event.preventDefault()
+      setLightbox({ src: target.currentSrc || target.src, alt: target.alt || 'Full-size item photograph' })
     }
 
-    optimiseAll()
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        mutation.addedNodes.forEach((node) => {
-          if (!(node instanceof HTMLElement)) return
-          if (node instanceof HTMLImageElement) optimiseImage(node)
-          optimiseAll(node)
-        })
-      }
-    })
-    observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
   }, [])
 
-  return <CustomerSite />
+  useEffect(() => {
+    if (!lightbox) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLightbox(null)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [lightbox])
+
+  return <>
+    <CustomerSite />
+    {lightbox && <div className="customer-lightbox" role="dialog" aria-modal="true" aria-label="Full-size photograph" onClick={() => setLightbox(null)}>
+      <button type="button" className="customer-lightbox-close" onClick={() => setLightbox(null)} aria-label="Close full-size photograph">×</button>
+      <img src={lightbox.src} alt={lightbox.alt} onClick={(event) => event.stopPropagation()} />
+      <span>Tap outside the image or press Esc to close</span>
+    </div>}
+  </>
 }
