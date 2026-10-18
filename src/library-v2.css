@@ -236,8 +236,8 @@
 
   .library-document-card {
     width: 100%;
-    padding: 14px !important;
-    border-radius: 13px !important;
+    padding: 16px !important;
+    border-radius: var(--workshop-card-radius, 16px) !important;
     overflow: hidden;
     overflow-wrap: anywhere;
   }

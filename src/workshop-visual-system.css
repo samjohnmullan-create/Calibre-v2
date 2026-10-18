@@ -18,7 +18,7 @@
   .resource-inventory-list, .business-v2-panel, .business-v2-table-card,
   .finance-v4-metrics > div, .inventory-v2-summary > div, .inventory-v2-summary > button,
   .business-v2-metrics > div, .workbench-v2-card, .workbench-command-card,
-  .item-v2-hero-card, .customer-publish-state, .document-library-card
+  .item-v2-hero-card, .customer-publish-state, .library-document-card
 ) {
   border-color: var(--calibre-line);
   border-radius: var(--workshop-card-radius);
