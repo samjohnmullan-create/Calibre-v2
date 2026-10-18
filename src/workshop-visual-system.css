@@ -195,3 +195,24 @@ body:has([role="dialog"]) .bench-mode-launcher { visibility: hidden; pointer-eve
     -webkit-backdrop-filter: none;
   }
 }
+
+/* The document list also needs a complete desktop/tablet foundation; its old
+   rules only supplied phone containment. */
+.calibre-os .library-documents { display: grid; gap: 16px; min-width: 0; }
+.calibre-os .library-document-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto;
+  align-items: end;
+  gap: 12px;
+}
+.calibre-os .library-document-toolbar label { display: grid; gap: 6px; min-width: 0; font-size: 12px; color: var(--calibre-muted); }
+.calibre-os .library-document-toolbar :is(input, select) { width: 100%; min-width: 0; }
+.calibre-os .library-document-count { display: grid; gap: 3px; padding: 10px 14px; border: 1px solid var(--calibre-line); border-radius: 10px; color: var(--calibre-muted); }
+.calibre-os .library-document-count strong { font: 600 20px/1.2 "IBM Plex Mono", monospace; color: var(--calibre-text-strong); }
+.calibre-os .library-document-count span { font-size: 12px; }
+.calibre-os .library-document-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; align-items: start; }
+.calibre-os .library-document-card { display: grid; gap: 12px; min-width: 0; padding: 20px; border: 1px solid var(--calibre-line); }
+.calibre-os .library-document-card h3 { margin: 0; font-size: 20px; line-height: 1.25; }
+.calibre-os .library-document-card p { margin: 0; font-size: 14px; line-height: 1.5; }
+.calibre-os :is(.library-document-meta, .library-document-tags) { display: flex; flex-wrap: wrap; gap: 6px; }
+.calibre-os :is(.library-document-meta, .library-document-tags) > span { padding: 4px 7px; border: 1px solid var(--calibre-line); border-radius: 6px; color: var(--calibre-muted); font-size: 11px; line-height: 1.35; }
