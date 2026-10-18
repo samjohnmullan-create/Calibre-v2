@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { supabase } from './lib/supabase'
 import CalibreBrandMark from './CalibreBrandMark'
 
@@ -39,9 +40,18 @@ export type CustomerPublication = {
   currency: string
   availability: 'catalogue' | 'available' | 'reserved' | 'sold' | 'archive'
   published_at: string | null
+  passport_pdf_url: string | null
+  certificate_pdf_url: string | null
+  customer_pack_issued_at: string | null
 }
 
-const fields = 'id,slug,published,catalogue_visible,sold_archive_visible,public_title,subtitle,summary,condition_summary,maker,model,reference,era,country,movement_maker,calibre,jewels,beat_rate,movement_type,escapement,case_material,crystal_type,width_mm,thickness_mm,provenance_summary,service_summary,final_timing_summary,authenticity_note,certificate_number,certificate_issued_at,hero_image_url,gallery_urls,price_amount,currency,availability,published_at'
+type CustomerCard = Pick<CustomerPublication,
+  'id' | 'slug' | 'public_title' | 'subtitle' | 'maker' | 'era' | 'calibre' | 'movement_type' |
+  'hero_image_url' | 'price_amount' | 'currency' | 'availability'
+>
+
+const cardFields = 'id,slug,public_title,subtitle,maker,era,calibre,movement_type,hero_image_url,price_amount,currency,availability'
+const passportFields = 'id,slug,published,catalogue_visible,sold_archive_visible,public_title,subtitle,summary,condition_summary,maker,model,reference,era,country,movement_maker,calibre,jewels,beat_rate,movement_type,escapement,case_material,crystal_type,width_mm,thickness_mm,provenance_summary,service_summary,final_timing_summary,authenticity_note,certificate_number,certificate_issued_at,hero_image_url,gallery_urls,price_amount,currency,availability,published_at,passport_pdf_url,certificate_pdf_url,customer_pack_issued_at'
 
 type PublicRoute = { page: 'home' | 'catalogue' | 'sold' | 'passport' | 'certificate'; slug: string | null }
 
@@ -119,7 +129,7 @@ function EmptyState({ title, copy }: { title: string; copy: string }) {
   return <div className="customer-empty"><CalibreBrandMark /><p className="eyebrow">CALIBRE & CO.</p><h2>{title}</h2><p>{copy}</p></div>
 }
 
-function CatalogueCard({ item }: { item: CustomerPublication }) {
+function CatalogueCard({ item }: { item: CustomerCard }) {
   const target = `#/passport/${encodeURIComponent(item.slug)}`
   const open = () => navigate(target)
   return (
@@ -142,7 +152,7 @@ function CatalogueCard({ item }: { item: CustomerPublication }) {
       </div>
       <div className="catalogue-card-copy">
         <p className="eyebrow">{[item.maker, item.era].filter(Boolean).join(' · ') || 'CALIBRE & CO.'}</p>
-        <h2>{item.public_title || [item.maker, item.model].filter(Boolean).join(' ') || 'Untitled watch'}</h2>
+        <h2>{item.public_title || item.maker || 'Untitled watch'}</h2>
         {item.subtitle && <p>{item.subtitle}</p>}
         <div className="catalogue-card-footer">
           <span>{item.calibre ? `Cal. ${item.calibre}` : item.movement_type || 'Mechanical watch'}</span>
@@ -154,12 +164,12 @@ function CatalogueCard({ item }: { item: CustomerPublication }) {
 }
 
 function Home() {
-  const [featured, setFeatured] = useState<CustomerPublication[]>([])
+  const [featured, setFeatured] = useState<CustomerCard[]>([])
   useEffect(() => {
     let active = true
     ;(async () => {
-      const { data } = await supabase.from('customer_publications').select(fields).eq('published', true).eq('catalogue_visible', true).neq('availability', 'archive').order('published_at', { ascending: false, nullsFirst: false }).limit(3)
-      if (active) setFeatured((data ?? []) as CustomerPublication[])
+      const { data } = await supabase.from('customer_publications').select(cardFields).eq('published', true).eq('catalogue_visible', true).neq('availability', 'archive').order('published_at', { ascending: false, nullsFirst: false }).limit(3)
+      if (active) setFeatured((data ?? []) as CustomerCard[])
     })()
     return () => { active = false }
   }, [])
@@ -191,20 +201,20 @@ function Home() {
 }
 
 function Catalogue({ sold = false }: { sold?: boolean }) {
-  const [items, setItems] = useState<CustomerPublication[]>([])
+  const [items, setItems] = useState<CustomerCard[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     let active = true
     ;(async () => {
-      let query = supabase.from('customer_publications').select(fields).eq('published', true)
+      let query = supabase.from('customer_publications').select(cardFields).eq('published', true)
       query = sold ? query.eq('sold_archive_visible', true) : query.eq('catalogue_visible', true).neq('availability', 'archive')
       const { data, error } = await query.order('published_at', { ascending: false, nullsFirst: false })
       if (!active) return
       setLoading(false)
       if (error) setMessage(error.message)
-      else setItems((data ?? []) as CustomerPublication[])
+      else setItems((data ?? []) as CustomerCard[])
     })()
     return () => { active = false }
   }, [sold])
@@ -224,6 +234,72 @@ function Catalogue({ sold = false }: { sold?: boolean }) {
   )
 }
 
+function EnquiryPanel({ item }: { item: CustomerPublication }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [message, setMessage] = useState('')
+  const [website, setWebsite] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
+
+  if (item.availability === 'sold' || item.availability === 'archive') return null
+
+  const label = item.availability === 'available' ? 'Enquire about this watch' : item.availability === 'reserved' ? 'Ask about this reserved watch' : 'Ask about this watch'
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+    if (website) {
+      setSent(true)
+      return
+    }
+    if (name.trim().length < 2 || !email.includes('@') || message.trim().length < 10) {
+      setError('Please add your name, a valid email and a short message.')
+      return
+    }
+    setSending(true)
+    const { error: insertError } = await supabase.from('customer_enquiries').insert({
+      publication_id: item.id,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      message: message.trim(),
+      source_url: window.location.href.slice(0, 700),
+    })
+    setSending(false)
+    if (insertError) {
+      setError('Your enquiry could not be sent just now. Please try again.')
+      return
+    }
+    setSent(true)
+    setName('')
+    setEmail('')
+    setPhone('')
+    setMessage('')
+  }
+
+  return <section className={`passport-enquiry ${open || sent ? 'open' : ''}`}>
+    <div className="passport-enquiry-intro">
+      <div><p className="eyebrow">INTERESTED IN THIS WATCH?</p><h2>{sent ? 'Enquiry received.' : label}</h2><p>{sent ? 'Thanks — your message is now attached to this watch in our Calibre records.' : 'Ask about availability, condition, shipping or anything else you would like to know before deciding.'}</p></div>
+      {!sent && !open && <button type="button" onClick={() => setOpen(true)}>{label}</button>}
+    </div>
+    {open && !sent && <form className="passport-enquiry-form" onSubmit={submit}>
+      <div className="passport-enquiry-fields">
+        <label>Name<input required maxLength={120} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} /></label>
+        <label>Email<input required type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+        <label>Phone <span>optional</span><input maxLength={80} autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+      </div>
+      <label>Message<textarea required minLength={10} maxLength={4000} rows={5} value={message} onChange={(event) => setMessage(event.target.value)} placeholder={`I'm interested in ${item.public_title}…`} /></label>
+      <label className="passport-enquiry-honeypot" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>
+      {error && <p className="passport-enquiry-error" role="alert">{error}</p>}
+      <div className="passport-enquiry-submit"><button type="submit" disabled={sending}>{sending ? 'Sending…' : 'Send enquiry'}</button><p>Your details are used only to respond to this enquiry and are never shown publicly.</p></div>
+    </form>}
+  </section>
+}
+
 function Passport({ slug, certificate = false }: { slug: string | null; certificate?: boolean }) {
   const [item, setItem] = useState<CustomerPublication | null>(null)
   const [loading, setLoading] = useState(true)
@@ -233,7 +309,7 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
     let active = true
     ;(async () => {
       if (!slug) { setLoading(false); return }
-      const { data, error } = await supabase.from('customer_publications').select(fields).eq('slug', slug).eq('published', true).maybeSingle()
+      const { data, error } = await supabase.from('customer_publications').select(passportFields).eq('slug', slug).eq('published', true).maybeSingle()
       if (!active) return
       setLoading(false)
       if (error) setMessage(error.message)
@@ -280,6 +356,7 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
   }
 
   const gallery = [item.hero_image_url, ...(item.gallery_urls ?? [])].filter(Boolean).filter((url, index, array) => array.indexOf(url) === index)
+  const hasDocuments = Boolean(item.passport_pdf_url || item.certificate_pdf_url)
 
   return (
     <main className="passport-page">
@@ -290,9 +367,11 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
           <h1>{item.public_title}</h1>
           <p>{item.subtitle || item.summary}</p>
           <div className="passport-public-meta"><span>{item.certificate_number ? `Certificate ${item.certificate_number}` : 'Calibre documented record'}</span><span>{item.availability.replace('_', ' ')}</span></div>
+          {item.price_amount != null && item.availability === 'available' && <p className="passport-public-price">{money(item.price_amount, item.currency)}</p>}
         </div>
       </section>
 
+      <EnquiryPanel item={item} />
       <section className="passport-public-section"><div className="section-heading"><p className="eyebrow">IDENTITY</p><h2>The watch at a glance</h2></div><dl className="passport-spec-grid">{specs.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{display(value as string | number)}</dd></div>)}</dl></section>
       {item.summary && <section className="passport-public-section split"><div><p className="eyebrow">ABOUT THIS WATCH</p><h2>Its record</h2></div><p>{item.summary}</p></section>}
       {item.provenance_summary && <section className="passport-public-section split"><div><p className="eyebrow">PROVENANCE</p><h2>Known history</h2></div><p>{item.provenance_summary}</p></section>}
@@ -301,6 +380,7 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
       {item.condition_summary && <section className="passport-public-section split"><div><p className="eyebrow">CONDITION</p><h2>What remains visible</h2></div><p>{item.condition_summary}</p></section>}
       {item.authenticity_note && <section className="passport-public-section split"><div><p className="eyebrow">EVIDENCE NOTE</p><h2>What is known</h2></div><p>{item.authenticity_note}</p></section>}
       {gallery.length > 1 && <section className="passport-public-section"><div className="section-heading"><p className="eyebrow">PHOTOGRAPHIC RECORD</p><h2>Documented details</h2></div><div className="passport-gallery">{gallery.map((url, index) => <img key={url} src={url} alt={`${item.public_title} documented detail ${index + 1}`} loading="lazy" decoding="async" />)}</div></section>}
+      {hasDocuments && <section className="passport-public-section passport-document-section"><div><p className="eyebrow">CUSTOMER PACK</p><h2>Permanent documents</h2>{item.customer_pack_issued_at && <p>Issued {new Date(item.customer_pack_issued_at).toLocaleDateString('en-AU')}</p>}</div><div className="passport-document-links">{item.passport_pdf_url && <a href={item.passport_pdf_url} target="_blank" rel="noreferrer">Download Passport PDF ↗</a>}{item.certificate_pdf_url && <a href={item.certificate_pdf_url} target="_blank" rel="noreferrer">Download Certificate PDF ↗</a>}</div></section>}
       <section className="passport-actions"><button type="button" onClick={() => navigate(`#/certificate/${encodeURIComponent(item.slug)}`)}>View certificate</button><button type="button" className="secondary-public" onClick={() => navigate('#/catalogue')}>Back to catalogue</button></section>
     </main>
   )
