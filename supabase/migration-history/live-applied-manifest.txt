@@ -130,3 +130,5 @@
 20261018043525_item_component_assessments.sql
 20261018051049_donor_component_harvest.sql
 20261018051412_index_item_component_harvested_by.sql
+20261018054524_part_fit_learning.sql
+20261018054533_route_legacy_fit_recording_through_learning.sql
