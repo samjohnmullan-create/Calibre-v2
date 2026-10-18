@@ -2,12 +2,15 @@ export type DonorComponentCondition = 'unknown' | 'good' | 'usable' | 'worn' | '
 
 export type DonorAssessmentConfidence = 'confirmed' | 'strong' | 'probable' | 'possible' | 'unknown'
 
+export type DonorComponentInventoryState = 'installed' | 'harvested'
+
 export type DonorComponentAssessment = {
   itemId: string
   componentKey: string
   componentLabel: string
   condition: DonorComponentCondition
   confidence: DonorAssessmentConfidence
+  inventoryState?: DonorComponentInventoryState
   evidenceNote?: string
 }
 
@@ -109,6 +112,10 @@ export function isProblemDonorCondition(condition: DonorComponentCondition) {
   return problemConditions.has(condition)
 }
 
+export function isComponentStillInDonor(entry: DonorComponentAssessment | undefined) {
+  return Boolean(entry && (entry.inventoryState ?? 'installed') === 'installed')
+}
+
 export function scoreComplementaryDonorPair(
   compatibilityScore: number,
   left: DonorComponentAssessment[],
@@ -123,12 +130,12 @@ export function scoreComplementaryDonorPair(
   for (const [componentKey, componentLabel] of donorComponentCatalog) {
     const leftEntry = leftByKey.get(componentKey)
     const rightEntry = rightByKey.get(componentKey)
-    if (!leftEntry || !rightEntry) continue
+    if (!isComponentStillInDonor(leftEntry) || !isComponentStillInDonor(rightEntry)) continue
 
-    const leftUseful = isUsefulDonorCondition(leftEntry.condition)
-    const rightUseful = isUsefulDonorCondition(rightEntry.condition)
-    const leftProblem = isProblemDonorCondition(leftEntry.condition)
-    const rightProblem = isProblemDonorCondition(rightEntry.condition)
+    const leftUseful = isUsefulDonorCondition(leftEntry!.condition)
+    const rightUseful = isUsefulDonorCondition(rightEntry!.condition)
+    const leftProblem = isProblemDonorCondition(leftEntry!.condition)
+    const rightProblem = isProblemDonorCondition(rightEntry!.condition)
 
     if ((leftUseful && rightProblem) || (rightUseful && leftProblem)) {
       complements.push(componentLabel)
