@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(7);
+select plan(8);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values ('33333333-3333-4333-8333-333333333333', 'fit-learning-owner@example.invalid', '{}'::jsonb);
@@ -47,6 +47,16 @@ values (
   'real'
 );
 
+insert into public.work_part_needs (id, workspace_id, work_record_id, item_id, part_type, description)
+values (
+  'eeeeeeee-2001-4000-8000-000000000001',
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  'eeeeeeee-1001-4000-8000-000000000001',
+  'eeeeeeee-0001-4000-8000-000000000001',
+  'balance_assembly',
+  'Balance assembly for fit-learning test'
+);
+
 create temp table fit_learning_edge_baseline as
 select count(*)::bigint as edge_count from public.knowledge_compatibility_edges;
 grant select on fit_learning_edge_baseline to authenticated;
@@ -67,6 +77,27 @@ select public.harvest_item_component(
   'Balance assembly'
 );
 
+select throws_like(
+  $$select public.record_part_fit_feedback(
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid,
+    (select id from public.parts where donor_item_id='eeeeeeee-0003-4000-8000-000000000003'::uuid and part_type='balance_assembly' limit 1),
+    'eeeeeeee-0001-4000-8000-000000000001'::uuid,
+    'eeeeeeee-1001-4000-8000-000000000001'::uuid,
+    'confirmed',
+    'Should not be accepted without allocation'
+  )$$,
+  '%must be reserved or used on this Work job%',
+  'Calibre refuses to learn fit evidence for a part that was never allocated to the Work job'
+);
+
+select public.reserve_part_for_need(
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid,
+  'eeeeeeee-2001-4000-8000-000000000001'::uuid,
+  (select id from public.parts where donor_item_id='eeeeeeee-0002-4000-8000-000000000002'::uuid and part_type='balance_assembly' limit 1),
+  1,
+  'fit-learning test reservation'
+);
+
 select lives_ok(
   $$select public.record_part_fit_feedback(
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid,
@@ -78,7 +109,7 @@ select lives_ok(
     false,
     '{"pivot_clearance":"acceptable"}'::jsonb
   )$$,
-  'a confirmed fit can be recorded with permanent donor and movement snapshots'
+  'a confirmed allocated fit can be recorded with permanent donor and movement snapshots'
 );
 
 select results_eq(
