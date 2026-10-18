@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-calibre-hook-secret",
 };
 
 function json(body: unknown, status = 200) {
@@ -26,13 +26,18 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST required" }, 405);
 
-  let body: { enquiry_id?: string };
-  try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
-  if (!body.enquiry_id) return json({ error: "enquiry_id is required" }, 400);
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const service = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  const presentedHookSecret = req.headers.get("x-calibre-hook-secret") ?? "";
+  const { data: expectedHookSecret, error: hookSecretError } = await service.rpc("get_calibre_server_secret", { p_name: "customer_enquiry_hook_secret" });
+  if (hookSecretError || !expectedHookSecret) return json({ error: "Notification hook is not configured" }, 503);
+  if (!presentedHookSecret || presentedHookSecret !== String(expectedHookSecret)) return json({ error: "Unauthorized" }, 401);
+
+  let body: { enquiry_id?: string };
+  try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+  if (!body.enquiry_id) return json({ error: "enquiry_id is required" }, 400);
 
   const { data: enquiry, error: enquiryError } = await service
     .from("customer_enquiries")
