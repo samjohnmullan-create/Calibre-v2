@@ -1,0 +1,80 @@
+# Recovery validation: rerun after exact production migration history reconstruction.
+name: Supabase clean rebuild smoke
+
+on:
+  push:
+    branches: [test/recover-supabase-baseline]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/migration-history/live-applied-manifest.txt'
+      - 'supabase/tests/database/**'
+      - 'supabase/config.toml'
+      - 'scripts/check-live-migration-manifest.mjs'
+      - '.github/workflows/supabase-rebuild-smoke.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/migration-history/live-applied-manifest.txt'
+      - 'supabase/tests/database/**'
+      - 'supabase/config.toml'
+      - 'scripts/check-live-migration-manifest.mjs'
+      - '.github/workflows/supabase-rebuild-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-rebuild-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify production migration history is represented
+        run: node scripts/check-live-migration-manifest.mjs
+
+      - name: Report repo-only executable migrations
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          active = {p.name for p in Path('supabase/migrations').glob('*.sql')}
+          live = {line.strip() for line in Path('supabase/migration-history/live-applied-manifest.txt').read_text().splitlines() if line.strip()}
+          print('REPO_ONLY_MIGRATIONS:')
+          for name in sorted(active - live):
+              print(name)
+          print('MISSING_LIVE_MIGRATIONS:')
+          for name in sorted(live - active):
+              print(name)
+          PY
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialise local Supabase config when absent
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
+
+      - name: Start disposable database stack
+        run: supabase start --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Rebuild schema from committed migrations
+        run: supabase db reset
+
+      - name: Run transactional workshop safety tests
+        run: supabase test db
+
+      - name: Stop disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
