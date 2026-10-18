@@ -114,6 +114,8 @@ body:has([role="dialog"]) .bench-mode-launcher { visibility: hidden; pointer-eve
     scrollbar-width: none;
     padding-block: 3px 6px;
     scroll-padding-inline: 4px;
+    margin-inline: 0;
+    padding-inline: 2px;
   }
   .calibre-os :is(.item-v2-tabs, .inventory-v2-primary, .workbench-v2-tabs,
     .intake-tabs, .business-v2-tabs, .library-v2-modebar, .customer-hub-nav) button {
@@ -216,3 +218,7 @@ body:has([role="dialog"]) .bench-mode-launcher { visibility: hidden; pointer-eve
 .calibre-os .library-document-card p { margin: 0; font-size: 14px; line-height: 1.5; }
 .calibre-os :is(.library-document-meta, .library-document-tags) { display: flex; flex-wrap: wrap; gap: 6px; }
 .calibre-os :is(.library-document-meta, .library-document-tags) > span { padding: 4px 7px; border: 1px solid var(--calibre-line); border-radius: 6px; color: var(--calibre-muted); font-size: 11px; line-height: 1.35; }
+
+.calibre-os :is(.inventory-v2-heading, .library-v2-heading) { margin-bottom: 0; }
+.calibre-os .library-document-heading h2 { margin: 0 0 6px; font-size: 24px; }
+.calibre-os .library-document-heading p { margin: 0; font-size: 14px; }
