@@ -99,6 +99,18 @@ begin
     raise exception 'Work record does not belong to the target Item';
   end if;
 
+  if not exists (
+    select 1
+    from public.part_allocations pa
+    where pa.workspace_id = p_workspace_id
+      and pa.part_id = p_part_id
+      and pa.work_record_id = p_work_record_id
+      and pa.item_id = p_item_id
+      and pa.status in ('reserved', 'used')
+  ) then
+    raise exception 'Part must be reserved or used on this Work job before fit evidence can be recorded';
+  end if;
+
   select * into v_target_passport
   from public.passports
   where workspace_id = p_workspace_id
