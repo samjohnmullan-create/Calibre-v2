@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import './record-health.css'
 
 type LocationRow = {
   id: string
@@ -12,6 +13,12 @@ type LocationRow = {
 
 type ItemStorageRow = {
   storage_location_id: string | null
+}
+
+type RecordHealth = {
+  completion_pct: number
+  health_state: string
+  missing_labels: string[]
 }
 
 type MoveEvent = {
@@ -36,6 +43,7 @@ function titleCase(value: string) {
 export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary', onMoved }: Props) {
   const [locations, setLocations] = useState<LocationRow[]>([])
   const [storageLocationId, setStorageLocationId] = useState<string | null>(null)
+  const [health, setHealth] = useState<RecordHealth | null>(null)
   const [history, setHistory] = useState<MoveEvent[]>([])
   const [moving, setMoving] = useState(false)
   const [destinationId, setDestinationId] = useState('')
@@ -86,7 +94,7 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
 
   async function load() {
     if (!workspaceId || !itemId) return
-    const [locationResult, itemResult, historyResult] = await Promise.all([
+    const [locationResult, itemResult, healthResult, historyResult] = await Promise.all([
       supabase
         .from('storage_locations')
         .select('id,parent_id,name,code,location_type,sort_order')
@@ -101,6 +109,12 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
         .eq('id', itemId)
         .maybeSingle(),
       supabase
+        .from('item_record_health')
+        .select('completion_pct,health_state,missing_labels')
+        .eq('workspace_id', workspaceId)
+        .eq('item_id', itemId)
+        .maybeSingle(),
+      supabase
         .from('storage_location_events')
         .select('id,from_location_id,to_location_id,note,moved_at')
         .eq('workspace_id', workspaceId)
@@ -110,7 +124,7 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
         .limit(mode === 'history' ? 50 : 8),
     ])
 
-    const error = locationResult.error ?? itemResult.error ?? historyResult.error
+    const error = locationResult.error ?? itemResult.error ?? healthResult.error ?? historyResult.error
     if (error) {
       setMessage(`Storage failed to load: ${error.message}`)
       return
@@ -118,6 +132,7 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
 
     setLocations((locationResult.data ?? []) as LocationRow[])
     setStorageLocationId((itemResult.data as ItemStorageRow | null)?.storage_location_id ?? null)
+    setHealth((healthResult.data ?? null) as RecordHealth | null)
     setHistory((historyResult.data ?? []) as MoveEvent[])
     setMessage('')
   }
@@ -194,6 +209,13 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
         </span>
       </div>
       <p className="muted">{storageLocationId ? 'Current physical location.' : 'This Item still needs a physical storage location.'}</p>
+
+      {health && <div className={`record-health-compact state-${health.health_state}`}>
+        <div className="record-health-compact-head"><span>Record health</span><strong>{health.completion_pct}%</strong></div>
+        <div className="record-health-track" aria-label={`Record health ${health.completion_pct}%`}><span style={{ width: `${health.completion_pct}%` }} /></div>
+        <small>{health.missing_labels.length ? `Needs ${health.missing_labels.slice(0, 3).join(' · ')}${health.missing_labels.length > 3 ? ` · +${health.missing_labels.length - 3}` : ''}` : 'Core Item record complete.'}</small>
+      </div>}
+
       {message && <p className="item-v2-message">{message}</p>}
 
       {!moving ? (
@@ -206,7 +228,7 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
             setMessage('')
           }}
         >
-          Move Item →
+          {storageLocationId ? 'Move Item →' : 'Put away →'}
         </button>
       ) : (
         <form className="item-storage-move" onSubmit={submitMove}>
@@ -227,7 +249,7 @@ export default function ItemStoragePanel({ workspaceId, itemId, mode = 'summary'
           </label>
           <div className="item-storage-actions">
             <button type="button" className="secondary small" disabled={saving} onClick={() => setMoving(false)}>Cancel</button>
-            <button type="submit" className="small" disabled={saving}>{saving ? 'Moving…' : 'Confirm move'}</button>
+            <button type="submit" className="small" disabled={saving}>{saving ? 'Moving…' : storageLocationId ? 'Confirm move' : 'Put away'}</button>
           </div>
         </form>
       )}
