@@ -40,6 +40,21 @@ jobs:
       - name: Verify production migration history is represented
         run: node scripts/check-live-migration-manifest.mjs
 
+      - name: Report repo-only executable migrations
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          active = {p.name for p in Path('supabase/migrations').glob('*.sql')}
+          live = {line.strip() for line in Path('supabase/migration-history/live-applied-manifest.txt').read_text().splitlines() if line.strip()}
+          print('REPO_ONLY_MIGRATIONS:')
+          for name in sorted(active - live):
+              print(name)
+          print('MISSING_LIVE_MIGRATIONS:')
+          for name in sorted(live - active):
+              print(name)
+          PY
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
