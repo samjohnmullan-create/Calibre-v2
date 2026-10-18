@@ -132,3 +132,4 @@
 20261018051412_index_item_component_harvested_by.sql
 20261018054524_part_fit_learning.sql
 20261018054533_route_legacy_fit_recording_through_learning.sql
+20261018083628_integrate_part_fit_learning_candidates.sql
