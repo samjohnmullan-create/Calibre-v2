@@ -12,6 +12,7 @@ export const workspaceBackupTables: ExportTable[] = [
   { name: 'item_facts', label: 'Item facts', order: ['id'] },
   { name: 'item_fact_sources', label: 'Item fact sources', order: ['item_fact_id', 'source_id'] },
   { name: 'item_relationships', label: 'Item relationships', order: ['id'] },
+  { name: 'item_component_assessments', label: 'Item component assessments', order: ['item_id', 'component_key'] },
   { name: 'media_assets', label: 'Media manifest', order: ['id'] },
   { name: 'sources', label: 'Sources', order: ['id'] },
   { name: 'research_requests', label: 'Research requests', order: ['id'] },

@@ -1,0 +1,102 @@
+.donor-intelligence-card {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: 18px;
+  background: var(--panel, rgba(18,24,28,.72));
+}
+
+.donor-intelligence-summary {
+  display: grid;
+  min-width: 112px;
+  padding: 10px 14px;
+  border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: 14px;
+  text-align: right;
+}
+
+.donor-intelligence-summary strong { font-size: 1.25rem; }
+.donor-intelligence-summary span { font-size: .78rem; opacity: .72; }
+
+.donor-pair-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: 16px;
+  background: rgba(255,255,255,.025);
+}
+
+.donor-assessment-list { display: grid; gap: 10px; }
+
+.donor-assessment-card {
+  border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: 14px;
+  background: rgba(255,255,255,.02);
+  overflow: hidden;
+}
+
+.donor-assessment-card > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.donor-assessment-card > summary::-webkit-details-marker { display: none; }
+.donor-assessment-card > summary span:first-child { display: grid; gap: 3px; min-width: 0; }
+.donor-assessment-card > summary small { opacity: .72; overflow-wrap: anywhere; }
+.donor-assessment-card > summary span:last-child { white-space: nowrap; font-size: .8rem; opacity: .72; }
+
+.donor-component-grid { display: grid; border-top: 1px solid var(--line, rgba(255,255,255,.12)); }
+
+.donor-component-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(130px, .75fr) minmax(130px, .75fr) minmax(220px, 1.6fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
+}
+
+.donor-component-row:last-child { border-bottom: 0; }
+.donor-component-row > strong { align-self: center; }
+.donor-component-row label { display: grid; gap: 5px; font-size: .74rem; opacity: .9; }
+.donor-component-row select,
+.donor-component-row input { width: 100%; min-width: 0; }
+
+.donor-save-state {
+  align-self: center;
+  justify-self: end;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: .7rem;
+  white-space: nowrap;
+  background: rgba(255,255,255,.06);
+}
+
+.condition-good,
+.condition-usable { background: rgba(67, 160, 110, .18); }
+.condition-worn { background: rgba(184, 142, 55, .18); }
+.condition-damaged,
+.condition-missing { background: rgba(185, 72, 72, .18); }
+
+@media (max-width: 760px) {
+  .donor-intelligence-card { padding: 12px; border-radius: 14px; }
+  .donor-intelligence-summary { min-width: 0; text-align: left; }
+  .donor-assessment-card > summary { align-items: flex-start; padding: 12px; }
+  .donor-assessment-card > summary span:last-child { white-space: normal; text-align: right; }
+  .donor-component-row {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    padding: 12px;
+  }
+  .donor-component-row > strong,
+  .donor-component-note { grid-column: 1 / -1; }
+  .donor-save-state { grid-column: 1 / -1; justify-self: start; }
+}

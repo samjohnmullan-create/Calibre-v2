@@ -127,3 +127,4 @@
 20261017095008_reconcile_calibre_library_evidence.sql
 20261017095244_optimize_calibre_library_rls.sql
 20261017095326_cover_library_document_foreign_keys.sql
+20261018043525_item_component_assessments.sql

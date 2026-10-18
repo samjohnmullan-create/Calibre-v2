@@ -9,6 +9,7 @@ const uniqueNames = new Set(names)
 const requiredOperationalTables = [
   'items',
   'passports',
+  'item_component_assessments',
   'media_assets',
   'knowledge_technical_documents',
   'knowledge_document_links',
@@ -49,7 +50,7 @@ test('workspace backup manifest has no duplicate tables', () => {
 })
 
 test('workspace backup v2 retains the complete current table count', () => {
-  assert.equal(names.length, 61, 'Adding/removing a workspace table requires an explicit backup coverage review')
+  assert.equal(names.length, 62, 'Adding/removing a workspace table requires an explicit backup coverage review')
 })
 
 test('business-critical workshop, Library and recovery tables remain in the backup', () => {
