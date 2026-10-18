@@ -49,6 +49,7 @@ values (
 
 create temp table fit_learning_edge_baseline as
 select count(*)::bigint as edge_count from public.knowledge_compatibility_edges;
+grant select on fit_learning_edge_baseline to authenticated;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);
