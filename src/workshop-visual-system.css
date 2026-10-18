@@ -18,7 +18,8 @@
   .resource-inventory-list, .business-v2-panel, .business-v2-table-card,
   .finance-v4-metrics > div, .inventory-v2-summary > div, .inventory-v2-summary > button,
   .business-v2-metrics > div, .workbench-v2-card, .workbench-command-card,
-  .item-v2-hero-card, .customer-publish-state, .library-document-card
+  .item-v2-hero-card, .customer-publish-state, .library-document-card,
+  .work-resume-snapshot, .work-workspace-current-card, .work-workspace-intel-card, .bench-guided-panel
 ) {
   border-color: var(--calibre-line);
   border-radius: var(--workshop-card-radius);
@@ -156,6 +157,31 @@ body:has([role="dialog"]) .bench-mode-launcher { visibility: hidden; pointer-eve
   .calibre-os .universal-new-heading h2 { font-size: 24px; }
   .calibre-os .universal-new-grid > button { min-height: 76px; }
   .calibre-os .calibre-mobile-more > button:not(.secondary) { min-height: 56px; }
+
+  .calibre-os .workbench-v2-job-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .calibre-os .workbench-v2-job-toolbar > div:first-child { min-width: 0; }
+  .calibre-os .workbench-v2-job-toolbar > div:first-child > strong {
+    font-size: 16px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .calibre-os .workbench-v2-job-toolbar > div:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .calibre-os .workbench-v2-job-toolbar > div:last-child > button {
+    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+  .calibre-os .work-workspace-nav-list button { min-height: 44px; }
 
   /* On short landscape screens, sheets must scroll rather than clip their last action. */
   .calibre-os .calibre-mobile-more-backdrop { align-items: flex-end; }
