@@ -77,6 +77,7 @@ export default function WorkbenchAttention() {
   const [needs, setNeeds] = useState<NeedRow[]>([])
   const [failedQc, setFailedQc] = useState<QcRow[]>([])
   const [evidenceCount, setEvidenceCount] = useState(0)
+  const [overviewOpen, setOverviewOpen] = useState(false)
 
   useEffect(() => {
     const sync = () => setActive(routeActive())
@@ -278,6 +279,13 @@ export default function WorkbenchAttention() {
 
   const actionable = snapshot.blocked + snapshot.waiting + snapshot.parts + snapshot.evidence
 
+  if (!loading && !message && entries.length === 0 && !overviewOpen) {
+    return <section className="workbench-attention workbench-attention-compact" aria-label="Workshop attention">
+      <strong>✓ No urgent exceptions</strong>
+      <button type="button" className="secondary small" aria-expanded={false} onClick={() => setOverviewOpen(true)}>Show overview</button>
+    </section>
+  }
+
   return (
     <section className="workbench-attention" aria-label="Workshop attention">
       <div className="workbench-attention-heading">
@@ -285,7 +293,10 @@ export default function WorkbenchAttention() {
           <p className="eyebrow">NEEDS ATTENTION</p>
           <h2>{loading ? 'Checking workshop state…' : actionable ? 'What needs you now' : 'No urgent exceptions'}</h2>
         </div>
-        <button type="button" className="secondary small" onClick={() => void load()} disabled={loading}>{loading ? 'Checking…' : 'Refresh'}</button>
+        <div className="workbench-attention-actions">
+          {overviewOpen && !entries.length && <button type="button" className="secondary small" aria-expanded={true} onClick={() => setOverviewOpen(false)}>Hide overview</button>}
+          <button type="button" className="secondary small" onClick={() => void load()} disabled={loading}>{loading ? 'Checking…' : 'Refresh'}</button>
+        </div>
       </div>
 
       <div className="workbench-attention-snapshot">

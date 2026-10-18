@@ -53,6 +53,7 @@ export default function InventoryHubRoute() {
   const [purposeFilter, setPurposeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [storageFilter, setStorageFilter] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [matchCount, setMatchCount] = useState(0)
   const [totalItems, setTotalItems] = useState(0)
@@ -85,7 +86,11 @@ export default function InventoryHubRoute() {
   const groupedItems = useMemo(() => {
     const known = itemTypes.map((type) => ({ type, items: items.filter((item) => item.type === type) })).filter((group) => group.items.length > 0)
     const unknown = items.filter((item) => !itemTypes.includes(item.type))
-    if (unknown.length) known.push({ type: 'other', items: unknown })
+    if (unknown.length) {
+      const other = known.find((group) => group.type === 'other')
+      if (other) other.items.push(...unknown)
+      else known.push({ type: 'other', items: unknown })
+    }
     return known
   }, [items])
 
@@ -238,13 +243,17 @@ export default function InventoryHubRoute() {
         </section>
 
         <section className="inventory-v2-controls">
-          <div className="inventory-v2-search-row"><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Item #, title, type, status or notes…" aria-label="Search inventory" /><span>{matchCount ? `${firstShown}–${lastShown} of ${matchCount}` : '0 shown'}</span></div>
-          <div className="inventory-v2-filters" aria-label="Inventory filters">
+          <div className="inventory-v2-search-row"><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search items…" aria-label="Search inventory" /></div>
+          <div className="inventory-v2-filter-toolbar">
+            <button type="button" className="secondary inventory-v2-filter-toggle" aria-expanded={filtersOpen} aria-controls="inventory-filters" onClick={() => setFiltersOpen((open) => !open)}>Filters{activeFilterCount > 0 ? ` · ${activeFilterCount} active` : ''}<span aria-hidden="true">{filtersOpen ? '−' : '+'}</span></button>
+            <span className="inventory-v2-result-count" role="status">{matchCount ? `${firstShown}–${lastShown} of ${matchCount}` : '0 shown'}</span>
+            {(activeFilterCount > 0 || query) && <button type="button" className="secondary small" onClick={clearFilters}>Clear filters</button>}
+          </div>
+          <div id="inventory-filters" className="inventory-v2-filters" data-expanded={filtersOpen} aria-label="Inventory filters">
             <label>Type<select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="">All types</option>{itemTypes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
             <label>Purpose<select value={purposeFilter} onChange={(e) => setPurposeFilter(e.target.value)}><option value="">All purposes</option>{itemPurposes.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
             <label>Status<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="">All statuses</option>{itemStatuses.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
             <label>Location<select value={storageFilter} onChange={(e) => setStorageFilter(e.target.value)}><option value="">All locations</option><option value="unassigned">Needs put-away</option>{locations.map((location) => <option key={location.id} value={location.id}>{pathById.get(location.id) || location.name}</option>)}</select></label>
-            {(activeFilterCount > 0 || query) && <button type="button" className="secondary small" onClick={clearFilters}>Clear</button>}
           </div>
         </section>
 
@@ -254,7 +263,7 @@ export default function InventoryHubRoute() {
           {!loading && items.length === 0 && <div className="inventory-empty"><strong>No Items match this view.</strong><span>{totalItems ? 'Clear a filter or try another search.' : 'Add your first Item or import a purchase through Intake.'}</span></div>}
           <div className="inventory-list">
             {groupedItems.map((group) => <section key={group.type} className="inventory-item-group">
-              <div className="inventory-v2-list-heading"><div><p className="eyebrow">{group.type.toUpperCase()}</p><h2>{group.type === 'accessory' ? 'Accessories' : group.type === 'jewellery' ? 'Jewellery' : `${titleCase(group.type)}s`}</h2></div><span>{group.items.length}</span></div>
+              <div className="inventory-v2-list-heading"><div><p className="eyebrow">{group.type.toUpperCase()}</p><h2>{group.type === 'watch' ? 'Watches' : group.type === 'accessory' ? 'Accessories' : group.type === 'jewellery' ? 'Jewellery' : `${titleCase(group.type)}s`}</h2></div><span>{group.items.length}</span></div>
               {group.items.map((item) => <div key={item.id} className="inventory-row-shell">
                 <button type="button" className="inventory-row inventory-row-open" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
                   <span className="inventory-row-number">#{item.item_number}</span>

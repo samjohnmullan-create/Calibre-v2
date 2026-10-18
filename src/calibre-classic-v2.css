@@ -582,3 +582,10 @@ textarea:focus-visible,
     background-color: rgba(31, 43, 51, .96);
   }
 }
+
+/* Keep finance tiles within the workshop's existing glass palette. */
+.finance-v4-metrics > div {
+  background: linear-gradient(145deg, var(--calibre-glass-highlight), transparent 40%), var(--calibre-panel);
+  border-color: var(--calibre-line);
+  box-shadow: inset 0 1px 0 rgba(236, 243, 240, .025);
+}

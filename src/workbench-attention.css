@@ -201,3 +201,21 @@
     display: grid;
   }
 }
+
+/* An empty attention panel should leave the work itself in view. */
+.workbench-attention-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--calibre-panel-soft);
+  border-color: var(--calibre-line);
+}
+.workbench-attention-compact > strong { font-size: 14px; color: var(--calibre-muted); }
+.workbench-attention-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 820px) {
+  .workbench-attention { margin-bottom: 16px; padding: 14px; }
+  .workbench-attention-compact { padding: 10px 12px; }
+  .workbench-attention-compact > strong { font-size: 13px; }
+}

@@ -3,7 +3,6 @@ import CreateItemFlow from './CreateItemFlow'
 import InventoryHubRoute from './InventoryHubRoute'
 import IntakeRoute from './IntakeRoute'
 import ItemWorkspaceRoute from './ItemWorkspaceRoute'
-import WorkbenchAttention from './WorkbenchAttention'
 import WorkbenchRoute from './WorkbenchRoute'
 import BusinessRoute from './BusinessRoute'
 import BusinessFinanceRoute from './BusinessFinanceRoute'
@@ -71,12 +70,14 @@ export default function CalibreShell() {
   useEffect(() => {
     if (!window.location.hash) {
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/workbench`)
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
       setSection('workbench')
     }
     const sync = () => {
       const first = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)[0]
       if (first === 'home') {
         window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/workbench`)
+        window.dispatchEvent(new HashChangeEvent('hashchange'))
         setSection('workbench')
         setMoreOpen(false)
         resetViewport()
@@ -193,7 +194,6 @@ export default function CalibreShell() {
           <IntakeRoute />
           <InventoryHubRoute />
           <ItemWorkspaceRoute />
-          <WorkbenchAttention />
           <WorkbenchRoute />
           <BusinessRoute />
           <BusinessFinanceRoute />

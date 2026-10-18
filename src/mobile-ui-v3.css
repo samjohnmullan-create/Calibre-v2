@@ -5,11 +5,14 @@
  * a squeezed desktop layout. DeX/desktop remain governed by their own styles.
  */
 
+/* A single column owns dock clearance; nested pages must not each add it. */
 @media (max-width: 820px) {
   :root {
-    --calibre-phone-gutter: 10px;
-    --calibre-phone-card-pad: 12px;
-    --calibre-phone-card-radius: 12px;
+    --calibre-phone-gutter: 14px;
+    --calibre-phone-card-pad: 16px;
+    --calibre-phone-card-radius: 16px;
+    --calibre-mobile-nav-height: 64px;
+    --calibre-utility-height: 56px;
   }
 
   html,
@@ -33,6 +36,9 @@
   .intake-page,
   .workbench-v2-page,
   .business-v2-page,
+  .finance-v4-page,
+  .customer-publish-page,
+  .timegrapher-route,
   .knowledge-page.library-v2-page,
   .settings-v2-page,
   .item-v2-page {
@@ -46,12 +52,17 @@
   .intake-page,
   .workbench-v2-page,
   .business-v2-page,
+  .finance-v4-page,
+  .customer-publish-page,
+  .timegrapher-route,
   .knowledge-page.library-v2-page,
   .settings-v2-page,
   .item-v2-page {
-    width: calc(100% - 20px) !important;
+    width: calc(100% - 2 * var(--calibre-phone-gutter)) !important;
     margin-inline: auto !important;
-    padding-top: 12px !important;
+    padding-top: 20px !important;
+    padding-inline: 0 !important;
+    padding-bottom: 24px !important;
   }
 
   /* Typography: phone should feel dense and operational, not poster-sized. */
@@ -60,10 +71,13 @@
   .intake-heading h1,
   .workbench-v2-heading h1,
   .business-v2-heading h1,
+  .finance-v4-heading h1,
+  .customer-publish-header h1,
+  .timegrapher-heading h1,
   .library-v2-heading h1,
   .settings-v2-heading h1,
   .item-v2-title-row h1 {
-    font-size: clamp(27px, 7vw, 32px) !important;
+    font-size: clamp(30px, 7vw, 36px) !important;
     line-height: 1.06 !important;
     letter-spacing: -0.025em;
   }
@@ -91,6 +105,9 @@
   .intake-heading p,
   .workbench-v2-heading p,
   .business-v2-heading p,
+  .finance-v4-heading p,
+  .customer-publish-header p,
+  .timegrapher-heading p,
   .library-v2-heading p,
   .settings-v2-heading p,
   .bench-guided-help,
@@ -98,8 +115,8 @@
   .bench-research-finding p,
   .section-card p,
   .item-v2-page p {
-    font-size: 13px;
-    line-height: 1.42;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
   .eyebrow,
@@ -111,11 +128,15 @@
     letter-spacing: .055em;
   }
 
-  button,
-  input,
-  select,
-  textarea {
-    font-size: 13px;
+  .calibre-os button { font-size: 14px; }
+
+  .calibre-os :is(input, select, textarea) {
+    font-size: 16px;
+    max-width: 100%;
+  }
+
+  .calibre-os :is(button, input, select):not([type="checkbox"]):not([type="radio"]) {
+    min-height: 44px;
   }
 
   /* Containment: no card, grid or long datum may widen the viewport. */
@@ -152,7 +173,6 @@
     min-width: 0;
     padding: var(--calibre-phone-card-pad) !important;
     border-radius: var(--calibre-phone-card-radius) !important;
-    overflow: hidden;
   }
 
   .bench-research-finding strong,
@@ -209,9 +229,9 @@
   .business-v2-tabs button,
   .intake-tabs button,
   .bench-job-hub button {
-    min-height: 34px !important;
-    padding: 5px 9px !important;
-    font-size: 12px !important;
+    min-height: 44px !important;
+    padding: 9px 12px !important;
+    font-size: 13px !important;
     line-height: 1.15;
   }
 
@@ -323,12 +343,17 @@
 
   /* Workbench cards should scan like a queue, not mini desktop dashboards. */
   .workbench-v2-list {
-    padding: 8px !important;
-    gap: 7px !important;
+    padding: 0 !important;
+    gap: 12px !important;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .workbench-v2-card {
-    padding: 11px !important;
+    padding: 16px !important;
   }
 
   .workbench-v2-card h3,
@@ -342,7 +367,7 @@
   .business-v2-metrics,
   .business-v2-attention {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 6px !important;
+    gap: 10px !important;
   }
 
   .workbench-v2-metrics button,
@@ -352,7 +377,7 @@
   .business-v2-attention > * {
     min-width: 0;
     min-height: 58px !important;
-    padding: 9px !important;
+    padding: 12px !important;
   }
 
   .workbench-v2-metrics button strong,
@@ -362,41 +387,112 @@
 
   /* Bottom chrome remains usable without dominating the screen. */
   .calibre-utility-bar {
-    height: 48px;
-    min-height: 48px;
-    margin: 6px 8px 0;
+    top: 8px;
+    height: 56px;
+    min-height: 56px;
+    margin: 8px var(--calibre-phone-gutter) 0;
     padding-inline: 10px;
-    border-radius: 13px;
-  }
-
-  .calibre-utility-title > strong {
-    font-size: 15px;
-  }
-
-  .calibre-search-button {
-    width: 36px !important;
-    min-width: 36px !important;
-    height: 36px;
-    min-height: 36px;
-  }
-
-  .calibre-mobile-nav {
-    inset-inline: 8px;
-    min-height: 54px;
-    padding: 3px 4px;
     border-radius: 16px;
   }
 
+  .calibre-utility-title > strong {
+    font-size: 19px;
+  }
+
+  .calibre-search-button {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .calibre-mobile-nav {
+    inset-inline: var(--calibre-phone-gutter);
+    min-height: 64px;
+    padding: 4px;
+    border-radius: 18px;
+  }
+
   .calibre-mobile-nav button {
-    min-height: 42px;
+    min-height: 54px;
   }
 
   .calibre-mobile-nav button span {
-    font-size: 16px;
+    font-size: 19px;
   }
 
   .calibre-mobile-nav button strong {
-    font-size: 8px;
+    font-size: 11px;
+  }
+
+  .calibre-stage {
+    padding-bottom: calc(144px + env(safe-area-inset-bottom));
+  }
+
+  .calibre-content-host { padding-bottom: 0; }
+
+  .workbench-v2-controls {
+    position: static;
+    margin: 0 0 12px;
+    padding: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .inventory-v2-primary {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 5px;
+    scrollbar-width: thin;
+    scroll-padding-inline: 5px;
+  }
+
+  .inventory-v2-primary button { flex: 0 0 auto; }
+
+  .inventory-v2-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .inventory-v2-filters[data-expanded="false"] { display: none; }
+
+  .inventory-v2-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-v2-filters label:last-of-type { grid-column: auto; }
+  .inventory-v2-controls { gap: 10px; padding: 12px; }
+  .inventory-v2-filter-toolbar { gap: 8px; }
+  .inventory-v2-result-count { margin-left: auto; margin-right: 0; font-size: 11px; }
+
+  /* Keep each object's actions together beneath its identity, at every phone width. */
+  .inventory-row-shell {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 12px 10px;
+    gap: 0 8px;
+  }
+  .inventory-row-shell .inventory-row { grid-column: 1 / -1; padding: 14px 0; }
+  .inventory-row-shell .inventory-row-remove {
+    width: 100% !important;
+    margin: 0;
+    justify-self: stretch;
+    opacity: 1;
+  }
+
+  .workbench-v2-card h3 { font-size: 20px; }
+  .workbench-v2-card :is(.workbench-v2-next, .workbench-v2-blocker) {
+    border: 0;
+    border-left: 2px solid var(--calibre-accent-line);
+    border-radius: 0;
+    background: transparent;
+    padding: 2px 0 2px 10px;
+    backdrop-filter: none;
+  }
+
+  .calibre-mobile-more-backdrop { overflow-y: auto; }
+  .calibre-mobile-more {
+    max-height: calc(100dvh - 114px - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   /* Bench mode: strict viewport containment. */
@@ -437,10 +533,13 @@
   .intake-page,
   .workbench-v2-page,
   .business-v2-page,
+  .finance-v4-page,
+  .customer-publish-page,
+  .timegrapher-route,
   .knowledge-page.library-v2-page,
   .settings-v2-page,
   .item-v2-page {
-    width: calc(100% - 16px) !important;
+    width: calc(100% - 2 * var(--calibre-phone-gutter)) !important;
   }
 
   .home-v2-heading h1,
@@ -448,10 +547,13 @@
   .intake-heading h1,
   .workbench-v2-heading h1,
   .business-v2-heading h1,
+  .finance-v4-heading h1,
+  .customer-publish-header h1,
+  .timegrapher-heading h1,
   .library-v2-heading h1,
   .settings-v2-heading h1,
   .item-v2-title-row h1 {
-    font-size: 27px !important;
+    font-size: 30px !important;
   }
 
   .bench-guided-actions > button {

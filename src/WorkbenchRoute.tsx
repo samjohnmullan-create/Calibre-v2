@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import WorkJobCard from './WorkJobCard'
 import BenchResearchPanel from './BenchResearchPanel'
+import WorkbenchAttention from './WorkbenchAttention'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type WorkRow = {
@@ -392,6 +393,8 @@ export default function WorkbenchRoute() {
       </header>
 
       {message && <p className="workbench-v2-message">{message}</p>}
+
+      <WorkbenchAttention />
 
       <section className="workbench-command-centre" aria-label="Workbench command centre">
         <div className="workbench-command-section-heading">

@@ -74,29 +74,8 @@
     border-radius: 12px;
   }
 
-  /* Phone order: On Bench · Ready · Waiting · Verification · Queue · All */
-  .workbench-v2-tabs button:nth-child(3) { order: 1; }
-  .workbench-v2-tabs button:nth-child(2) { order: 2; }
-  .workbench-v2-tabs button:nth-child(4) { order: 3; }
-  .workbench-v2-tabs button:nth-child(5) { order: 4; }
-  .workbench-v2-tabs button:nth-child(6) { order: 5; }
-  .workbench-v2-tabs button:nth-child(1) { order: 6; }
-  .workbench-v2-tabs button:nth-child(7) { display: none; }
-
-  .workbench-v2-tabs button:nth-child(1) > span,
-  .workbench-v2-tabs button:nth-child(5) > span {
-    font-size: 0;
-  }
-
-  .workbench-v2-tabs button:nth-child(1) > span::after {
-    content: 'All';
-    font-size: 12px;
-  }
-
-  .workbench-v2-tabs button:nth-child(5) > span::after {
-    content: 'Verification';
-    font-size: 12px;
-  }
+  /* The visual order matches the DOM and every view remains reachable. */
+  .workbench-v2-tabs button { order: 0; }
 
   .workbench-v2-controls > input {
     min-height: 42px;

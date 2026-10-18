@@ -6,10 +6,10 @@
 .inventory-v2-heading { margin-bottom: 0; }
 
 .inventory-v2-primary {
-  display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  width: min(560px, 100%);
+  width: 100%;
   padding: 5px;
   border: 1px solid var(--calibre-line);
   border-radius: 14px;
@@ -17,6 +17,7 @@
 }
 
 .inventory-v2-primary button {
+  flex: 1 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -87,6 +88,10 @@
 .inventory-v2-search-row input { flex: 1 1 auto; min-width: 0; }
 .inventory-v2-search-row span { flex: 0 0 auto; color: var(--calibre-muted); font: 500 11px/1.3 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .05em; }
 
+.inventory-v2-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.inventory-v2-filter-toggle { display: none; }
+.inventory-v2-result-count { margin-right: auto; color: var(--calibre-muted); font: 500 12px/1.4 "IBM Plex Mono", monospace; }
+
 .inventory-v2-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 .inventory-v2-filters label { display: grid; gap: 5px; min-width: 150px; flex: 1 1 160px; color: var(--calibre-muted); font-size: 11px; }
 .inventory-v2-filters select { width: 100%; min-width: 0; }
@@ -129,3 +134,24 @@
   .inventory-v2-workshop { padding: 16px; }
   .inventory-v2-workshop-grid { grid-template-columns: 1fr; }
 }
+
+/* One consistent glass surface, with quieter separators inside the list. */
+.inventory-v2-primary,
+.inventory-v2-controls,
+.inventory-v2-summary > div,
+.inventory-v2-summary > button {
+  border-color: var(--calibre-line);
+  background: linear-gradient(145deg, var(--calibre-glass-highlight), transparent 40%), var(--calibre-panel);
+  box-shadow: inset 0 1px 0 rgba(236, 243, 240, .035);
+}
+.inventory-v2-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--calibre-line);
+}
+.inventory-v2-list-heading :is(h2, p) { margin: 0; }
+.inventory-v2-list-heading > div { display: grid; gap: 4px; }
+.inventory-v2-list-heading > span { color: var(--calibre-muted); font: 500 13px/1.4 "IBM Plex Mono", monospace; }
