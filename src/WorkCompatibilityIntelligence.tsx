@@ -48,6 +48,8 @@ function money(value: number | null, currency = 'AUD') {
 function matchLevel(candidate: Candidate) {
   if (candidate.evidence_tier === 'confirmed') return 'Confirmed / exact'
   if (candidate.evidence_tier === 'documented') return 'Documented match'
+  if (candidate.source_kind === 'workshop_fit_lineage') return 'Workshop-proven lineage'
+  if (candidate.source_kind === 'workshop_fit_conflict') return 'Workshop fit conflict'
   if (candidate.source_kind === 'passport_exact_calibre') return 'Exact calibre lead'
   if (candidate.source_kind === 'passport_dimensions') return 'Dimensional lead'
   if (candidate.evidence_tier === 'candidate') return 'Compatibility candidate'
@@ -86,7 +88,7 @@ export default function WorkCompatibilityIntelligence({
       supabase.from('passports')
         .select('movement_maker,calibre,calibre_family,movement_diameter_mm,movement_identification_status,movement_identification_confidence,knowledge_movement_id')
         .eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
-      supabase.rpc('find_owned_compatibility_candidates', {
+      supabase.rpc('find_owned_compatibility_candidates_v2', {
         p_workspace_id: workspaceId,
         p_item_id: itemId,
         p_part_type: need.part_type || null,
@@ -111,6 +113,7 @@ export default function WorkCompatibilityIntelligence({
 
   const donorCount = candidates.filter((candidate) => candidate.candidate_kind === 'donor_item' && candidate.score >= 30).length
   const strongCount = candidates.filter((candidate) => ['confirmed', 'documented'].includes(candidate.evidence_tier)).length
+  const learnedCount = candidates.filter((candidate) => candidate.source_kind === 'workshop_fit_lineage' && candidate.score >= 62).length
 
   async function reserve(candidate: Candidate) {
     if (!need || !candidate.part_id || busyId) return
@@ -144,10 +147,11 @@ export default function WorkCompatibilityIntelligence({
       <div>
         <p className="eyebrow">PARTS & DONOR INTELLIGENCE</p>
         <strong>Owned compatibility candidates</strong>
-        <p>Calibre checks loose stock and complete donor watches together. Evidence is ranked; a lead is never treated as proof of interchangeability.</p>
+        <p>Calibre checks stock, donors and prior workshop fit evidence together. Learned fit evidence is component-specific and never proves whole-movement interchangeability.</p>
       </div>
       <div className="work-compat-summary">
         <span>{strongCount} strong</span>
+        {learnedCount > 0 && <span>{learnedCount} workshop-learned</span>}
         <span>{donorCount} donor lead{donorCount === 1 ? '' : 's'}</span>
       </div>
     </div>
@@ -158,9 +162,9 @@ export default function WorkCompatibilityIntelligence({
       <small>{pretty(passport.movement_identification_status)} · {pretty(passport.movement_identification_confidence)} confidence{passport.calibre_family ? ` · ${passport.calibre_family} family` : ''}{passport.movement_diameter_mm ? ` · ${passport.movement_diameter_mm} mm` : ''}</small>
     </div>}
 
-    {!loading && passport && !passport.knowledge_movement_id && <div className="work-compat-notice">Passport-only matching is active. Linking a Knowledge movement will add documented applications and compatibility evidence, but it is no longer required to find intact donor leads.</div>}
+    {!loading && passport && !passport.knowledge_movement_id && <div className="work-compat-notice">Passport-only workshop learning is active when prior source/target movement snapshots match. Linking a Knowledge movement adds documented applications and compatibility evidence.</div>}
     {!loading && (!passport || (!passport.calibre && !passport.knowledge_movement_id)) && <div className="work-compat-notice">Identify at least the target calibre in Passport to make donor matching useful. Movement family and diameter improve lower-confidence matching.</div>}
-    {loading && <p className="work-compat-message">Checking owned stock, complete donors and compatibility evidence…</p>}
+    {loading && <p className="work-compat-message">Checking owned stock, complete donors and workshop fit history…</p>}
     {message && <p className={`work-compat-message ${message.includes('could not') ? 'error' : ''}`}>{message}</p>}
 
     {!loading && visible.length > 0 && <div className="work-compat-list">
