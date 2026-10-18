@@ -20,6 +20,10 @@ type Publication = {
   price_amount: number | null; currency: string; availability: 'catalogue' | 'available' | 'reserved' | 'sold' | 'archive'; published_at: string | null;
 }
 type MediaAsset = { id: string; storage_path: string; original_filename: string; caption: string; is_cover: boolean; signed_url?: string }
+type GeneratedCopy = {
+  public_title: string; subtitle: string; summary: string; condition_summary: string; service_summary: string;
+  authenticity_note: string; provenance_summary: string; warnings: string[];
+}
 
 const emptyPublication = (workspaceId: string, itemId: string): Publication => ({
   item_id: itemId, workspace_id: workspaceId, slug: '', published: false, catalogue_visible: true, sold_archive_visible: false,
@@ -109,6 +113,7 @@ export default function CustomerPublishingRoute() {
   const [media, setMedia] = useState<MediaAsset[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -203,6 +208,61 @@ export default function CustomerPublishingRoute() {
     setMessage('Current identity, Passport, timing and valuation copied from the workshop. Public-written copy was left alone.')
   }
 
+  async function autoGenerateCopy() {
+    if (!draft || !itemId || generating) return
+    const hasWrittenCopy = [
+      draft.public_title,
+      draft.subtitle,
+      draft.summary,
+      draft.condition_summary,
+      draft.service_summary,
+      draft.authenticity_note,
+    ].some((value) => value.trim())
+
+    if (hasWrittenCopy && !window.confirm('Auto-generate will replace the customer-written title and copy in this draft. Structured facts, price, photos, live status and an existing published URL stay unchanged. Continue?')) return
+
+    setGenerating(true)
+    setMessage('Generating customer copy from the current Calibre record…')
+    const { data, error } = await supabase.functions.invoke('calibre-publishing', { body: { item_id: itemId } })
+    setGenerating(false)
+
+    if (error) {
+      setMessage(`Auto-generate failed: ${error.message}`)
+      return
+    }
+
+    const copy = data?.copy as GeneratedCopy | undefined
+    if (!copy) {
+      setMessage('Auto-generate returned no usable copy.')
+      return
+    }
+
+    setDraft((current) => {
+      if (!current) return current
+      const base = snapshot ? applyWorkshopSnapshot(current, snapshot) : current
+      const title = copy.public_title?.trim() || base.public_title
+      const nextSlug = base.published
+        ? base.slug
+        : `${slugify(title)}-${selectedItem?.item_number ?? ''}`.replace(/-+$/, '') || base.slug
+      return {
+        ...base,
+        public_title: title,
+        subtitle: copy.subtitle?.trim() || '',
+        summary: copy.summary?.trim() || '',
+        condition_summary: copy.condition_summary?.trim() || '',
+        service_summary: copy.service_summary?.trim() || '',
+        authenticity_note: copy.authenticity_note?.trim() || '',
+        provenance_summary: copy.provenance_summary?.trim() || base.provenance_summary,
+        slug: nextSlug,
+      }
+    })
+
+    const warnings = Array.isArray(copy.warnings) ? copy.warnings.filter(Boolean) : []
+    setMessage(warnings.length
+      ? `Auto-generated draft ready for review. Check: ${warnings.slice(0, 2).join(' · ')}`
+      : 'Auto-generated draft ready for review. Nothing has been saved or published yet.')
+  }
+
   function setAvailability(value: Publication['availability']) {
     setDraft((current) => {
       if (!current) return current
@@ -291,7 +351,13 @@ export default function CustomerPublishingRoute() {
       {draft && !loading && <>
         <div className="customer-publish-overview">
           <section className={`section-card customer-publish-readiness ${readiness.ready ? 'ready' : ''}`}>
-            <div className="customer-publish-section-title"><div><p className="eyebrow">PUBLICATION CHECK</p><h2>{readiness.ready ? 'Ready to publish' : 'Needs a few things'}</h2></div><button type="button" className="secondary small" onClick={syncWorkshopData} disabled={!snapshot}>Sync latest from workshop</button></div>
+            <div className="customer-publish-section-title">
+              <div><p className="eyebrow">PUBLICATION CHECK</p><h2>{readiness.ready ? 'Ready to publish' : 'Needs a few things'}</h2></div>
+              <div className="customer-publish-tools">
+                <button type="button" className="small customer-auto-generate" onClick={() => void autoGenerateCopy()} disabled={generating || !itemId}>{generating ? 'Generating…' : 'Auto-generate copy'}</button>
+                <button type="button" className="secondary small" onClick={syncWorkshopData} disabled={!snapshot || generating}>Sync latest from workshop</button>
+              </div>
+            </div>
             <div className="customer-readiness-list">
               <span className={draft.public_title.trim() ? 'done' : ''}>Title</span>
               <span className={draft.slug.trim() ? 'done' : ''}>Public URL</span>
@@ -299,7 +365,7 @@ export default function CustomerPublishingRoute() {
             </div>
             {!readiness.ready && <p className="customer-readiness-note">Required before publishing: {readiness.missing.join(', ')}.</p>}
             {readiness.suggestions.length > 0 && <p className="customer-readiness-note optional">Worth adding: {readiness.suggestions.join(', ')}.</p>}
-            <p className="customer-publish-help">Sync only refreshes structured workshop facts, provenance, latest timing and valuation. Your subtitle, sales copy, condition, service and evidence notes are not overwritten.</p>
+            <p className="customer-publish-help">Auto-generate drafts evidence-aware customer copy from the current Calibre record for you to review. It never saves or publishes automatically. Sync only refreshes structured workshop facts, provenance, latest timing and valuation.</p>
           </section>
 
           <section className="section-card customer-draft-preview">
@@ -348,7 +414,7 @@ export default function CustomerPublishingRoute() {
           </section>
         </div>
 
-        <div className="customer-publish-savebar"><p>{message || (readiness.ready ? 'Ready when you are.' : `Before publishing: ${readiness.missing.join(', ')}.`)}</p><div><button type="button" className="secondary" onClick={() => void save()} disabled={saving}>Save draft</button>{draft.published && <button type="button" className="secondary" onClick={() => void save(false)} disabled={saving}>Unpublish</button>}<button type="button" onClick={() => void save(true)} disabled={saving || !readiness.ready}>{saving ? 'Saving…' : draft.published ? 'Update live record' : 'Publish to calibreco.com.au'}</button></div></div>
+        <div className="customer-publish-savebar"><p>{message || (readiness.ready ? 'Ready when you are.' : `Before publishing: ${readiness.missing.join(', ')}.`)}</p><div><button type="button" className="secondary" onClick={() => void save()} disabled={saving || generating}>Save draft</button>{draft.published && <button type="button" className="secondary" onClick={() => void save(false)} disabled={saving || generating}>Unpublish</button>}<button type="button" onClick={() => void save(true)} disabled={saving || generating || !readiness.ready}>{saving ? 'Saving…' : draft.published ? 'Update live record' : 'Publish to calibreco.com.au'}</button></div></div>
       </>}
       {!loading && !draft && <div className="section-card"><h2>No customer record</h2><p>{message || 'Choose an Item to prepare its public record.'}</p></div>}
     </main>
