@@ -1,3 +1,4 @@
+# Recovery validation: rerun after exact production migration history reconstruction.
 name: Supabase clean rebuild smoke
 
 on:
