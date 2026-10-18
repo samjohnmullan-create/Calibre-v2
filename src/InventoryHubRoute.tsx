@@ -220,7 +220,7 @@ export default function InventoryHubRoute() {
   return (
     <main className="inventory-hub-page inventory-v2-page">
       <header className="inventory-hub-heading inventory-v2-heading">
-        <div><p className="eyebrow">INVENTORY</p><h1>Inventory</h1><p className="muted">Items are grouped by object type; workflow and physical location remain separate facts.</p></div>
+        <div><p className="eyebrow">INVENTORY</p><h1>Inventory</h1><p className="muted">Watches, collectables, parts and workshop supplies.</p></div>
         <button type="button" aria-label="Create item">＋ Add Item</button>
       </header>
 

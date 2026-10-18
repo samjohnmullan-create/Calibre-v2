@@ -387,7 +387,7 @@ export default function WorkbenchRoute() {
         <div>
           <p className="eyebrow">WORKSHOP</p>
           <h1>Workbench</h1>
-          <p className="muted">A command centre for what is on the bench, what is ready next, and what is blocking progress.</p>
+          <p className="muted">Your active jobs and what needs attention next.</p>
         </div>
         <button type="button" className="secondary" onClick={() => { window.location.hash = '#/items' }}>Choose an Item</button>
       </header>

@@ -168,7 +168,7 @@ export default function SettingsRoute() {
         <div>
           <p className="eyebrow">SYSTEM</p>
           <h1>Settings</h1>
-          <p className="muted">Business-critical controls belong here instead of being scattered through operational screens.</p>
+          <p className="muted">Manage workspace backups, recovery and system health.</p>
         </div>
       </header>
 
@@ -177,7 +177,7 @@ export default function SettingsRoute() {
           <div>
             <p className="eyebrow">DATA & RECOVERY</p>
             <h2>Portable workspace backup</h2>
-            <p>Create two owner-controlled files: a versioned JSON export of every current workspace-scoped table and a TAR archive containing the Storage binaries referenced by those records.</p>
+            <p>Download your workspace records as JSON and attached files as a separate archive.</p>
           </div>
 
           <div className="settings-v2-backup-facts">

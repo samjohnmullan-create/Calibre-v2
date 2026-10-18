@@ -61,6 +61,7 @@ import './research-click-fix.css'
 import './customer-publishing.css'
 import './customer-enquiries.css'
 import './customer-notifications.css'
+import './workshop-visual-system.css'
 
 export default function WorkshopEntry() {
   return (

@@ -51,7 +51,7 @@ export default function UniversalNewMenu({ open, onClose }: Props) {
           <div>
             <p className="eyebrow">NEW</p>
             <h2 id="universal-new-title">What are you adding?</h2>
-            <p className="muted">One entry point for new records, instead of different + buttons scattered around Calibre.</p>
+            <p className="muted">Choose what to add to your workshop.</p>
           </div>
           <button type="button" className="secondary small" onClick={onClose}>Close</button>
         </div>

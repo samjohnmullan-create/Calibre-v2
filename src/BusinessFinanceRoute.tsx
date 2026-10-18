@@ -165,9 +165,9 @@ export default function BusinessFinanceRoute() {
   return <main className="finance-v4-page">
     <header className="finance-v4-heading">
       <div>
-        <p className="eyebrow">BUSINESS INTELLIGENCE · PHASE 4</p>
+        <p className="eyebrow">BUSINESS</p>
         <h1>Finance intelligence</h1>
-        <p>One deterministic view of capital, parts cost, bench time, valuation and realised sale performance. Business overhead stays separate from Item economics.</p>
+        <p>Track stock investment, repair costs, workshop time and sales.</p>
       </div>
       <div className="finance-v4-heading-actions">
         <button type="button" className="secondary" onClick={() => { window.location.hash = '#/business' }}>Business records</button>

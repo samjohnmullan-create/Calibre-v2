@@ -46,6 +46,11 @@
   --text: var(--calibre-text-strong);
   --text-muted: var(--calibre-muted);
   --accent: var(--calibre-accent);
+  --panel: var(--calibre-panel);
+  --line: var(--calibre-line);
+  --bg: var(--calibre-bg);
+  --muted: var(--calibre-muted);
+  --accent-contrast: var(--calibre-text-strong);
 
   /* Compatibility aliases for older feature CSS that referenced bronze. */
   --calibre-bronze-dark: #436b78;
