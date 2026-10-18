@@ -69,10 +69,40 @@ function navigate(hash: string) {
   else window.location.hash = hash
 }
 
+function setMetaTag(attribute: 'name' | 'property', key: string, content?: string) {
+  let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`)
+  if (!content) {
+    element?.remove()
+    return
+  }
+  if (!element) {
+    element = document.createElement('meta')
+    element.setAttribute(attribute, key)
+    document.head.appendChild(element)
+  }
+  element.content = content
+}
+
+function applyCustomerMeta(title: string, description: string, image?: string) {
+  document.title = title
+  setMetaTag('name', 'description', description)
+  setMetaTag('name', 'theme-color', '#172026')
+  setMetaTag('property', 'og:title', title)
+  setMetaTag('property', 'og:description', description)
+  setMetaTag('property', 'og:type', 'website')
+  setMetaTag('property', 'og:site_name', 'Calibre & Co.')
+  setMetaTag('property', 'og:url', window.location.href)
+  setMetaTag('property', 'og:image', image)
+  setMetaTag('name', 'twitter:card', image ? 'summary_large_image' : 'summary')
+  setMetaTag('name', 'twitter:title', title)
+  setMetaTag('name', 'twitter:description', description)
+  setMetaTag('name', 'twitter:image', image)
+}
+
 function Header() {
   return (
     <header className="customer-header">
-      <button className="customer-brand" type="button" onClick={() => navigate('#/home')}>
+      <button className="customer-brand" type="button" onClick={() => navigate('#/home')} aria-label="Calibre & Co. home">
         <CalibreBrandMark className="customer-brand-mark" />
         <span><strong>Calibre & Co.</strong><small>Vintage watches · documented properly</small></span>
       </button>
@@ -90,10 +120,24 @@ function EmptyState({ title, copy }: { title: string; copy: string }) {
 }
 
 function CatalogueCard({ item }: { item: CustomerPublication }) {
+  const target = `#/passport/${encodeURIComponent(item.slug)}`
+  const open = () => navigate(target)
   return (
-    <article className="catalogue-card" onClick={() => navigate(`#/passport/${encodeURIComponent(item.slug)}`)}>
+    <article
+      className="catalogue-card"
+      role="link"
+      tabIndex={0}
+      aria-label={`Open Watch Passport for ${item.public_title || item.maker || 'this watch'}`}
+      onClick={open}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          open()
+        }
+      }}
+    >
       <div className="catalogue-card-image">
-        {item.hero_image_url ? <img src={item.hero_image_url} alt={item.public_title} /> : <div className="catalogue-image-placeholder"><CalibreBrandMark /></div>}
+        {item.hero_image_url ? <img src={item.hero_image_url} alt={item.public_title} loading="lazy" decoding="async" /> : <div className="catalogue-image-placeholder"><CalibreBrandMark /></div>}
         <span className={`availability-pill ${item.availability}`}>{item.availability.replace('_', ' ')}</span>
       </div>
       <div className="catalogue-card-copy">
@@ -198,6 +242,16 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
     return () => { active = false }
   }, [slug])
 
+  useEffect(() => {
+    if (!item) return
+    const description = item.subtitle || item.summary || `Documented vintage watch record for ${item.public_title}.`
+    applyCustomerMeta(
+      `${item.public_title} · ${certificate ? 'Watch Certificate' : 'Watch Passport'} · Calibre & Co.`,
+      description,
+      item.hero_image_url || undefined,
+    )
+  }, [item, certificate])
+
   const specs = useMemo(() => item ? [
     ['Maker', item.maker], ['Model', item.model], ['Reference', item.reference], ['Era', item.era], ['Country', item.country],
     ['Movement maker', item.movement_maker], ['Calibre', item.calibre], ['Jewels', item.jewels], ['Beat rate', item.beat_rate ? `${item.beat_rate.toLocaleString()} BPH` : ''],
@@ -230,7 +284,7 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
   return (
     <main className="passport-page">
       <section className="passport-public-hero">
-        <div className="passport-public-image">{item.hero_image_url ? <img src={item.hero_image_url} alt={item.public_title} /> : <div className="catalogue-image-placeholder"><CalibreBrandMark /></div>}</div>
+        <div className="passport-public-image">{item.hero_image_url ? <img src={item.hero_image_url} alt={item.public_title} decoding="async" /> : <div className="catalogue-image-placeholder"><CalibreBrandMark /></div>}</div>
         <div className="passport-public-heading">
           <p className="eyebrow">WATCH PASSPORT</p>
           <h1>{item.public_title}</h1>
@@ -246,7 +300,7 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
       {item.final_timing_summary && <section className="passport-public-section split"><div><p className="eyebrow">FINAL TIMING</p><h2>Measured result</h2></div><p>{item.final_timing_summary}</p></section>}
       {item.condition_summary && <section className="passport-public-section split"><div><p className="eyebrow">CONDITION</p><h2>What remains visible</h2></div><p>{item.condition_summary}</p></section>}
       {item.authenticity_note && <section className="passport-public-section split"><div><p className="eyebrow">EVIDENCE NOTE</p><h2>What is known</h2></div><p>{item.authenticity_note}</p></section>}
-      {gallery.length > 1 && <section className="passport-public-section"><div className="section-heading"><p className="eyebrow">PHOTOGRAPHIC RECORD</p><h2>Documented details</h2></div><div className="passport-gallery">{gallery.map((url) => <img key={url} src={url} alt="Watch record" />)}</div></section>}
+      {gallery.length > 1 && <section className="passport-public-section"><div className="section-heading"><p className="eyebrow">PHOTOGRAPHIC RECORD</p><h2>Documented details</h2></div><div className="passport-gallery">{gallery.map((url, index) => <img key={url} src={url} alt={`${item.public_title} documented detail ${index + 1}`} loading="lazy" decoding="async" />)}</div></section>}
       <section className="passport-actions"><button type="button" onClick={() => navigate(`#/certificate/${encodeURIComponent(item.slug)}`)}>View certificate</button><button type="button" className="secondary-public" onClick={() => navigate('#/catalogue')}>Back to catalogue</button></section>
     </main>
   )
@@ -255,7 +309,18 @@ function Passport({ slug, certificate = false }: { slug: string | null; certific
 export default function CustomerSite() {
   const [route, setRoute] = useState<PublicRoute>(() => readPublicRoute())
   useEffect(() => { const sync = () => { setRoute(readPublicRoute()); window.scrollTo({ top: 0, left: 0, behavior: 'auto' }) }; window.addEventListener('hashchange', sync); return () => window.removeEventListener('hashchange', sync) }, [])
-  useEffect(() => { document.title = route.page === 'passport' ? 'Watch Passport · Calibre & Co.' : route.page === 'certificate' ? 'Watch Certificate · Calibre & Co.' : 'Calibre & Co. · Vintage Watches' }, [route.page])
+  useEffect(() => {
+    const metadata = route.page === 'catalogue'
+      ? ['Vintage Watch Catalogue · Calibre & Co.', 'Browse documented vintage watches from Calibre & Co. in Tasmania. Each published watch includes a digital Watch Passport.']
+      : route.page === 'sold'
+        ? ['Vintage Watch Archive · Calibre & Co.', 'Browse the permanent Calibre & Co. archive of previously documented, restored and sold vintage watches.']
+        : route.page === 'passport'
+          ? ['Watch Passport · Calibre & Co.', 'A documented Calibre & Co. vintage watch record with identity, movement, provenance, condition and workshop information.']
+          : route.page === 'certificate'
+            ? ['Watch Certificate · Calibre & Co.', 'A Calibre & Co. digital certificate recording the published facts held for a documented vintage watch.']
+            : ['Calibre & Co. · Vintage Watches, Documented Properly', 'Tasmanian vintage watches researched, restored and documented with permanent digital Watch Passports.']
+    applyCustomerMeta(metadata[0], metadata[1])
+  }, [route.page, route.slug])
   return <div className="customer-site"><Header />{route.page === 'home' && <Home />}{route.page === 'catalogue' && <Catalogue />}{route.page === 'sold' && <Catalogue sold />}{route.page === 'passport' && <Passport slug={route.slug} />}{route.page === 'certificate' && <Passport slug={route.slug} certificate />}</div>
 }
 
