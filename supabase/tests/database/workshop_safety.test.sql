@@ -82,7 +82,7 @@ select throws_like(
     'test_clear',
     'must not clear real work'
   )$$,
-  '.*Clear Test/Demo is only available for test Work.*',
+  '%Clear Test/Demo is only available for test Work%',
   'test_clear cannot wipe a real workshop job'
 );
 
@@ -105,7 +105,7 @@ select throws_like(
     1,
     'competing reservation'
   )$$,
-  '.*Not enough unreserved stock.*',
+  '%Not enough unreserved stock%',
   'the same physical stock cannot be double-reserved'
 );
 
@@ -130,7 +130,7 @@ select throws_like(
   $$update public.work_records
     set status='complete', completion_summary='Attempted completion without Final Verification'
     where id='bbbbbbbb-0002-4000-8000-000000000002'::uuid$$,
-  '.*Release sign-off.*',
+  '%Release sign-off%',
   'repair Work cannot complete without an approved Release sign-off'
 );
 
