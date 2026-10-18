@@ -1,4 +1,5 @@
 -- Keep the existing Work UI/API compatible while ensuring every new fit records permanent source/target snapshots.
+-- Legacy callers do not have an explicit modification flag, so they must not infer one from a conditional result.
 
 create or replace function public.record_part_fit_result(
   p_workspace_id uuid,
@@ -20,7 +21,7 @@ as $function$
     p_work_record_id,
     p_result,
     p_note,
-    (p_result = 'conditional'),
+    false,
     '{}'::jsonb
   );
 $function$;
