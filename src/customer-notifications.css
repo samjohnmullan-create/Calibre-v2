@@ -1,0 +1,71 @@
+.customer-enquiry-attention {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1250;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: #172026;
+  color: #fff;
+  box-shadow: 0 12px 34px rgba(12, 20, 24, 0.24);
+  cursor: pointer;
+  font: inherit;
+}
+
+.customer-enquiry-attention:hover {
+  transform: translateY(-1px);
+}
+
+.customer-enquiry-attention strong {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #f0e7d2;
+  color: #172026;
+  font-size: 12px;
+}
+
+.customer-enquiry-attention-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f0e7d2;
+  box-shadow: 0 0 0 4px rgba(240, 231, 210, 0.12);
+}
+
+.customer-publish-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.customer-auto-generate {
+  min-width: 142px;
+}
+
+@media (max-width: 760px) {
+  .customer-enquiry-attention {
+    right: 12px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+  }
+
+  .customer-publish-tools {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .customer-publish-tools > button {
+    flex: 1 1 150px;
+  }
+}

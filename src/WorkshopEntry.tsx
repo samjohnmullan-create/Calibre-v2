@@ -2,6 +2,7 @@ import CalibreShell from './CalibreShell'
 import BenchModeHost from './BenchModeHost'
 import ProcedurePreviewHost from './ProcedurePreviewHost'
 import CustomerPackHost from './CustomerPackHost'
+import CustomerEnquiryAttention from './CustomerEnquiryAttention'
 import WorkshopSessionGate from './WorkshopSessionGate'
 import './styles.css'
 import './workbench-dex.css'
@@ -59,6 +60,7 @@ import './mobile-ui-v3.css'
 import './research-click-fix.css'
 import './customer-publishing.css'
 import './customer-enquiries.css'
+import './customer-notifications.css'
 
 export default function WorkshopEntry() {
   return (
@@ -67,6 +69,7 @@ export default function WorkshopEntry() {
       <BenchModeHost />
       <ProcedurePreviewHost />
       <CustomerPackHost />
+      <CustomerEnquiryAttention />
     </WorkshopSessionGate>
   )
 }
