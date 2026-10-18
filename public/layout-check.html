@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Calibre responsive review</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#11191e;color:#d9e0dc;font:14px system-ui,sans-serif}header{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px;flex-wrap:wrap;border-bottom:1px solid #35454d}label{display:flex;gap:8px;align-items:center}select,button{background:#212e36;color:inherit;border:1px solid #526b75;border-radius:8px;min-height:36px;padding:6px 10px}main{padding:18px;display:grid;justify-content:center;overflow:auto}iframe{display:block;width:390px;height:780px;border:1px solid #526b75;border-radius:18px;background:#172026}p{margin:0;color:#9eafb1;font-size:12px}
+</style></head>
+<body><header>
+<strong>Calibre · responsive review</strong>
+<label>Width<select id="width"><option>360</option><option selected>390</option><option>430</option><option>768</option><option>1280</option></select></label>
+<label>Screen<select id="route"><option value="workbench">Workbench</option><option value="items">Inventory</option><option value="intake">Intake</option><option value="business/finance">Finance</option><option value="business">Business records</option><option value="calibre">Library</option><option value="timegrapher">Timegrapher</option><option value="customer">Customer</option><option value="settings">Settings</option></select></label>
+<button id="rotate" type="button">Rotate</button><button id="refresh" type="button">Reload app</button>
+<p>Real app in a sized frame. Normal sign-in required.</p>
+</header><main><iframe id="app" title="Calibre review viewport" src="./#/workbench"></iframe></main>
+<script>
+const frame=document.querySelector('#app'),width=document.querySelector('#width'),route=document.querySelector('#route');
+width.addEventListener('change',()=>{frame.style.width=width.value+'px';frame.style.height='780px'});
+route.addEventListener('change',()=>{frame.src='./#/'+route.value});
+document.querySelector('#rotate').addEventListener('click',()=>{const r=frame.getBoundingClientRect();frame.style.width=r.height+'px';frame.style.height=r.width+'px'});
+document.querySelector('#refresh').addEventListener('click',()=>{frame.src='./#/'+route.value});
+</script></body></html>
