@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(10);
+select plan(14);
 
 -- Isolated identities used only inside this transaction.
 insert into auth.users (id, email, raw_user_meta_data)
@@ -30,7 +30,29 @@ insert into public.items (id, workspace_id, type, purpose, title)
 values
   ('aaaaaaaa-0001-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'watch', 'repair', 'Parts test watch'),
   ('aaaaaaaa-0002-4000-8000-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'watch', 'repair', 'Completion gate watch'),
-  ('aaaaaaaa-0003-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'watch', 'resale', 'Archive test watch');
+  ('aaaaaaaa-0003-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'watch', 'resale', 'Archive test watch'),
+  ('aaaaaaaa-0004-4000-8000-000000000004', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'watch', 'donor', 'Harvest test donor');
+
+insert into public.passports (workspace_id, item_id, movement_maker, calibre, movement_identification_status)
+values (
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'aaaaaaaa-0004-4000-8000-000000000004',
+  'Test Maker',
+  'T-100',
+  'confirmed'
+);
+
+insert into public.item_component_assessments (
+  workspace_id, item_id, component_key, component_label, condition, confidence, evidence_note
+) values (
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'aaaaaaaa-0004-4000-8000-000000000004',
+  'balance_assembly',
+  'Balance assembly',
+  'good',
+  'confirmed',
+  'Stable pivot and free oscillation'
+);
 
 insert into public.work_records (id, workspace_id, item_id, type, title, data_mode)
 values
@@ -124,6 +146,51 @@ select results_eq(
   $$select quantity from public.parts where id='cccccccc-0001-4000-8000-000000000001'::uuid$$,
   array[0::numeric],
   'consuming a reservation decrements physical stock exactly once'
+);
+
+select lives_ok(
+  $$select public.harvest_item_component(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
+    'aaaaaaaa-0004-4000-8000-000000000004'::uuid,
+    'balance_assembly',
+    'Balance assembly',
+    null,
+    12.50,
+    'AUD',
+    'pgTAP harvest'
+  )$$,
+  'a donor component can be harvested atomically into Parts'
+);
+
+select results_eq(
+  $$select count(*)::bigint from public.parts
+    where donor_item_id='aaaaaaaa-0004-4000-8000-000000000004'::uuid
+      and part_type='balance_assembly'
+      and provenance_type='donor'
+      and quantity=1$$,
+  array[1::bigint],
+  'harvest creates exactly one donor-provenance Part'
+);
+
+select ok(
+  (select inventory_state='harvested'
+      and harvested_part_id is not null
+      and harvested_at is not null
+   from public.item_component_assessments
+   where item_id='aaaaaaaa-0004-4000-8000-000000000004'::uuid
+     and component_key='balance_assembly'),
+  'harvest depletes the donor component and links it to the created Part'
+);
+
+select throws_like(
+  $$select public.harvest_item_component(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
+    'aaaaaaaa-0004-4000-8000-000000000004'::uuid,
+    'balance_assembly',
+    'Balance assembly'
+  )$$,
+  '%already been harvested%',
+  'the same physical donor component cannot be harvested twice'
 );
 
 select throws_like(
