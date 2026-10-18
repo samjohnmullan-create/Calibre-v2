@@ -258,7 +258,7 @@ export default function DonorComponentIntelligence({ workspaceId }: { workspaceI
       return
     }
     setHarvestBusy(true)
-    const { data, error } = await supabase.rpc('harvest_item_component', {
+    const { error } = await supabase.rpc('harvest_item_component', {
       p_workspace_id: workspaceId,
       p_item_id: harvestTarget.donor.id,
       p_component_key: harvestTarget.componentKey,
@@ -275,13 +275,12 @@ export default function DonorComponentIntelligence({ workspaceId }: { workspaceI
     }
     const donorNumber = harvestTarget.donor.item_number
     const componentLabel = harvestTarget.componentLabel
-    const partId = (data as { id?: string } | null)?.id
     setHarvestTarget(null)
     setHarvestLocationId('')
     setHarvestCost('')
     setHarvestNote('')
     await load()
-    setMessage(`${componentLabel} harvested from Item #${donorNumber} and created in Parts${partId ? '.' : '.'}`)
+    setMessage(`${componentLabel} harvested from Item #${donorNumber} and created in Parts.`)
     window.dispatchEvent(new CustomEvent('calibre:parts-changed'))
   }
 
