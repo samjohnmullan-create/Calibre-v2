@@ -13,11 +13,14 @@
 <label>Screen<select id="route"><option value="workbench">Workbench</option><option value="items">Inventory</option><option value="intake">Intake</option><option value="business/finance">Finance</option><option value="business">Business records</option><option value="calibre">Library</option><option value="timegrapher">Timegrapher</option><option value="customer">Customer</option><option value="settings">Settings</option></select></label>
 <button id="rotate" type="button">Rotate</button><button id="refresh" type="button">Reload app</button>
 <p>Real app in a sized frame. Normal sign-in required.</p>
-</header><main><iframe id="app" title="Calibre review viewport" src="./#/workbench"></iframe></main>
+</header><main><iframe id="app" title="Calibre review viewport" src="about:blank"></iframe></main>
 <script>
 const frame=document.querySelector('#app'),width=document.querySelector('#width'),route=document.querySelector('#route');
 width.addEventListener('change',()=>{frame.style.width=width.value+'px';frame.style.height='780px'});
-route.addEventListener('change',()=>{frame.src='./#/'+route.value});
+function loadApp(){frame.src='./?layout-review='+Date.now()+'#/'+route.value}
+route.addEventListener('change',loadApp);
 document.querySelector('#rotate').addEventListener('click',()=>{const r=frame.getBoundingClientRect();frame.style.width=r.height+'px';frame.style.height=r.width+'px'});
-document.querySelector('#refresh').addEventListener('click',()=>{frame.src='./#/'+route.value});
+document.querySelector('#refresh').addEventListener('click',loadApp);
+loadApp();
 </script></body></html>
+
