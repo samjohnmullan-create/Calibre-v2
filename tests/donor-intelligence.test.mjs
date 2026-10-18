@@ -5,8 +5,8 @@ import {
   scoreDonorMovementCompatibility,
 } from '../src/lib/donorIntelligence.ts'
 
-function assessment(itemId, componentKey, componentLabel, condition, confidence = 'confirmed') {
-  return { itemId, componentKey, componentLabel, condition, confidence }
+function assessment(itemId, componentKey, componentLabel, condition, confidence = 'confirmed', inventoryState = 'installed') {
+  return { itemId, componentKey, componentLabel, condition, confidence, inventoryState }
 }
 
 test('same maker and exact calibre creates a strong movement compatibility lead', () => {
@@ -37,6 +37,18 @@ test('usable component against damaged component is recorded as complementary ev
   assert.equal(result.qualifies, true)
   assert.deepEqual(result.complements, ['Balance assembly'])
   assert.equal(result.score, 92)
+})
+
+test('harvested component no longer contributes to donor-pair complementarity', () => {
+  const result = scoreComplementaryDonorPair(
+    88,
+    [assessment('a', 'balance_assembly', 'Balance assembly', 'good', 'confirmed', 'harvested')],
+    [assessment('b', 'balance_assembly', 'Balance assembly', 'damaged')],
+  )
+  assert.equal(result.qualifies, true)
+  assert.deepEqual(result.complements, [])
+  assert.deepEqual(result.gaps, [])
+  assert.equal(result.score, 88)
 })
 
 test('two damaged copies create a shared gap rather than a complement', () => {
