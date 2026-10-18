@@ -56,7 +56,7 @@ jobs:
         if: ${{ env.CPANEL_FTP_USERNAME != '' && env.CPANEL_FTP_PASSWORD != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
-          server: ftp.calibreco.com.au
+          server: s06le.syd7.hostingplatform.net.au
           username: ${{ env.CPANEL_FTP_USERNAME }}
           password: ${{ env.CPANEL_FTP_PASSWORD }}
           protocol: ftps
