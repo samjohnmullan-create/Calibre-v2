@@ -41,10 +41,31 @@
   box-shadow: 0 0 0 4px rgba(240, 231, 210, 0.12);
 }
 
+.customer-publish-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.customer-auto-generate {
+  min-width: 142px;
+}
+
 @media (max-width: 760px) {
   .customer-enquiry-attention {
     right: 12px;
     bottom: calc(76px + env(safe-area-inset-bottom));
     max-width: calc(100vw - 24px);
+  }
+
+  .customer-publish-tools {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .customer-publish-tools > button {
+    flex: 1 1 150px;
   }
 }
