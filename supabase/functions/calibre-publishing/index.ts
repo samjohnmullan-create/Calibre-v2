@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
     supabase.from("work_records").select("id,title,status,diagnosis,repair_performed,completion_summary,notes,completed_at,updated_at").eq("workspace_id", workspaceId).eq("item_id", itemId).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("work_findings").select("finding_type,severity,title,details,status,created_at").eq("workspace_id", workspaceId).eq("item_id", itemId).order("created_at", { ascending: true }).limit(80),
     supabase.from("timing_runs").select("checkpoint,bph,rate_seconds_per_day,beat_error_ms,amplitude_deg,position,confidence,notes,recorded_at").eq("workspace_id", workspaceId).eq("item_id", itemId).order("recorded_at", { ascending: false }).limit(8),
-    supabase.from("valuations").select("target_value,currency,notes,valued_at").eq("workspace_id", workspaceId).eq("item_id", itemId).order("valued_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("valuations").select("target_value,currency,valued_at").eq("workspace_id", workspaceId).eq("item_id", itemId).order("valued_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("customer_publications").select("public_title,subtitle,summary,condition_summary,service_summary,authenticity_note,provenance_summary,published").eq("workspace_id", workspaceId).eq("item_id", itemId).maybeSingle(),
   ]);
 
