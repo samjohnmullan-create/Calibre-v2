@@ -25,6 +25,20 @@ type Candidate = {
   reasons: string[]
 }
 
+type FitLearning = {
+  part_id: string
+  fit_state: 'confirmed' | 'conditional' | 'rejected' | 'mixed'
+  successful_fits: number
+  conditional_fits: number
+  rejected_fits: number
+  latest_verified_at: string
+  score: number
+  confidence: number | null
+  modification_required: boolean
+  evidence_label: string
+  reasons: string[]
+}
+
 type Passport = {
   movement_maker: string
   calibre: string
@@ -47,12 +61,59 @@ function money(value: number | null, currency = 'AUD') {
 
 function matchLevel(candidate: Candidate) {
   if (candidate.evidence_tier === 'confirmed') return 'Confirmed / exact'
+  if (candidate.evidence_tier === 'workshop_proven') return 'Workshop-proven component'
   if (candidate.evidence_tier === 'documented') return 'Documented match'
+  if (candidate.evidence_tier === 'workshop_conditional') return 'Conditional workshop evidence'
+  if (candidate.evidence_tier === 'workshop_rejected') return 'Rejected workshop lineage'
+  if (candidate.evidence_tier === 'workshop_mixed') return 'Mixed workshop evidence'
   if (candidate.source_kind === 'passport_exact_calibre') return 'Exact calibre lead'
   if (candidate.source_kind === 'passport_dimensions') return 'Dimensional lead'
   if (candidate.evidence_tier === 'candidate') return 'Compatibility candidate'
   if (candidate.evidence_tier === 'family_lead') return 'Same-family lead'
   return 'Unverified lead'
+}
+
+function applyFitLearning(candidates: Candidate[], learning: FitLearning[]) {
+  const byPart = new Map(learning.map((entry) => [entry.part_id, entry]))
+  return candidates.map((candidate) => {
+    if (candidate.candidate_kind !== 'owned_part' || !candidate.part_id) return candidate
+    const learned = byPart.get(candidate.part_id)
+    if (!learned) return candidate
+
+    // Exact-part bench evidence and manufacturer/documented evidence remain stronger than lineage inference.
+    if (candidate.source_kind === 'bench' || ['confirmed', 'documented'].includes(candidate.evidence_tier)) return candidate
+
+    const learnedReasons = [...(learned.reasons ?? []), ...(candidate.reasons ?? [])]
+    if (learned.fit_state === 'rejected') {
+      return {
+        ...candidate,
+        evidence_tier: 'workshop_rejected',
+        evidence_label: learned.evidence_label,
+        score: 0,
+        confidence: learned.confidence,
+        source_kind: 'component_fit_learning',
+        modification_required: learned.modification_required,
+        reasons: learnedReasons,
+      }
+    }
+
+    if (learned.score <= candidate.score) return candidate
+
+    return {
+      ...candidate,
+      evidence_tier: learned.fit_state === 'confirmed'
+        ? 'workshop_proven'
+        : learned.fit_state === 'conditional'
+          ? 'workshop_conditional'
+          : 'workshop_mixed',
+      evidence_label: learned.evidence_label,
+      score: learned.score,
+      confidence: learned.confidence,
+      source_kind: 'component_fit_learning',
+      modification_required: candidate.modification_required || learned.modification_required,
+      reasons: learnedReasons,
+    }
+  })
 }
 
 export default function WorkCompatibilityIntelligence({
@@ -82,7 +143,7 @@ export default function WorkCompatibilityIntelligence({
     }
     setLoading(true)
     setMessage('')
-    const [passportResult, candidateResult] = await Promise.all([
+    const [passportResult, candidateResult, learningResult] = await Promise.all([
       supabase.from('passports')
         .select('movement_maker,calibre,calibre_family,movement_diameter_mm,movement_identification_status,movement_identification_confidence,knowledge_movement_id')
         .eq('workspace_id', workspaceId).eq('item_id', itemId).maybeSingle(),
@@ -92,6 +153,11 @@ export default function WorkCompatibilityIntelligence({
         p_part_type: need.part_type || null,
         p_limit: 40,
       }),
+      supabase.rpc('find_component_fit_learning_candidates', {
+        p_workspace_id: workspaceId,
+        p_item_id: itemId,
+        p_part_type: need.part_type || null,
+      }),
     ])
     setLoading(false)
     if (passportResult.error || candidateResult.error) {
@@ -99,18 +165,26 @@ export default function WorkCompatibilityIntelligence({
       return
     }
     setPassport((passportResult.data ?? null) as Passport | null)
-    setCandidates((candidateResult.data ?? []) as Candidate[])
+    const baseCandidates = (candidateResult.data ?? []) as Candidate[]
+    if (learningResult.error) {
+      setCandidates(baseCandidates)
+      setMessage(`Workshop fit learning could not load, so Calibre is showing the existing evidence ranking only: ${learningResult.error.message}`)
+      return
+    }
+    setCandidates(applyFitLearning(baseCandidates, (learningResult.data ?? []) as FitLearning[]))
   }
 
   useEffect(() => { void load() }, [workspaceId, itemId, need?.id, need?.part_type, need?.status, hasReservation])
 
   const visible = useMemo(() => {
     const sorted = [...candidates].sort((a, b) => b.score - a.score)
-    return showLowerConfidence ? sorted : sorted.filter((candidate) => ['confirmed', 'documented', 'candidate'].includes(candidate.evidence_tier) || candidate.source_kind === 'passport_exact_calibre')
+    return showLowerConfidence
+      ? sorted
+      : sorted.filter((candidate) => ['confirmed', 'documented', 'candidate', 'workshop_proven', 'workshop_conditional'].includes(candidate.evidence_tier) || candidate.source_kind === 'passport_exact_calibre')
   }, [candidates, showLowerConfidence])
 
   const donorCount = candidates.filter((candidate) => candidate.candidate_kind === 'donor_item' && candidate.score >= 30).length
-  const strongCount = candidates.filter((candidate) => ['confirmed', 'documented'].includes(candidate.evidence_tier)).length
+  const strongCount = candidates.filter((candidate) => ['confirmed', 'documented', 'workshop_proven'].includes(candidate.evidence_tier)).length
 
   async function reserve(candidate: Candidate) {
     if (!need || !candidate.part_id || busyId) return
@@ -144,7 +218,7 @@ export default function WorkCompatibilityIntelligence({
       <div>
         <p className="eyebrow">PARTS & DONOR INTELLIGENCE</p>
         <strong>Owned compatibility candidates</strong>
-        <p>Calibre checks loose stock and complete donor watches together. Evidence is ranked; a lead is never treated as proof of interchangeability.</p>
+        <p>Calibre checks loose stock, donor watches and your own bench-fit history together. Component-level learning can strengthen or weaken a lead, but it never becomes a blanket movement-compatibility claim.</p>
       </div>
       <div className="work-compat-summary">
         <span>{strongCount} strong</span>
@@ -158,9 +232,9 @@ export default function WorkCompatibilityIntelligence({
       <small>{pretty(passport.movement_identification_status)} · {pretty(passport.movement_identification_confidence)} confidence{passport.calibre_family ? ` · ${passport.calibre_family} family` : ''}{passport.movement_diameter_mm ? ` · ${passport.movement_diameter_mm} mm` : ''}</small>
     </div>}
 
-    {!loading && passport && !passport.knowledge_movement_id && <div className="work-compat-notice">Passport-only matching is active. Linking a Knowledge movement will add documented applications and compatibility evidence, but it is no longer required to find intact donor leads.</div>}
+    {!loading && passport && !passport.knowledge_movement_id && <div className="work-compat-notice">Passport-only matching is active. Calibre can also learn component-specific fit history from maker/calibre snapshots when a Knowledge movement is not yet linked.</div>}
     {!loading && (!passport || (!passport.calibre && !passport.knowledge_movement_id)) && <div className="work-compat-notice">Identify at least the target calibre in Passport to make donor matching useful. Movement family and diameter improve lower-confidence matching.</div>}
-    {loading && <p className="work-compat-message">Checking owned stock, complete donors and compatibility evidence…</p>}
+    {loading && <p className="work-compat-message">Checking owned stock, complete donors, documented compatibility and workshop fit history…</p>}
     {message && <p className={`work-compat-message ${message.includes('could not') ? 'error' : ''}`}>{message}</p>}
 
     {!loading && visible.length > 0 && <div className="work-compat-list">
@@ -175,7 +249,7 @@ export default function WorkCompatibilityIntelligence({
           {candidate.detail && <p>{candidate.detail}</p>}
           <strong className="work-compat-evidence">{candidate.evidence_label}</strong>
           {candidate.reasons?.length > 0 && <ul>{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
-          {candidate.modification_required && <div className="work-compat-warning">Modification may be required. Verify dimensions and function before use.</div>}
+          {candidate.modification_required && <div className="work-compat-warning">Workshop evidence indicates modification or a caveat may be required. Verify dimensions and function before use.</div>}
           {candidate.candidate_kind === 'donor_item' && <div className="work-compat-economics">
             <span>{candidate.donor_value != null ? `Recorded donor value ${money(candidate.donor_value, candidate.donor_currency || 'AUD')}` : 'No donor valuation recorded'}</span>
             <small>{candidate.economic_note}</small>
@@ -188,7 +262,7 @@ export default function WorkCompatibilityIntelligence({
       </article>)}
     </div>}
 
-    {!loading && candidates.length > visible.length && <button type="button" className="secondary work-compat-lower" onClick={() => setShowLowerConfidence((value) => !value)}>{showLowerConfidence ? 'Hide weak leads' : `Show ${candidates.length - visible.length} lower-confidence lead${candidates.length - visible.length === 1 ? '' : 's'}`}</button>}
+    {!loading && candidates.length > visible.length && <button type="button" className="secondary work-compat-lower" onClick={() => setShowLowerConfidence((value) => !value)}>{showLowerConfidence ? 'Hide weak / rejected leads' : `Show ${candidates.length - visible.length} lower-confidence or rejected lead${candidates.length - visible.length === 1 ? '' : 's'}`}</button>}
     {!loading && passport && (passport.calibre || passport.knowledge_movement_id) && candidates.length === 0 && <div className="work-compat-notice">No owned stock or complete donor watches currently match this movement strongly enough to surface.</div>}
   </section>
 }

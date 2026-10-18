@@ -21,10 +21,16 @@ type Candidate = {
 }
 type Allocation = { id: string; work_part_need_id: string; part_id: string; quantity: number; status: 'reserved' | 'used' | 'released'; note: string; used_at: string | null }
 type Part = { id: string; part_type: string; manufacturer: string; reference: string; description: string; condition: string; quantity: number }
-type FitVerification = { id: string; part_id: string; work_record_id: string | null; result: 'confirmed' | 'rejected' | 'conditional'; evidence_note: string; verified_at: string }
+type FitVerification = { id: string; part_id: string; work_record_id: string | null; result: 'confirmed' | 'rejected' | 'conditional'; evidence_note: string; modification_required: boolean; verified_at: string }
 
 function partName(part: Pick<Candidate, 'manufacturer' | 'reference' | 'part_type'> | Pick<Part, 'manufacturer' | 'reference' | 'part_type'>) {
   return [part.manufacturer, part.reference].filter(Boolean).join(' ') || part.part_type || 'Stock part'
+}
+
+function fitLabel(result: FitVerification['result']) {
+  if (result === 'confirmed') return 'Fits & works'
+  if (result === 'conditional') return 'Fits with caveat'
+  return 'Doesn’t fit'
 }
 
 export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { workspaceId: string; itemId: string; workId: string }) {
@@ -37,6 +43,7 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
   const [query, setQuery] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [fitNote, setFitNote] = useState('')
+  const [fitModificationRequired, setFitModificationRequired] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -51,7 +58,7 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
     const [needsResult, allocationsResult, fitsResult] = await Promise.all([
       supabase.from('work_part_needs').select('id,part_type,description,status').eq('workspace_id', workspaceId).eq('work_record_id', workId).order('created_at', { ascending: true }),
       supabase.from('part_allocations').select('id,work_part_need_id,part_id,quantity,status,note,used_at').eq('workspace_id', workspaceId).eq('work_record_id', workId).order('created_at', { ascending: false }),
-      supabase.from('part_fit_verifications').select('id,part_id,work_record_id,result,evidence_note,verified_at').eq('workspace_id', workspaceId).eq('work_record_id', workId).order('verified_at', { ascending: false }).limit(50),
+      supabase.from('part_fit_verifications').select('id,part_id,work_record_id,result,evidence_note,modification_required,verified_at').eq('workspace_id', workspaceId).eq('work_record_id', workId).order('verified_at', { ascending: false }).limit(50),
     ])
     setLoading(false)
     const error = needsResult.error ?? allocationsResult.error ?? fitsResult.error
@@ -94,7 +101,13 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
   }
 
   useEffect(() => { void load() }, [workspaceId, itemId, workId])
-  useEffect(() => { setCandidates([]); setQuery(''); setQuantity('1'); setFitNote('') }, [selectedNeed?.id])
+  useEffect(() => {
+    setCandidates([])
+    setQuery('')
+    setQuantity('1')
+    setFitNote('')
+    setFitModificationRequired(false)
+  }, [selectedNeed?.id])
 
   const activeNeeds = useMemo(() => needs.filter((need) => need.status !== 'cancelled' && need.status !== 'fulfilled'), [needs])
 
@@ -123,20 +136,30 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
       setMessage(`Reservation could not be released: ${error.message}`)
       return
     }
-    setMessage('Reservation released back to stock.')
+    setMessage('Reservation released back to stock without recording fit evidence.')
+    setFitNote('')
+    setFitModificationRequired(false)
     await load()
   }
 
   async function recordFit(result: 'confirmed' | 'rejected' | 'conditional') {
     if (!selectedAllocation || !selectedPart) return
+    const note = fitNote.trim()
+    if (result !== 'confirmed' && !note) {
+      setMessage(result === 'rejected' ? 'Add a short note explaining why the part did not fit.' : 'Add a short note explaining the fit caveat.')
+      return
+    }
+
     setSaving(true)
-    const { error } = await supabase.rpc('record_part_fit_result', {
+    const { error } = await supabase.rpc('record_part_fit_feedback', {
       p_workspace_id: workspaceId,
       p_part_id: selectedAllocation.part_id,
       p_item_id: itemId,
       p_work_record_id: workId,
       p_result: result,
-      p_note: fitNote.trim(),
+      p_note: note,
+      p_modification_required: result === 'rejected' ? false : fitModificationRequired,
+      p_measured_values: {},
     })
     if (!error && result === 'rejected') {
       const releaseResult = await supabase.rpc('release_part_reservation', { p_workspace_id: workspaceId, p_allocation_id: selectedAllocation.id })
@@ -153,7 +176,8 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
       return
     }
     setFitNote('')
-    setMessage(result === 'rejected' ? 'Fit rejected and reservation released.' : `Fit recorded as ${result}.`)
+    setFitModificationRequired(false)
+    setMessage(result === 'rejected' ? 'Doesn’t fit recorded and reservation released. Calibre will weaken matching for the same component lineage.' : result === 'conditional' ? 'Fit with caveat recorded. Calibre will retain the caveat in future component recommendations.' : 'Fits & works recorded. Calibre can now reuse this component-level workshop evidence.')
     await load()
   }
 
@@ -187,7 +211,7 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
   return (
     <section className="section-card parts-match-card">
       <div className="parts-match-heading">
-        <div><p className="eyebrow">PARTS MATCHING</p><h3>Allocate workshop stock</h3><p className="muted">Calibre now checks evidence-ranked owned parts and donor movements first. Fit is only confirmed when you record bench evidence.</p></div>
+        <div><p className="eyebrow">PARTS MATCHING</p><h3>Allocate workshop stock</h3><p className="muted">Calibre checks evidence-ranked owned parts and donor movements first. Your recorded bench outcomes become component-specific workshop knowledge for future jobs.</p></div>
         <span>{activeNeeds.length} active</span>
       </div>
 
@@ -214,9 +238,13 @@ export default function WorkPartsMatcher({ workspaceId, itemId, workId }: { work
       {selectedNeed && selectedAllocation && selectedPart && (
         <div className="parts-reservation">
           <div className="parts-reservation-top"><div><span>Reserved</span><strong>{partName(selectedPart)}</strong><p>{selectedPart.description || selectedPart.condition || 'Stock part'}</p></div><strong>×{Number(selectedAllocation.quantity)}</strong></div>
-          <div className="parts-fit-evidence"><label>Fit evidence / note<input value={fitNote} onChange={(event) => setFitNote(event.target.value)} placeholder="Measurements, observed fit, modification required…" /></label><div className="parts-fit-buttons"><button type="button" className="secondary" disabled={saving} onClick={() => void recordFit('rejected')}>Doesn’t fit</button><button type="button" className="secondary" disabled={saving} onClick={() => void recordFit('conditional')}>Conditional fit</button><button type="button" disabled={saving} onClick={() => void recordFit('confirmed')}>Confirm fit</button></div></div>
-          {latestFit && <p className={`parts-fit-status fit-${latestFit.result}`}>Latest fit evidence: <strong>{latestFit.result}</strong>{latestFit.evidence_note ? ` · ${latestFit.evidence_note}` : ''}</p>}
-          <div className="parts-reservation-actions"><button type="button" className="secondary" disabled={saving} onClick={() => void release()}>Release reservation</button><button type="button" disabled={saving || !latestFit || !['confirmed','conditional'].includes(latestFit.result)} onClick={() => void useReservedPart()}>Use part & fulfil need</button></div>
+          <div className="parts-fit-evidence">
+            <label>Bench fit evidence / note<input value={fitNote} onChange={(event) => setFitNote(event.target.value)} placeholder="Required for caveat or failure; add measurements/observations when useful…" /></label>
+            <label className="parts-fit-check"><input type="checkbox" checked={fitModificationRequired} onChange={(event) => setFitModificationRequired(event.target.checked)} />Modification required for this fit</label>
+            <div className="parts-fit-buttons"><button type="button" className="secondary" disabled={saving} onClick={() => void recordFit('rejected')}>Doesn’t fit</button><button type="button" className="secondary" disabled={saving} onClick={() => void recordFit('conditional')}>Fits with caveat</button><button type="button" disabled={saving} onClick={() => void recordFit('confirmed')}>Fits & works</button></div>
+          </div>
+          {latestFit && <p className={`parts-fit-status fit-${latestFit.result}`}>Latest fit evidence: <strong>{fitLabel(latestFit.result)}</strong>{latestFit.modification_required ? ' · modification required' : ''}{latestFit.evidence_note ? ` · ${latestFit.evidence_note}` : ''}</p>}
+          <div className="parts-reservation-actions"><button type="button" className="secondary" disabled={saving} onClick={() => void release()}>Return untested</button><button type="button" disabled={saving || !latestFit || !['confirmed','conditional'].includes(latestFit.result)} onClick={() => void useReservedPart()}>Use part & fulfil need</button></div>
         </div>
       )}
 
