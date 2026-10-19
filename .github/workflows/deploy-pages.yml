@@ -41,12 +41,14 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_BUILD_SHA: ${{ env.DEPLOY_SHA }}
         run: npm run verify
 
       - name: Build verified commit
         if: ${{ github.event_name == 'workflow_run' }}
         env:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_BUILD_SHA: ${{ env.DEPLOY_SHA }}
         run: npm run build
 
       - name: Stamp deployment fingerprint
