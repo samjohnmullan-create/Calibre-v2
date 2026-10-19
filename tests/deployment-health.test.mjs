@@ -15,9 +15,14 @@ function startServer() {
       return
     }
 
-    if (req.url?.startsWith('/rest/v1/')) {
+    if (req.url?.startsWith('/auth/v1/health')) {
+      if (req.headers.apikey !== 'test-publishable-key') {
+        res.writeHead(401, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ message: 'invalid API key' }))
+        return
+      }
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end('{}')
+      res.end(JSON.stringify({ name: 'GoTrue', version: 'test' }))
       return
     }
 
