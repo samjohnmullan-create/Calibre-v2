@@ -29,3 +29,19 @@ test('manual deploys run full verification before publication', () => {
     assert.match(workflow, /Verify manual deployment[\s\S]*npm run verify/)
   }
 })
+
+test('production deployments publish a commit fingerprint and verify the live release', () => {
+  for (const workflow of [pages, customer]) {
+    assert.match(workflow, /write-deploy-meta\.mjs/)
+    assert.match(workflow, /post-deploy-health\.mjs/)
+    assert.match(workflow, /EXPECTED_SHA:/)
+    assert.match(workflow, /SUPABASE_PUBLISHABLE_KEY:/)
+  }
+
+  assert.match(pages, /SITE_URL: https:\/\/app\.calibreco\.com\.au/)
+  assert.match(customer, /SITE_URL: https:\/\/calibreco\.com\.au/)
+})
+
+test('customer deployment fails instead of silently skipping when FTPS credentials are missing', () => {
+  assert.match(customer, /Customer deploy credentials unavailable[\s\S]*exit 1/)
+})
