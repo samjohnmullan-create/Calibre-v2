@@ -52,8 +52,48 @@ jobs:
         if: ${{ env.CPANEL_FTP_USERNAME == '' || env.CPANEL_FTP_PASSWORD == '' }}
         run: echo "::warning::Customer FTPS deployment skipped because CPANEL_FTP_USERNAME and/or CPANEL_FTP_PASSWORD are not configured."
 
-      - name: Deploy to VentraIP cPanel over FTPS
+      - name: Deploy to VentraIP cPanel over FTPS (attempt 1)
+        id: ftps_attempt_1
         if: ${{ env.CPANEL_FTP_USERNAME != '' && env.CPANEL_FTP_PASSWORD != '' }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: s06le.syd7.hostingplatform.net.au
+          username: ${{ env.CPANEL_FTP_USERNAME }}
+          password: ${{ env.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./
+          security: strict
+          log-level: standard
+
+      - name: Back off before FTPS retry
+        if: ${{ steps.ftps_attempt_1.outcome == 'failure' }}
+        run: sleep 15
+
+      - name: Deploy to VentraIP cPanel over FTPS (attempt 2)
+        id: ftps_attempt_2
+        if: ${{ steps.ftps_attempt_1.outcome == 'failure' }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: s06le.syd7.hostingplatform.net.au
+          username: ${{ env.CPANEL_FTP_USERNAME }}
+          password: ${{ env.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./
+          security: strict
+          log-level: standard
+
+      - name: Back off before final FTPS attempt
+        if: ${{ steps.ftps_attempt_2.outcome == 'failure' }}
+        run: sleep 30
+
+      - name: Deploy to VentraIP cPanel over FTPS (final attempt)
+        if: ${{ steps.ftps_attempt_2.outcome == 'failure' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: s06le.syd7.hostingplatform.net.au
