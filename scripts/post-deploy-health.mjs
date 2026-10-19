@@ -53,12 +53,16 @@ async function checkDeploymentFingerprint() {
 }
 
 async function checkSupabase() {
-  await checkedFetch(`${supabaseUrl}/rest/v1/`, {
+  const response = await checkedFetch(`${supabaseUrl}/auth/v1/health`, {
     headers: {
       apikey: supabaseKey,
-      accept: 'application/openapi+json, application/json',
+      accept: 'application/json',
     },
   })
+  const health = await response.json()
+  if (!health || typeof health !== 'object') {
+    throw new Error('Supabase auth health endpoint returned an invalid response')
+  }
 }
 
 let lastError
