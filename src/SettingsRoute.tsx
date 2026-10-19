@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuditHistoryPanel from './AuditHistoryPanel'
+import SystemHealthPanel from './SystemHealthPanel'
 import { exportWorkspaceStorageArchive } from './storageArchive'
 import { useWorkshopSession } from './WorkshopSessionGate'
 import { workspaceBackupTables, type ExportTable } from './workspaceBackupTables'
@@ -173,6 +174,8 @@ export default function SettingsRoute() {
       </header>
 
       <section className="settings-v2-grid">
+        {workspaceId && <SystemHealthPanel workspaceId={workspaceId} />}
+
         <article className="settings-v2-card settings-v2-card-primary">
           <div>
             <p className="eyebrow">DATA & RECOVERY</p>
