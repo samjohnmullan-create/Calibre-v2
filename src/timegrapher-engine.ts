@@ -1,8 +1,8 @@
 export const STANDARD_BPH = [14400, 16200, 18000, 19800, 21600, 25200, 28800, 36000] as const
 
-export type BeatSample = { t:number; t1?:number; peaks?:number; strength?:number; crest?:number }
+export type BeatSample = { t:number; t1?:number; peaks?:number; bphHint?:number; strength?:number; crest?:number }
 export type TraceDot = { t:number; xMs:number; parity:0|1 }
-export type TimingResult = { ready:boolean; reliable:boolean; stage:string; bph?:number; rateSecondsPerDay?:number; beatErrorMs?:number|null; beatErrorTrusted?:boolean; stability?:string; stabilityLabel?:string; confidence?:number; status?:'poor'|'good'|'attention'|'adjust'; beats?:number; samples?:number; directSamples?:number; missedBeatRatio?:number; beatErrorRunSamples?:number; jitterMs?:number; nominalIntervalMs?:number; measuredIntervalMs?:number; measuredBph?:number|null; traceDots?:TraceDot[]; measuredAt?:string }
+export type TimingResult = { ready:boolean; reliable:boolean; stage:string; bph?:number; rateSecondsPerDay?:number; beatErrorMs?:number|null; beatErrorTrusted?:boolean; amplitudeDeg?:number|null; amplitudeTrusted?:boolean; amplitudeSamples?:number; liftAngleDeg?:number; stability?:string; stabilityLabel?:string; confidence?:number; status?:'poor'|'good'|'attention'|'adjust'; beats?:number; samples?:number; directSamples?:number; missedBeatRatio?:number; beatErrorRunSamples?:number; jitterMs?:number; nominalIntervalMs?:number; measuredIntervalMs?:number; measuredBph?:number|null; traceDots?:TraceDot[]; measuredAt?:string }
 export type AudioLevel = { rms?:number; pk?:number; noise?:number; hfNoise?:number; threshold?:number; diffRms?:number; diffPk?:number; crest?:number; strength?:number; handling?:boolean; clipping?:boolean; clippedSamples?:number; sampleRate?:number }
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n))
@@ -14,12 +14,23 @@ function rateFromInterval(bph:number,intervalSec:number){const nominal=3600/bph;
 
 function resolveNominal(beats:BeatSample[],requested:number){if(requested)return{bph:requested,guess:null as number|null};const intervals:number[]=[];for(let i=1;i<beats.length;i++){const dt=beats[i].t-beats[i-1].t;if(dt>.04&&dt<.7)intervals.push(dt)}if(intervals.length<6)return null;const med=median(intervals);if(med==null)return null;const guess=3600/med,near=nearestCommon(guess);if(!near||near.error>.08)return null;return{bph:near.bph,guess}}
 
-export function analyseTiming(beats:BeatSample[],lockedBph=0):TimingResult{
-  if(beats.length<6)return{ready:false,reliable:false,stage:beats.length?'Detecting ticks…':'Listening…',beats:beats.length}
+function amplitudeFromBurst(bph:number,liftAngleDeg:number,burstSec:number){
+  if(!Number.isFinite(burstSec)||burstSec<=0)return null
+  const angle=(liftAngleDeg/2)*Math.PI/180
+  const phase=Math.PI*bph*burstSec/7200
+  const sine=Math.sin(phase)
+  if(!Number.isFinite(sine)||Math.abs(sine)<.025)return null
+  const amplitude=Math.asin(clamp(Math.sin(angle)/sine,-1,1))*180/Math.PI
+  const deg=Math.abs(amplitude)
+  return deg>=80&&deg<=360?deg:null
+}
+
+export function analyseTiming(beats:BeatSample[],lockedBph=0,liftAngleDeg=52):TimingResult{
+  if(beats.length<6)return{ready:false,reliable:false,stage:beats.length?'Detecting ticks…':'Listening…',beats:beats.length,liftAngleDeg}
   const ordered=[...beats].filter(b=>Number.isFinite(b.t)).sort((a,b)=>a.t-b.t)
   const last=ordered[ordered.length-1]?.t??0,windowed=ordered.filter(b=>b.t>=last-30)
   const nominalInfo=resolveNominal(windowed,Number(lockedBph)||0)
-  if(!nominalInfo)return{ready:false,reliable:false,stage:'Finding beat rate…',beats:windowed.length}
+  if(!nominalInfo)return{ready:false,reliable:false,stage:'Finding beat rate…',beats:windowed.length,liftAngleDeg}
   const bph=nominalInfo.bph,nominal=3600/bph,anchor=windowed[0]?.t??0
   type Indexed=BeatSample&{n:number;residual:number}
   const indexed:Indexed[]=[]
@@ -42,11 +53,14 @@ export function analyseTiming(beats:BeatSample[],lockedBph=0):TimingResult{
   const traceDots:TraceDot[]=indexed.map(b=>{let x=b.residual*1000-mid;x=(((x+half)%span)+span)%span-half;return{t:b.t,xMs:x,parity:(b.n&1) as 0|1}})
   const directSamples=evenIntervals.length+oddIntervals.length,missedRatio=indexed.length>1?clamp01(1-directSamples/(indexed.length-1)):1
   const jitterMs=scatter!=null?scatter/86400*nominal*1000:0
+  const amplitudes=indexed.map(b=>b.peaks&&b.peaks>=2&&b.t1!=null?amplitudeFromBurst(bph,liftAngleDeg,b.t1-b.t):null).filter((v):v is number=>v!=null)
+  const amplitudeMed=median(amplitudes),amplitudeSpread=amplitudes.length>=4?stdev(amplitudes):Infinity
+  const amplitudeTrusted=amplitudeMed!=null&&amplitudes.length>=6&&amplitudeSpread<=35
   const intervalCoverage=clamp01(used/18),scatterQuality=scatter==null?.45:clamp01(1-scatter/120),beatQuality=beatError==null?.55:clamp01(1-beatError/5),confidence=clamp01(intervalCoverage*.45+scatterQuality*.35+beatQuality*.10+clamp01(1-missedRatio)*.10)
   const reliable=used>=8&&rate!=null&&confidence>=.58
   let stability='Collecting';if(scatter!=null){if(scatter<8)stability='Excellent';else if(scatter<20)stability='Good';else if(scatter<45)stability='Fair';else stability='Unstable'}
   let status:TimingResult['status']='poor';if(reliable&&Math.abs(rate??999)<=15&&(scatter??999)<45)status='good';else if(reliable&&Math.abs(rate??999)<=30)status='attention';else if(reliable)status='adjust'
-  return{ready:used>=6,reliable,stage:used<8?'Timing…':'Timing',bph,rateSecondsPerDay:rate??undefined,beatErrorMs:beatError,beatErrorTrusted:beatError!=null&&evenIntervals.length>=3&&oddIntervals.length>=3,stability:stability.toLowerCase(),stabilityLabel:stability,confidence,status,beats:indexed.length,samples:used,directSamples,missedBeatRatio:missedRatio,beatErrorRunSamples:Math.min(evenIntervals.length,oddIntervals.length)*2,jitterMs,nominalIntervalMs:nominal*1000,measuredIntervalMs:meanInterval!=null?meanInterval*1000:undefined,measuredBph,traceDots,measuredAt:new Date().toISOString()}
+  return{ready:used>=6,reliable,stage:used<8?'Timing…':'Timing',bph,rateSecondsPerDay:rate??undefined,beatErrorMs:beatError,beatErrorTrusted:beatError!=null&&evenIntervals.length>=3&&oddIntervals.length>=3,amplitudeDeg:amplitudeMed,amplitudeTrusted,amplitudeSamples:amplitudes.length,liftAngleDeg,stability:stability.toLowerCase(),stabilityLabel:stability,confidence,status,beats:indexed.length,samples:used,directSamples,missedBeatRatio:missedRatio,beatErrorRunSamples:Math.min(evenIntervals.length,oddIntervals.length)*2,jitterMs,nominalIntervalMs:nominal*1000,measuredIntervalMs:meanInterval!=null?meanInterval*1000:undefined,measuredBph,traceDots,measuredAt:new Date().toISOString()}
 }
 
 export function lockState(result:TimingResult,running:boolean){if(!running)return{label:'IDLE',progress:0,detail:'USB timing pickup is not running.'};const stage=result.stage.toLowerCase(),samples=result.samples??0,confidence=result.confidence??0;if(result.reliable)return{label:'LOCKED',progress:100,detail:`${Math.round(confidence*100)}% confidence · ${samples} timing samples`};if(stage.includes('beat rate'))return{label:'FINDING BPH',progress:34,detail:'Identifying the escapement beat rate from accepted USB pickup events.'};if(stage.includes('timing'))return{label:'TIMING',progress:clamp(55+samples*4,55,94),detail:'Separating tick and tock intervals and measuring rate.'};if(stage.includes('detect'))return{label:'DETECTING',progress:22,detail:'Building accepted escapement-event history.'};return{label:'LISTENING',progress:8,detail:'Waiting for usable escapement events from the USB timing pickup.'}}
