@@ -7,6 +7,8 @@ class CalibreTickProcessor extends AudioWorkletProcessor {
     this.sensitivity = 2.0
     this.blocks = 0
     this.previousByChannel = []
+    this.pending = null
+    this.quietBlocks = 0
     this.port.onmessage = (event) => {
       const sensitivity = Number(event.data?.sensitivity)
       if (Number.isFinite(sensitivity)) this.sensitivity = sensitivity
@@ -44,9 +46,14 @@ class CalibreTickProcessor extends AudioWorkletProcessor {
     const strength = diffPeak / Math.max(threshold, 0.000001)
     const handling = rms > rawThreshold && crest < 2.5
     const clipping = clipped > 0
-    const candidate = diffPeak > threshold && crest > 1.55 && !handling && !clipping
 
-    if (!candidate && !clipping) {
+    // A watch tick should be a distinct impulse above its local high-frequency
+    // noise floor, not merely continuous speech/room noise crossing a threshold.
+    const impulseCandidate = diffPeak > threshold && strength >= 1.35 && crest >= 1.9 && !handling && !clipping
+    const quietNow = diffPeak < threshold * 0.72
+    this.quietBlocks = quietNow ? this.quietBlocks + 1 : 0
+
+    if (!impulseCandidate && !clipping) {
       const hfAlpha = diffRms < this.hfNoise ? .06 : .002
       const rawAlpha = rms < this.rawNoise ? .05 : .003
       this.hfNoise = this.hfNoise * (1 - hfAlpha) + diffRms * hfAlpha
@@ -57,19 +64,39 @@ class CalibreTickProcessor extends AudioWorkletProcessor {
     }
 
     const eventTime = (currentFrame + diffPeakIndex) / sampleRate
-    this.blocks += 1
-    if (this.blocks % 4 === 0) {
-      this.port.postMessage({ kind: 'level', rms, pk: peak, noise: this.rawNoise, hfNoise: this.hfNoise, threshold, diffRms, diffPk: diffPeak, crest, strength, handling, clipping, clippedSamples: clipped, sampleRate, channels: channels.length })
+
+    // Collect the strongest edge in a short acoustic burst. We only emit it
+    // after the signal has fallen back toward the noise floor. This prevents
+    // one tick's ringing, speech, taps and broad noise from becoming a stream
+    // of fake beats.
+    if (impulseCandidate) {
+      if (!this.pending || eventTime - this.pending.started > .030) {
+        this.pending = { started: eventTime, t: eventTime, pk: peak, diffPk: diffPeak, crest, strength, threshold }
+      } else if (diffPeak > this.pending.diffPk) {
+        this.pending = { ...this.pending, t: eventTime, pk: peak, diffPk: diffPeak, crest, strength, threshold }
+      }
     }
 
-    // A mechanical tick creates a short burst with several sharp edges. The old
-    // 65 ms refractory window counted those ringing edges as separate beats.
-    // 100 ms is still safely below the shortest normal beat interval supported
-    // by Calibre (36,000 BPH = 100 ms) while collapsing one acoustic tick burst
-    // into one event.
-    if (candidate && eventTime - this.last >= .098) {
-      this.last = eventTime
-      this.port.postMessage({ kind: 'beat', t: eventTime, pk: peak, diffPk: diffPeak, crest, strength, threshold, sampleRate })
+    if (this.pending) {
+      const age = eventTime - this.pending.started
+      const envelopeClosed = age >= .012 && this.quietBlocks >= 2
+      const envelopeExpired = age >= .045
+      if (envelopeClosed || envelopeExpired) {
+        const hit = this.pending
+        this.pending = null
+        // Reject broad/weak impulses after observing the whole envelope.
+        const qualified = hit.strength >= 1.45 && hit.crest >= 2.0
+        // 95 ms suppresses ringing while retaining 36,000 BPH (100 ms).
+        if (qualified && hit.t - this.last >= .095) {
+          this.last = hit.t
+          this.port.postMessage({ kind: 'beat', t: hit.t, pk: hit.pk, diffPk: hit.diffPk, crest: hit.crest, strength: hit.strength, threshold: hit.threshold, sampleRate })
+        }
+      }
+    }
+
+    this.blocks += 1
+    if (this.blocks % 4 === 0) {
+      this.port.postMessage({ kind: 'level', rms, pk: peak, noise: this.rawNoise, hfNoise: this.hfNoise, threshold, diffRms, diffPk: diffPeak, crest, strength, handling, clipping, clippedSamples: clipped, sampleRate, channels: channels.length, candidate: impulseCandidate })
     }
     return true
   }
