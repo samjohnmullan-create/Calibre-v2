@@ -3,11 +3,14 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 
 const workshopEntry = await readFile(new URL('../src/WorkshopEntry.tsx', import.meta.url), 'utf8')
+const workshopShellCss = await readFile(new URL('../src/workshop-shell.css', import.meta.url), 'utf8')
 const calibreShell = await readFile(new URL('../src/CalibreShell.tsx', import.meta.url), 'utf8')
 const businessFinanceCss = await readFile(new URL('../src/business-finance-v4.css', import.meta.url), 'utf8')
 const intakeRoute = await readFile(new URL('../src/IntakeRoute.tsx', import.meta.url), 'utf8')
 const settingsRouteCss = await readFile(new URL('../src/settings-route.css', import.meta.url), 'utf8')
 const libraryRouteCss = await readFile(new URL('../src/library-route.css', import.meta.url), 'utf8')
+
+const eagerStyles = `${workshopEntry}\n${workshopShellCss}`
 
 const businessStyles = [
   'business-v2.css',
@@ -33,7 +36,7 @@ const libraryStyles = [
 
 function assertNotEager(stylesheets) {
   for (const stylesheet of stylesheets) {
-    assert.doesNotMatch(workshopEntry, new RegExp(stylesheet.replace('.', '\\.')))
+    assert.doesNotMatch(eagerStyles, new RegExp(stylesheet.replace('.', '\\.')))
   }
 }
 
@@ -42,6 +45,19 @@ function assertCssBundleOwns(bundle, stylesheets) {
     assert.match(bundle, new RegExp(`@import ['"]\\./${stylesheet.replace('.', '\\.')}['"];`))
   }
 }
+
+test('Workshop entry uses one explicit eager CSS manifest', () => {
+  assert.match(workshopEntry, /import ['"]\.\/workshop-shell\.css['"]/)
+  assert.doesNotMatch(workshopEntry, /import ['"]\.\/.+\.css['"]/g, 'WorkshopEntry should not rebuild the style cascade with scattered CSS imports')
+})
+
+test('eager Workshop correction order stays explicit', () => {
+  const base = workshopShellCss.indexOf("@import './styles.css';")
+  const mobileAcceptance = workshopShellCss.indexOf("@import './mobile-acceptance-v2.css';")
+  const mobileUi = workshopShellCss.indexOf("@import './mobile-ui-v3.css';")
+  const visualSystem = workshopShellCss.indexOf("@import './workshop-visual-system.css';")
+  assert.ok(base >= 0 && mobileAcceptance > base && mobileUi > mobileAcceptance && visualSystem > mobileUi)
+})
 
 test('Business-only styles stay out of the eager Workshop entry', () => {
   assertNotEager(businessStyles)
@@ -63,7 +79,7 @@ test('Intake lazy route owns its Intake styles', () => {
 
 test('Settings-only styles stay out of the eager Workshop entry', () => {
   assertNotEager(settingsStyles)
-  assert.doesNotMatch(workshopEntry, /settings-route\.css/)
+  assert.doesNotMatch(eagerStyles, /settings-route\.css/)
 })
 
 test('Settings lazy route loads one ordered style bundle', () => {
@@ -73,7 +89,7 @@ test('Settings lazy route loads one ordered style bundle', () => {
 
 test('Library-only styles stay out of the eager Workshop entry', () => {
   assertNotEager(libraryStyles)
-  assert.doesNotMatch(workshopEntry, /library-route\.css/)
+  assert.doesNotMatch(eagerStyles, /library-route\.css/)
 })
 
 test('Library lazy route loads one ordered style bundle', () => {
