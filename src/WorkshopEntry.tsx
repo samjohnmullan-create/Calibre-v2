@@ -1,7 +1,6 @@
+import { lazy, Suspense, useEffect, useState } from 'react'
 import CalibreShell from './CalibreShell'
 import BenchModeHost from './BenchModeHost'
-import ProcedurePreviewHost from './ProcedurePreviewHost'
-import CustomerPackHost from './CustomerPackHost'
 import CustomerEnquiryAttention from './CustomerEnquiryAttention'
 import WorkshopSessionGate from './WorkshopSessionGate'
 import './styles.css'
@@ -58,18 +57,48 @@ import './bench-mobile-acceptance.css'
 import './glass-active-tabs.css'
 import './mobile-ui-v3.css'
 import './research-click-fix.css'
-import './customer-publishing.css'
-import './customer-enquiries.css'
 import './customer-notifications.css'
 import './workshop-visual-system.css'
+
+const ProcedurePreviewHost = lazy(() => import('./ProcedurePreviewHost'))
+const CustomerPackHost = lazy(() => import('./CustomerPackHost'))
+
+type AuxiliaryRoute = 'customer' | 'customer-pack' | 'procedures' | 'other'
+
+function readAuxiliaryRoute(): AuxiliaryRoute {
+  const first = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)[0] ?? ''
+  if (first === 'customer' || first === 'customer-pack' || first === 'procedures') return first
+  return 'other'
+}
+
+function AuxiliaryHosts() {
+  const [route, setRoute] = useState<AuxiliaryRoute>(readAuxiliaryRoute)
+
+  useEffect(() => {
+    const sync = () => setRoute(readAuxiliaryRoute())
+    window.addEventListener('hashchange', sync)
+    sync()
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+
+  const showCustomerPack = route === 'customer' || route === 'customer-pack'
+  const showProcedurePreview = route === 'procedures'
+  if (!showCustomerPack && !showProcedurePreview) return null
+
+  return (
+    <Suspense fallback={null}>
+      {showCustomerPack && <CustomerPackHost />}
+      {showProcedurePreview && <ProcedurePreviewHost />}
+    </Suspense>
+  )
+}
 
 export default function WorkshopEntry() {
   return (
     <WorkshopSessionGate>
       <CalibreShell />
       <BenchModeHost />
-      <ProcedurePreviewHost />
-      <CustomerPackHost />
+      <AuxiliaryHosts />
       <CustomerEnquiryAttention />
     </WorkshopSessionGate>
   )
