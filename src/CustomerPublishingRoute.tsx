@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import CustomerPublishingStudio from './CustomerPublishingStudio'
 import CustomerEnquiriesRoute from './CustomerEnquiriesRoute'
+import './customer-publishing.css'
+import './customer-enquiries.css'
 
 function readMode() {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
