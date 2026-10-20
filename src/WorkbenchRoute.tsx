@@ -35,6 +35,10 @@ type ViewKey = 'active' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'queued' | '
 type CommandLaneKey = 'ready' | 'waiting' | 'qc' | 'queued'
 type JobPanelMode = 'job' | 'research'
 type WorkbenchSummary = Record<ViewKey, number | string | null>
+type WorkbenchCommandSnapshot = {
+  work?: WorkRow[]
+  progress?: Record<string, Partial<ChecklistProgress>>
+}
 
 const views: { key: ViewKey; label: string }[] = [
   { key: 'active', label: 'Active' },
@@ -214,53 +218,25 @@ export default function WorkbenchRoute() {
   async function loadCommandCentre() {
     if (!active || !workspaceId) return
     setCommandLoading(true)
-    const result = await supabase
-      .from('workbench_jobs')
-      .select('id,item_id,work_number,type,title,status,waiting_reason,priority,next_action,blocker,diagnosis,opened_at,completed_at,item_number,item_title,item_type')
-      .eq('workspace_id', workspaceId)
-      .in('status', ['on_bench', 'ready', 'waiting', 'qc', 'queued'])
-      .order('priority', { ascending: false })
-      .order('work_number', { ascending: false })
-      .limit(40)
-
-    if (result.error) {
-      setCommandLoading(false)
-      setMessage(`Workbench command centre failed to load: ${result.error.message}`)
-      return
-    }
-
-    const rows = (result.data ?? []) as WorkRow[]
-    setCommandWork(rows)
-    const ids = rows.map((record) => record.id)
-    if (!ids.length) {
-      setCommandProgress({})
-      setCommandLoading(false)
-      return
-    }
-
-    const checklistResult = await supabase
-      .from('work_checklist_steps')
-      .select('work_id,required,status')
-      .eq('workspace_id', workspaceId)
-      .in('work_id', ids)
-
+    const result = await supabase.rpc('workbench_command_snapshot', {
+      p_workspace_id: workspaceId,
+      p_limit: 40,
+    })
     setCommandLoading(false)
-    if (checklistResult.error) {
-      setMessage(`Workbench checklist progress failed to load: ${checklistResult.error.message}`)
+
+    if (result.error || !result.data) {
+      setMessage(`Workbench command centre failed to load: ${result.error?.message ?? 'No command snapshot returned.'}`)
       return
     }
 
+    const snapshot = result.data as WorkbenchCommandSnapshot
+    const rows = Array.isArray(snapshot.work) ? snapshot.work : []
+    const returnedProgress = snapshot.progress && typeof snapshot.progress === 'object' ? snapshot.progress : {}
     const progress: Record<string, ChecklistProgress> = {}
-    for (const id of ids) progress[id] = { ...emptyProgress }
-    for (const step of checklistResult.data ?? []) {
-      const row = progress[step.work_id] ?? { ...emptyProgress }
-      row.total += 1
-      if (step.status === 'done' || step.status === 'na') row.completed += 1
-      if (step.required && step.status !== 'done' && step.status !== 'na') row.requiredOpen += 1
-      if (step.status === 'blocked') row.blocked += 1
-      progress[step.work_id] = row
+    for (const record of rows) {
+      progress[record.id] = { ...emptyProgress, ...(returnedProgress[record.id] ?? {}) }
     }
-    for (const row of Object.values(progress)) row.percent = row.total ? Math.round((row.completed / row.total) * 100) : 0
+    setCommandWork(rows)
     setCommandProgress(progress)
   }
 
