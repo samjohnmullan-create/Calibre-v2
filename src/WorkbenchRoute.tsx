@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import WorkJobCard from './WorkJobCard'
 import BenchResearchPanel from './BenchResearchPanel'
 import WorkbenchAttention from './WorkbenchAttention'
+import { useWorkshopSession } from './WorkshopSessionGate'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type WorkRow = {
@@ -33,6 +34,7 @@ type ChecklistProgress = {
 type ViewKey = 'active' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'queued' | 'complete'
 type CommandLaneKey = 'ready' | 'waiting' | 'qc' | 'queued'
 type JobPanelMode = 'job' | 'research'
+type WorkbenchSummary = Record<ViewKey, number | string | null>
 
 const views: { key: ViewKey; label: string }[] = [
   { key: 'active', label: 'Active' },
@@ -126,8 +128,9 @@ function CommandCard({ record, progress, featured = false, onOpen }: { record: W
 
 export default function WorkbenchRoute() {
   const initialRoute = workbenchRoute()
+  const { workspace } = useWorkshopSession()
+  const workspaceId = workspace.id
   const [active, setActive] = useState(isWorkbench)
-  const [workspaceId, setWorkspaceId] = useState('')
   const [work, setWork] = useState<WorkRow[]>([])
   const [commandWork, setCommandWork] = useState<WorkRow[]>([])
   const [commandProgress, setCommandProgress] = useState<Record<string, ChecklistProgress>>({})
@@ -185,46 +188,26 @@ export default function WorkbenchRoute() {
     setPage(0)
   }, [view, debouncedQuery])
 
-  useEffect(() => {
-    if (!active) return
-    let cancelled = false
-    ;(async () => {
-      const result = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
-      if (cancelled) return
-      if (result.error || !result.data) {
-        setMessage(`Workbench unavailable: ${result.error?.message ?? 'No workspace found.'}`)
-        return
-      }
-      setWorkspaceId(result.data.id)
-    })()
-    return () => { cancelled = true }
-  }, [active])
-
   async function loadSummary() {
     if (!active || !workspaceId) return
-    const countBase = () => supabase.from('workbench_jobs').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId)
-    const [activeResult, readyResult, benchResult, waitingResult, qcResult, queuedResult, completeResult] = await Promise.all([
-      countBase().neq('status', 'complete').neq('status', 'cancelled'),
-      countBase().eq('status', 'ready'),
-      countBase().eq('status', 'on_bench'),
-      countBase().eq('status', 'waiting'),
-      countBase().eq('status', 'qc'),
-      countBase().eq('status', 'queued'),
-      countBase().eq('status', 'complete'),
-    ])
-    const error = activeResult.error ?? readyResult.error ?? benchResult.error ?? waitingResult.error ?? qcResult.error ?? queuedResult.error ?? completeResult.error
-    if (error) {
-      setMessage(`Workbench summary failed to load: ${error.message}`)
+    const result = await supabase
+      .rpc('workbench_status_counts', { p_workspace_id: workspaceId })
+      .single()
+
+    if (result.error || !result.data) {
+      setMessage(`Workbench summary failed to load: ${result.error?.message ?? 'No summary returned.'}`)
       return
     }
+
+    const summary = result.data as WorkbenchSummary
     setCounts({
-      active: activeResult.count ?? 0,
-      ready: readyResult.count ?? 0,
-      on_bench: benchResult.count ?? 0,
-      waiting: waitingResult.count ?? 0,
-      qc: qcResult.count ?? 0,
-      queued: queuedResult.count ?? 0,
-      complete: completeResult.count ?? 0,
+      active: Number(summary.active ?? 0),
+      ready: Number(summary.ready ?? 0),
+      on_bench: Number(summary.on_bench ?? 0),
+      waiting: Number(summary.waiting ?? 0),
+      qc: Number(summary.qc ?? 0),
+      queued: Number(summary.queued ?? 0),
+      complete: Number(summary.complete ?? 0),
     })
   }
 
