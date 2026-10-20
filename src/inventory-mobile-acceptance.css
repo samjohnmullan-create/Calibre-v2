@@ -1,0 +1,22 @@
+/*
+ * Inventory-specific phone acceptance rules that still provide behaviour not
+ * superseded by mobile-ui-v3.css. Keep this directly after the shared phone
+ * acceptance layer so the later v3 correction layer retains final precedence.
+ */
+@media (max-width: 820px) {
+  .inventory-hub-heading {
+    gap: 9px;
+    margin-bottom: 15px;
+  }
+
+  .inventory-hub-heading > button {
+    padding: 9px 13px;
+  }
+
+  .inventory-hub-page.inventory-v2-page {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    gap: 12px;
+  }
+}
