@@ -30,6 +30,10 @@ test('Workbench Attention loads its dashboard data in one snapshot RPC', () => {
   assert.doesNotMatch(attention, /from\(['"]knowledge_document_findings['"]\)/)
 })
 
+test('Workbench Attention clears stale snapshot data when refresh fails', () => {
+  assert.match(attention, /if \(result\.error \|\| !result\.data\) \{\s*setWork\(\[\]\)\s*setNeeds\(\[\]\)\s*setFailedQc\(\[\]\)\s*setEvidenceCount\(0\)/)
+})
+
 test('Workbench status aggregate stays RLS-aware and authenticated-only', () => {
   assert.match(statusMigration, /security invoker/i)
   assert.match(statusMigration, /set search_path = ''/i)
