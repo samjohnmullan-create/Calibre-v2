@@ -66,7 +66,7 @@ async function mockAuthenticatedWorkshop(page) {
       body: '[]',
     })
   })
-})
+}
 
 test('customer home navigates to an empty catalogue without touching live data', async ({ page }) => {
   await mockPublicData(page)
