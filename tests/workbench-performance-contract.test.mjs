@@ -4,7 +4,9 @@ import { readFile } from 'node:fs/promises'
 
 const workbench = await readFile(new URL('../src/WorkbenchRoute.tsx', import.meta.url), 'utf8')
 const benchMode = await readFile(new URL('../src/BenchModeHost.tsx', import.meta.url), 'utf8')
-const migration = await readFile(new URL('../supabase/migrations/20261020102732_workbench_status_counts.sql', import.meta.url), 'utf8')
+const attention = await readFile(new URL('../src/WorkbenchAttention.tsx', import.meta.url), 'utf8')
+const statusMigration = await readFile(new URL('../supabase/migrations/20261020102732_workbench_status_counts.sql', import.meta.url), 'utf8')
+const attentionMigration = await readFile(new URL('../supabase/migrations/20261020104628_workbench_attention_snapshot.sql', import.meta.url), 'utf8')
 
 test('Workbench reuses the authenticated workspace and aggregates status counts in one RPC', () => {
   assert.match(workbench, /useWorkshopSession\(\)/)
@@ -20,10 +22,26 @@ test('Bench Mode reuses the authenticated session context instead of refetching 
   assert.doesNotMatch(benchMode, /from\(['"]workspaces['"]\)/)
 })
 
+test('Workbench Attention loads its dashboard data in one snapshot RPC', () => {
+  assert.match(attention, /rpc\(['"]workbench_attention_snapshot['"], \{ p_workspace_id: workspace\.id \}\)/)
+  assert.doesNotMatch(attention, /from\(['"]workbench_jobs['"]\)/)
+  assert.doesNotMatch(attention, /from\(['"]work_part_needs['"]\)/)
+  assert.doesNotMatch(attention, /from\(['"]work_qc_checks['"]\)/)
+  assert.doesNotMatch(attention, /from\(['"]knowledge_document_findings['"]\)/)
+})
+
 test('Workbench status aggregate stays RLS-aware and authenticated-only', () => {
-  assert.match(migration, /security invoker/i)
-  assert.match(migration, /set search_path = ''/i)
-  assert.match(migration, /revoke execute on function public\.workbench_status_counts\(uuid\) from public;/i)
-  assert.match(migration, /revoke execute on function public\.workbench_status_counts\(uuid\) from anon;/i)
-  assert.match(migration, /grant execute on function public\.workbench_status_counts\(uuid\) to authenticated;/i)
+  assert.match(statusMigration, /security invoker/i)
+  assert.match(statusMigration, /set search_path = ''/i)
+  assert.match(statusMigration, /revoke execute on function public\.workbench_status_counts\(uuid\) from public;/i)
+  assert.match(statusMigration, /revoke execute on function public\.workbench_status_counts\(uuid\) from anon;/i)
+  assert.match(statusMigration, /grant execute on function public\.workbench_status_counts\(uuid\) to authenticated;/i)
+})
+
+test('Workbench attention snapshot stays RLS-aware and authenticated-only', () => {
+  assert.match(attentionMigration, /security invoker/i)
+  assert.match(attentionMigration, /set search_path = ''/i)
+  assert.match(attentionMigration, /revoke execute on function public\.workbench_attention_snapshot\(uuid\) from public;/i)
+  assert.match(attentionMigration, /revoke execute on function public\.workbench_attention_snapshot\(uuid\) from anon;/i)
+  assert.match(attentionMigration, /grant execute on function public\.workbench_attention_snapshot\(uuid\) to authenticated;/i)
 })

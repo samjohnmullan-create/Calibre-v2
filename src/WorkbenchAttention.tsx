@@ -56,7 +56,13 @@ type Snapshot = {
   ready: number
 }
 
-const activeStatuses = ['queued', 'ready', 'on_bench', 'waiting', 'qc']
+type AttentionSnapshotResponse = {
+  work?: WorkRow[]
+  needs?: NeedRow[]
+  failedQc?: QcRow[]
+  evidenceCount?: number | string | null
+}
+
 const titleCase = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 const workHref = (id: string) => `#/workbench/${encodeURIComponent(id)}`
 
@@ -91,40 +97,19 @@ export default function WorkbenchAttention() {
     setLoading(true)
     setMessage('')
 
-    const [workResult, needResult, qcResult, evidenceResult] = await Promise.all([
-      supabase.from('workbench_jobs')
-        .select('id,item_id,work_number,item_number,item_title,status,waiting_reason,priority,next_action,blocker')
-        .eq('workspace_id', workspace.id)
-        .in('status', activeStatuses)
-        .order('priority', { ascending: false })
-        .order('work_number', { ascending: false }),
-      supabase.from('work_part_needs')
-        .select('id,work_record_id,part_type,description,status')
-        .eq('workspace_id', workspace.id)
-        .in('status', ['open', 'reserved']),
-      supabase.from('work_qc_checks')
-        .select('id,work_id,label,check_key,status')
-        .eq('workspace_id', workspace.id)
-        .eq('status', 'failed'),
-      supabase.from('knowledge_document_findings')
-        .select('id', { count: 'exact', head: true })
-        .eq('workspace_id', workspace.id)
-        .eq('review_status', 'candidate'),
-    ])
-
+    const result = await supabase.rpc('workbench_attention_snapshot', { p_workspace_id: workspace.id })
     setLoading(false)
-    const error = workResult.error ?? needResult.error ?? qcResult.error ?? evidenceResult.error
-    if (error) {
-      setMessage(`Attention could not load: ${error.message}`)
+
+    if (result.error || !result.data) {
+      setMessage(`Attention could not load: ${result.error?.message ?? 'No snapshot returned.'}`)
       return
     }
 
-    const nextWork = (workResult.data ?? []) as WorkRow[]
-    const activeWorkIds = new Set(nextWork.map((row) => row.id))
-    setWork(nextWork)
-    setNeeds(((needResult.data ?? []) as NeedRow[]).filter((row) => activeWorkIds.has(row.work_record_id)))
-    setFailedQc(((qcResult.data ?? []) as QcRow[]).filter((row) => activeWorkIds.has(row.work_id)))
-    setEvidenceCount(evidenceResult.count ?? 0)
+    const next = result.data as AttentionSnapshotResponse
+    setWork(Array.isArray(next.work) ? next.work : [])
+    setNeeds(Array.isArray(next.needs) ? next.needs : [])
+    setFailedQc(Array.isArray(next.failedQc) ? next.failedQc : [])
+    setEvidenceCount(Number(next.evidenceCount ?? 0))
   }
 
   useEffect(() => {
