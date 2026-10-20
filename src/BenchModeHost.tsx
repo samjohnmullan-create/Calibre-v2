@@ -71,52 +71,66 @@ export default function BenchModeHost() {
     return () => window.removeEventListener('hashchange', sync)
   }, [])
 
-  async function loadHost() {
-    if (!workspaceId || !userId) return
+  async function loadCandidates(preferredWorkId = selectedWorkId) {
+    if (!workspaceId) return [] as CandidateWork[]
     setLoading(true)
-    const [sessionResult, workResult] = await Promise.all([
-      supabase
-        .from('work_sessions')
-        .select('id,work_id,item_id,started_at,paused_at')
-        .eq('workspace_id', workspaceId)
-        .eq('started_by', userId)
-        .is('ended_at', null)
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from('workbench_jobs')
-        .select('id,item_id,work_number,title,status,priority,next_action,item_number,item_title')
-        .eq('workspace_id', workspaceId)
-        .neq('status', 'complete')
-        .neq('status', 'cancelled')
-        .order('priority', { ascending: false })
-        .order('work_number', { ascending: false })
-        .limit(30),
-    ])
+    const result = await supabase
+      .from('workbench_jobs')
+      .select('id,item_id,work_number,title,status,priority,next_action,item_number,item_title')
+      .eq('workspace_id', workspaceId)
+      .neq('status', 'complete')
+      .neq('status', 'cancelled')
+      .order('priority', { ascending: false })
+      .order('work_number', { ascending: false })
+      .limit(30)
     setLoading(false)
-    const error = sessionResult.error ?? workResult.error
-    if (error) {
-      setMessage(`Bench Mode unavailable: ${error.message}`)
-      return
+
+    if (result.error) {
+      setMessage(`Bench Mode unavailable: ${result.error.message}`)
+      return [] as CandidateWork[]
     }
 
-    const nextSession = (sessionResult.data ?? null) as ActiveSession | null
-    const nextCandidates = (workResult.data ?? []) as CandidateWork[]
-    setActiveSession(nextSession)
+    const nextCandidates = (result.data ?? []) as CandidateWork[]
     setCandidates(nextCandidates)
-    if (nextSession) setSelectedWorkId(nextSession.work_id)
-    else if (selectedWorkId && !nextCandidates.some((record) => record.id === selectedWorkId)) setSelectedWorkId('')
+    if (preferredWorkId && !nextCandidates.some((record) => record.id === preferredWorkId)) setSelectedWorkId('')
     setMessage('')
+    return nextCandidates
+  }
+
+  async function loadActiveSession() {
+    if (!workspaceId || !userId) return null
+    const result = await supabase
+      .from('work_sessions')
+      .select('id,work_id,item_id,started_at,paused_at')
+      .eq('workspace_id', workspaceId)
+      .eq('started_by', userId)
+      .is('ended_at', null)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (result.error) {
+      setMessage(`Bench Mode unavailable: ${result.error.message}`)
+      return null
+    }
+
+    const nextSession = (result.data ?? null) as ActiveSession | null
+    setActiveSession(nextSession)
+    if (nextSession) {
+      setSelectedWorkId(nextSession.work_id)
+      if (!candidates.some((record) => record.id === nextSession.work_id)) await loadCandidates(nextSession.work_id)
+    }
+    return nextSession
   }
 
   async function refreshBenchContext() {
-    await loadHost()
+    const nextSession = await loadActiveSession()
+    if (!nextSession && chooserOpen) await loadCandidates(selectedWorkId)
     setStepRefresh((value) => value + 1)
     window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId: selectedWorkId } }))
   }
 
-  useEffect(() => { void loadHost() }, [workspaceId, userId])
+  useEffect(() => { void loadActiveSession() }, [workspaceId, userId])
 
   const selectedWork = useMemo(() => candidates.find((record) => record.id === selectedWorkId) ?? null, [candidates, selectedWorkId])
 
@@ -173,6 +187,7 @@ export default function BenchModeHost() {
   function openLauncher() {
     if (activeSession) setSelectedWorkId(activeSession.work_id)
     setChooserOpen(true)
+    void loadCandidates(activeSession?.work_id ?? selectedWorkId)
   }
 
   const benchPaused = Boolean(activeSession?.paused_at)
