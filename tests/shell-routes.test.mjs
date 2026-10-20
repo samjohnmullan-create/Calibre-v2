@@ -21,8 +21,8 @@ test('every shell navigation destination has a mounted route surface', () => {
   }
 })
 
-test('Library navigation mounts KnowledgePage with the authenticated workspace', () => {
-  assert.match(shell, /import KnowledgePage from ['"]\.\/KnowledgePage['"]/)
+test('Library navigation lazy-loads KnowledgePage with the authenticated workspace', () => {
+  assert.match(shell, /const KnowledgePage = lazy\(\(\) => import\(['"]\.\/KnowledgePage['"]\)\)/)
   assert.ok(shell.includes("hash: '#/calibre'"), 'Expected Library navigation to target #/calibre')
   assert.match(
     shell,

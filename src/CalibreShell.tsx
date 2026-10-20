@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import CreateItemFlow from './CreateItemFlow'
-import InventoryHubRoute from './InventoryHubRoute'
-import IntakeRoute from './IntakeRoute'
-import ItemWorkspaceRoute from './ItemWorkspaceRoute'
 import WorkbenchRoute from './WorkbenchRoute'
-import BusinessRoute from './BusinessRoute'
-import BusinessFinanceRoute from './BusinessFinanceRoute'
-import SettingsRoute from './SettingsRoute'
-import TimegrapherRoute from './TimegrapherRoute'
-import CustomerPublishingRoute from './CustomerPublishingRoute'
-import KnowledgePage from './KnowledgePage'
-import GlobalSearch from './GlobalSearch'
-import UniversalNewMenu from './UniversalNewMenu'
 import CalibreBrandMark from './CalibreBrandMark'
 import { useWorkshopSession } from './WorkshopSessionGate'
 import './brand-mark-test.css'
+
+const IntakeRoute = lazy(() => import('./IntakeRoute'))
+const InventoryHubRoute = lazy(() => import('./InventoryHubRoute'))
+const ItemWorkspaceRoute = lazy(() => import('./ItemWorkspaceRoute'))
+const BusinessRoute = lazy(() => import('./BusinessRoute'))
+const BusinessFinanceRoute = lazy(() => import('./BusinessFinanceRoute'))
+const SettingsRoute = lazy(() => import('./SettingsRoute'))
+const TimegrapherRoute = lazy(() => import('./TimegrapherRoute'))
+const CustomerPublishingRoute = lazy(() => import('./CustomerPublishingRoute'))
+const KnowledgePage = lazy(() => import('./KnowledgePage'))
+const GlobalSearch = lazy(() => import('./GlobalSearch'))
+const UniversalNewMenu = lazy(() => import('./UniversalNewMenu'))
 
 type ShellSection = 'intake' | 'items' | 'workbench' | 'business' | 'timegrapher' | 'calibre' | 'customer' | 'settings' | 'other'
 
@@ -57,6 +58,14 @@ function resetViewport() {
     document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
     document.querySelector<HTMLElement>('.calibre-stage')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   })
+}
+
+function RouteLoading({ section }: { section: ShellSection }) {
+  return (
+    <div className="calibre-route-loading" role="status" aria-live="polite">
+      Loading {titleFor(section)}…
+    </div>
+  )
 }
 
 export default function CalibreShell() {
@@ -187,20 +196,30 @@ export default function CalibreShell() {
           </div>
         </header>
 
-        <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
-        <UniversalNewMenu open={newOpen} onClose={() => setNewOpen(false)} />
+        {searchOpen && (
+          <Suspense fallback={null}>
+            <GlobalSearch open onClose={() => setSearchOpen(false)} />
+          </Suspense>
+        )}
+        {newOpen && (
+          <Suspense fallback={null}>
+            <UniversalNewMenu open onClose={() => setNewOpen(false)} />
+          </Suspense>
+        )}
 
         <div className="calibre-content-host">
-          <IntakeRoute />
-          <InventoryHubRoute />
-          <ItemWorkspaceRoute />
-          <WorkbenchRoute />
-          <BusinessRoute />
-          <BusinessFinanceRoute />
-          <TimegrapherRoute />
-          {section === 'calibre' && <KnowledgePage workspaceId={workspace.id} />}
-          <CustomerPublishingRoute />
-          <SettingsRoute />
+          {section === 'workbench' && <WorkbenchRoute />}
+          {section !== 'workbench' && (
+            <Suspense fallback={<RouteLoading section={section} />}>
+              {section === 'intake' && <IntakeRoute />}
+              {section === 'items' && <><InventoryHubRoute /><ItemWorkspaceRoute /></>}
+              {section === 'business' && <><BusinessRoute /><BusinessFinanceRoute /></>}
+              {section === 'timegrapher' && <TimegrapherRoute />}
+              {section === 'calibre' && <KnowledgePage workspaceId={workspace.id} />}
+              {section === 'customer' && <CustomerPublishingRoute />}
+              {section === 'settings' && <SettingsRoute />}
+            </Suspense>
+          )}
           <CreateItemFlow />
         </div>
       </div>
