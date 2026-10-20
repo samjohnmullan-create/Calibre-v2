@@ -4,6 +4,23 @@ import { readFile } from 'node:fs/promises'
 
 const shell = await readFile(new URL('../src/CalibreShell.tsx', import.meta.url), 'utf8')
 
+function assertLazyRoute(route, styleBundle = '') {
+  if (styleBundle) {
+    assert.match(
+      shell,
+      new RegExp(`const ${route} = lazy\\(async \\(\\) => \\{[\\s\\S]*?import\\(['\"]\\./${styleBundle}['\"]\\)[\\s\\S]*?return import\\(['\"]\\./${route}['\"]\\)[\\s\\S]*?\\}\\)`),
+      `${route} must remain lazy and load ${styleBundle} with its route chunk`,
+    )
+    return
+  }
+
+  assert.match(
+    shell,
+    new RegExp(`const ${route} = lazy\\(\\(\\) => import\\(['\"]\\./${route}['\"]\\)\\)`),
+    `${route} must remain a lazy route chunk`,
+  )
+}
+
 test('secondary workshop sections are lazy-loaded route chunks', () => {
   for (const route of [
     'IntakeRoute',
@@ -11,13 +28,14 @@ test('secondary workshop sections are lazy-loaded route chunks', () => {
     'ItemWorkspaceRoute',
     'BusinessRoute',
     'BusinessFinanceRoute',
-    'SettingsRoute',
     'TimegrapherRoute',
     'CustomerPublishingRoute',
-    'KnowledgePage',
   ]) {
-    assert.match(shell, new RegExp(`const ${route} = lazy\\(\\(\\) => import\\(['\"]\\./${route}['\"]\\)\\)`))
+    assertLazyRoute(route)
   }
+
+  assertLazyRoute('SettingsRoute', 'settings-route\\.css')
+  assertLazyRoute('KnowledgePage', 'library-route\\.css')
 })
 
 test('Workbench stays eager and inactive route trees are not mounted', () => {
