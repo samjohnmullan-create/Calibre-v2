@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import InvoiceIntakeServer from './InvoiceIntakeServer'
 import PurchaseIntake from './PurchaseIntake'
+import './invoice-intake.css'
+import './purchase-intake.css'
 
 type IntakeTab = 'inbox' | 'review' | 'purchases' | 'completed'
 type InvoiceQueue = Exclude<IntakeTab, 'purchases'>
