@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf'
+import type { jsPDF as JsPdfDocument } from 'jspdf'
 import encodeQR from 'qr'
 
 export type DocumentConfig = {
@@ -126,7 +126,7 @@ async function imageDataUrl(url: string): Promise<string | null> {
   }
 }
 
-function addHeading(doc: jsPDF, title: string, y: number) {
+function addHeading(doc: JsPdfDocument, title: string, y: number) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.text(title.toUpperCase(), 18, y)
@@ -135,7 +135,7 @@ function addHeading(doc: jsPDF, title: string, y: number) {
   return y + 9
 }
 
-function addWrapped(doc: jsPDF, text: string, y: number, opts: { bold?: boolean; size?: number; indent?: number } = {}) {
+function addWrapped(doc: JsPdfDocument, text: string, y: number, opts: { bold?: boolean; size?: number; indent?: number } = {}) {
   const x = 18 + (opts.indent ?? 0)
   const max = 174 - (opts.indent ?? 0)
   doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
@@ -152,7 +152,7 @@ function addWrapped(doc: jsPDF, text: string, y: number, opts: { bold?: boolean;
   return y + 2
 }
 
-function addPairs(doc: jsPDF, pairs: Array<[string, unknown]>, y: number) {
+function addPairs(doc: JsPdfDocument, pairs: Array<[string, unknown]>, y: number) {
   doc.setFontSize(9)
   for (const [label, value] of pairs.filter(([, value]) => value !== '' && value !== null && value !== undefined)) {
     if (y > 278) {
@@ -168,7 +168,7 @@ function addPairs(doc: jsPDF, pairs: Array<[string, unknown]>, y: number) {
   return y + 2
 }
 
-function addBrandHeader(doc: jsPDF, label: string, record: CustomerDocumentRecord) {
+function addBrandHeader(doc: JsPdfDocument, label: string, record: CustomerDocumentRecord) {
   doc.setTextColor(24, 24, 24)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
@@ -189,6 +189,7 @@ function addBrandHeader(doc: jsPDF, label: string, record: CustomerDocumentRecor
 }
 
 export async function generatePassportPdf(record: CustomerDocumentRecord): Promise<Blob> {
+  const { jsPDF } = await import('jspdf')
   const config = normaliseDocumentConfig(record.document_config).passport
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   let y = addBrandHeader(doc, 'WATCH PASSPORT', record)
@@ -279,6 +280,7 @@ export async function generatePassportPdf(record: CustomerDocumentRecord): Promi
 }
 
 export async function generateCertificatePdf(record: CustomerDocumentRecord): Promise<Blob> {
+  const { jsPDF } = await import('jspdf')
   const config = normaliseDocumentConfig(record.document_config).certificate
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   let y = addBrandHeader(doc, 'WATCH CERTIFICATE', record)
