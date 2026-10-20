@@ -1,8 +1,9 @@
 /*
  * Calibre phone layout v3
  *
- * Mobile-first correction layer. Imported last so the phone experience is not
- * a squeezed desktop layout. DeX/desktop remain governed by their own styles.
+ * Late-stage mobile correction layer. Its position in workshop-shell.css is
+ * intentional so the phone experience is not a squeezed desktop layout.
+ * DeX/desktop remain governed by their own styles.
  */
 
 /* A single column owns dock clearance; nested pages must not each add it. */
@@ -495,39 +496,26 @@
     overscroll-behavior: contain;
   }
 
-  /* Bench mode: strict viewport containment. */
-  .bench-mode-overlay,
-  .bench-mode-overlay-shell,
-  .bench-mode-focus,
-  .bench-mode-focus > *,
-  .bench-workspace-area,
-  .bench-guided-panel {
-    min-width: 0 !important;
-    max-width: 100vw !important;
+  .calibre-mobile-more > button {
+    min-height: 52px !important;
+    padding: 10px 12px;
   }
 
-  .bench-mode-overlay-shell {
-    overflow-x: hidden !important;
-  }
-
-  .bench-mode-overlay-shell header,
-  .bench-mode-overlay-shell footer {
-    padding-inline: 10px !important;
-  }
-
-  .bench-mode-overlay-shell h2 {
-    font-size: 17px !important;
-    line-height: 1.15;
-  }
-
-  .bench-mode-overlay-shell footer button {
-    min-width: 0 !important;
-    padding-inline: 7px !important;
-    font-size: 11px !important;
-  }
+  .calibre-mobile-more > button div strong { font-size: 13px; }
+  .calibre-mobile-more > button div small { font-size: 11px; line-height: 1.25; }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 430px) {
+  .inventory-v2-summary,
+  .business-v2-metrics,
+  .business-v2-attention {
+    grid-template-columns: 1fr !important;
+  }
+
+  .inventory-v2-filters { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 390px) {
   .home-v2-page,
   .inventory-hub-page,
   .intake-page,
@@ -558,9 +546,5 @@
 
   .bench-guided-actions > button {
     flex: 1 1 calc(50% - 6px);
-  }
-
-  .bench-guided-actions > button:first-child:last-child {
-    flex-basis: 100%;
   }
 }
