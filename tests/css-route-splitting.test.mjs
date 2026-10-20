@@ -47,8 +47,8 @@ function assertCssBundleOwns(bundle, stylesheets) {
 }
 
 test('Workshop entry uses one explicit eager CSS manifest', () => {
-  assert.match(workshopEntry, /import ['"]\.\/workshop-shell\.css['"]/)
-  assert.doesNotMatch(workshopEntry, /import ['"]\.\/.+\.css['"]/g, 'WorkshopEntry should not rebuild the style cascade with scattered CSS imports')
+  const cssImports = [...workshopEntry.matchAll(/import ['"](\.\/.+\.css)['"]/g)].map((match) => match[1])
+  assert.deepEqual(cssImports, ['./workshop-shell.css'])
 })
 
 test('eager Workshop correction order stays explicit', () => {
