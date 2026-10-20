@@ -3,7 +3,7 @@ import CreateItemFlow from './CreateItemFlow'
 import WorkbenchRoute from './WorkbenchRoute'
 import CalibreBrandMark from './CalibreBrandMark'
 import { useWorkshopSession } from './WorkshopSessionGate'
-import './brand-mark-test.css'
+import './brand-mark.css'
 
 const IntakeRoute = lazy(() => import('./IntakeRoute'))
 const InventoryHubRoute = lazy(() => import('./InventoryHubRoute'))
