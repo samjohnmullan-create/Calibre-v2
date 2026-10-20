@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import BenchModePanel from './BenchModePanel'
+import { useWorkshopSession } from './WorkshopSessionGate'
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type ChecklistState = 'none' | 'active' | 'complete'
@@ -49,9 +50,10 @@ function isWorkbenchRoute() {
 }
 
 export default function BenchModeHost() {
+  const { session, workspace } = useWorkshopSession()
+  const workspaceId = workspace.id
+  const userId = session.user.id
   const [routeActive, setRouteActive] = useState(isWorkbenchRoute)
-  const [workspaceId, setWorkspaceId] = useState('')
-  const [userId, setUserId] = useState('')
   const [candidates, setCandidates] = useState<CandidateWork[]>([])
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null)
   const [selectedWorkId, setSelectedWorkId] = useState('')
@@ -68,47 +70,6 @@ export default function BenchModeHost() {
     sync()
     return () => window.removeEventListener('hashchange', sync)
   }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    void supabase.auth.getUser().then(({ data, error }) => {
-      if (cancelled || error) return
-      setUserId(data.user?.id ?? '')
-    })
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user.id ?? '')
-      if (!session) {
-        setWorkspaceId('')
-        setCandidates([])
-        setActiveSession(null)
-        setSelectedWorkId('')
-        setLifecycle(null)
-        setChooserOpen(false)
-      }
-    })
-    return () => {
-      cancelled = true
-      data.subscription.unsubscribe()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!userId) {
-      setWorkspaceId('')
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      const result = await supabase.from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle()
-      if (cancelled) return
-      if (result.error || !result.data) {
-        setWorkspaceId('')
-        return
-      }
-      setWorkspaceId(result.data.id)
-    })()
-    return () => { cancelled = true }
-  }, [userId])
 
   async function loadHost() {
     if (!workspaceId || !userId) return
