@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
+import BenchStepChecklist from './BenchStepChecklist'
 import WorkComponentState from './WorkComponentState'
 import WorkInductionPlan from './WorkInductionPlan'
 import WorkOperationsPanel from './WorkOperationsPanel'
@@ -12,6 +13,7 @@ type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete
 type StepStatus = 'not_started' | 'in_progress' | 'done' | 'na' | 'blocked'
 type InductionStatus = 'pending' | 'in_progress' | 'complete' | 'legacy_skipped'
 type JobPlanStatus = 'pending' | 'ready' | 'applied'
+type GuidedToolTarget = 'research' | 'diagnosis' | 'timing' | 'parts' | 'knowledge'
 
 type WorkRecord = {
   id: string
@@ -67,9 +69,9 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
   const [message, setMessage] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
 
-  async function load() {
+  async function load(showLoading = true, syncDrafts = true) {
     if (!workspaceId || !workId) return
-    setLoading(true)
+    if (showLoading) setLoading(true)
     const [workResult, stepResult] = await Promise.all([
       supabase
         .from('work_records')
@@ -84,7 +86,7 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
         .eq('work_id', workId)
         .order('sequence', { ascending: true }),
     ])
-    setLoading(false)
+    if (showLoading) setLoading(false)
     const error = workResult.error ?? stepResult.error
     if (error) {
       setMessage(`Work workspace could not load: ${error.message}`)
@@ -93,12 +95,14 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
     const nextWork = (workResult.data ?? null) as WorkRecord | null
     setWork(nextWork)
     setSteps((stepResult.data ?? []) as ChecklistStep[])
-    setDiagnosis(nextWork?.diagnosis ?? '')
-    setNotes(nextWork?.notes ?? '')
-    setMessage('')
+    if (syncDrafts) {
+      setDiagnosis(nextWork?.diagnosis ?? '')
+      setNotes(nextWork?.notes ?? '')
+    }
+    if (showLoading) setMessage('')
   }
 
-  useEffect(() => { void load() }, [workspaceId, workId, refreshKey])
+  useEffect(() => { void load() }, [workspaceId, workId])
 
   const progress = useMemo(() => {
     const completed = steps.filter((step) => step.status === 'done' || step.status === 'na').length
@@ -150,22 +154,44 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
       return
     }
     setMessage('Work notes saved.')
+    setWork((current) => current ? { ...current, diagnosis: diagnosis.trim(), notes: notes.trim() } : current)
     setRefreshKey((value) => value + 1)
+    window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId } }))
   }
 
   async function saveStepText(step: ChecklistStep, field: 'notes' | 'blocked_reason', value: string) {
+    const nextValue = value.trim()
     const { error } = await supabase
       .from('work_checklist_steps')
-      .update({ [field]: value.trim(), updated_at: new Date().toISOString() })
+      .update({ [field]: nextValue, updated_at: new Date().toISOString() })
       .eq('workspace_id', workspaceId)
       .eq('id', step.id)
-    if (error) setMessage(`Step note could not be saved: ${error.message}`)
-    else setRefreshKey((value) => value + 1)
+    if (error) {
+      setMessage(`Step note could not be saved: ${error.message}`)
+      return
+    }
+    setSteps((current) => current.map((row) => row.id !== step.id ? row : field === 'notes' ? { ...row, notes: nextValue } : { ...row, blocked_reason: nextValue }))
   }
 
   async function refreshWorkspace() {
+    await load(false, false)
     setRefreshKey((value) => value + 1)
     window.dispatchEvent(new CustomEvent('calibre:work-changed', { detail: { workId } }))
+  }
+
+  function openGuidedTool(tool: GuidedToolTarget) {
+    if (tool === 'diagnosis') {
+      scrollToWorkspace('work-workspace-notes')
+      return
+    }
+
+    const details = document.getElementById('work-workspace-details') as HTMLDetailsElement | null
+    if (details) {
+      details.open = true
+      window.requestAnimationFrame(() => details.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+
+    if (tool === 'research') setMessage('Research is available from the Research tab in the Job Card toolbar.')
   }
 
   if (loading) return <div className="loading-card">Loading Work workspace…</div>
@@ -230,6 +256,18 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
             {!inductionOpen && nextStep && <div className="work-workspace-next"><span>NEXT</span><strong>{nextStep.label}</strong><p>{nextStep.description || titleCase(nextStep.status)}</p></div>}
           </section>
 
+          {!inductionOpen && work.status !== 'complete' && currentStep && (
+            <BenchStepChecklist
+              workspaceId={workspaceId}
+              itemId={itemId}
+              workId={work.id}
+              step={currentStep}
+              refreshKey={refreshKey}
+              onChanged={refreshWorkspace}
+              onOpenTool={openGuidedTool}
+            />
+          )}
+
           {!inductionOpen && work.status !== 'complete' && (
             <WorkUnifiedCapture
               workspaceId={workspaceId}
@@ -279,7 +317,7 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
 
           <WorkWorkshopMemory workspaceId={workspaceId} itemId={itemId} workId={work.id} refreshKey={refreshKey} />
 
-          <section className="section-card work-workspace-intel-card">
+          <section className="section-card work-workspace-intel-card" id="work-workspace-notes">
             <div className="work-workspace-section-heading"><div><p className="eyebrow">WORK NOTES</p><h3>Diagnosis & context</h3></div></div>
             <label>Diagnosis<textarea rows={4} value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} placeholder="Diagnosis develops from workshop evidence…" /></label>
             <label>Job notes<textarea rows={5} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Persistent notes for this Work record…" /></label>
@@ -288,7 +326,7 @@ export default function WorkWorkspace({ workspaceId, itemId, workId }: { workspa
         </aside>
       </div>
 
-      <details className="work-workspace-details">
+      <details className="work-workspace-details" id="work-workspace-details">
         <summary><div><span>INTELLIGENCE WORKSPACE</span><strong>Measurements · timing · parts · identity · verification · history</strong></div><span>Open</span></summary>
         <div className="work-workspace-details-body"><WorkOperationsPanel workspaceId={workspaceId} itemId={itemId} workId={work.id} /></div>
       </details>
