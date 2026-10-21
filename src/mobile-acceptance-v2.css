@@ -117,7 +117,6 @@
 
   /* --- top-level page rhythm --- */
   .home-v2-page,
-  .inventory-hub-page,
   .intake-page,
   .workbench-v2-page,
   .business-v2-page,
@@ -133,7 +132,6 @@
   }
 
   .home-v2-heading,
-  .inventory-hub-heading,
   .intake-heading,
   .workbench-v2-heading,
   .business-v2-heading,
@@ -144,7 +142,6 @@
   }
 
   .home-v2-heading h1,
-  .inventory-hub-heading h1,
   .intake-heading h1,
   .workbench-v2-heading h1,
   .business-v2-heading h1,
@@ -156,7 +153,6 @@
   }
 
   .home-v2-heading p,
-  .inventory-hub-heading p,
   .intake-heading p,
   .workbench-v2-heading p,
   .business-v2-heading p,
@@ -167,7 +163,6 @@
   }
 
   .home-v2-heading > button,
-  .inventory-hub-heading > button,
   .intake-heading > button,
   .business-v2-heading > button,
   .library-v2-heading > button,
@@ -180,8 +175,7 @@
   .home-v2-metrics,
   .workbench-v2-metrics,
   .business-v2-metrics,
-  .business-v2-attention,
-  .inventory-v2-summary {
+  .business-v2-attention {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
   }
@@ -275,28 +269,6 @@
     padding: 14px;
   }
 
-  /* --- Inventory: make the route visibly own the screen and remain compact --- */
-  .inventory-hub-page.inventory-v2-page {
-    display: grid !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    gap: 12px;
-  }
-
-  .inventory-v2-primary {
-    width: 100%;
-  }
-
-  .inventory-v2-summary > div,
-  .inventory-v2-summary > button {
-    min-height: 68px;
-    padding: 9px 10px;
-  }
-
-  .inventory-v2-controls {
-    padding: 11px;
-  }
-
   /* --- Item workspace: compact horizontal tabs and cards above the dock --- */
   .item-v2-header {
     gap: 11px;
@@ -340,8 +312,7 @@
   .home-v2-metrics,
   .workbench-v2-metrics,
   .business-v2-metrics,
-  .business-v2-attention,
-  .inventory-v2-summary {
+  .business-v2-attention {
     gap: 6px !important;
   }
 

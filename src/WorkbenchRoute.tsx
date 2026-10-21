@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
-import WorkJobCard from './WorkJobCard'
-import BenchResearchPanel from './BenchResearchPanel'
 import WorkbenchAttention from './WorkbenchAttention'
 import { useWorkshopSession } from './WorkshopSessionGate'
+
+const WorkJobCard = lazy(() => import('./WorkJobCard'))
+const BenchResearchPanel = lazy(() => import('./BenchResearchPanel'))
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type WorkRow = {
@@ -476,9 +477,11 @@ export default function WorkbenchRoute() {
               </div>
             </div>
             <div className="workbench-v2-job-scroll">
-              {panelMode === 'job'
-                ? <WorkJobCard workspaceId={workspaceId} itemId={selectedWork.item_id} focusWorkId={selectedWork.id} />
-                : <BenchResearchPanel workspaceId={workspaceId} itemId={selectedWork.item_id} workId={selectedWork.id} onChanged={() => { void loadCommandCentre(); void loadPage() }} />}
+              <Suspense fallback={<div className="loading-card" role="status">Loading job workspace…</div>}>
+                {panelMode === 'job'
+                  ? <WorkJobCard workspaceId={workspaceId} itemId={selectedWork.item_id} focusWorkId={selectedWork.id} />
+                  : <BenchResearchPanel workspaceId={workspaceId} itemId={selectedWork.item_id} workId={selectedWork.id} onChanged={() => { void loadCommandCentre(); void loadPage() }} />}
+              </Suspense>
             </div>
           </aside>
         </div>

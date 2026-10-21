@@ -101,6 +101,10 @@ export default function WorkbenchAttention() {
     setLoading(false)
 
     if (result.error || !result.data) {
+      setWork([])
+      setNeeds([])
+      setFailedQc([])
+      setEvidenceCount(0)
       setMessage(`Attention could not load: ${result.error?.message ?? 'No snapshot returned.'}`)
       return
     }
