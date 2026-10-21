@@ -23,7 +23,7 @@ type StorageLocation = { id: string; parent_id: string | null; name: string; cod
 type InventoryView = 'items' | 'donors' | 'parts' | 'tools' | 'consumables' | 'storage' | 'trash'
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
-const itemPurposes = ['resale', 'collection', 'repair', 'donor', 'client', 'reference', 'other']
+const itemPurposes = ['resale', 'collection', 'repair', 'client', 'reference', 'other']
 const itemStatuses = ['acquired', 'researching', 'preparing', 'ready_for_sale', 'listed', 'sold', 'archived']
 const pageSize = 50
 
@@ -133,8 +133,9 @@ export default function InventoryHubRoute() {
     let cancelled = false
     ;(async () => {
       const base = () => supabase.from('items').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('archived_at', null)
+      const itemBase = () => base().neq('purpose', 'donor')
       const [allResult, readyResult, donorResult, unassignedResult, locationResult] = await Promise.all([
-        base(), base().eq('status', 'ready_for_sale'), base().eq('purpose', 'donor'), base().is('storage_location_id', null),
+        itemBase(), itemBase().eq('status', 'ready_for_sale'), base().eq('purpose', 'donor'), itemBase().is('storage_location_id', null),
         supabase.from('storage_locations').select('id,parent_id,name,code,sort_order').eq('workspace_id', workspaceId).order('sort_order').order('name'),
       ])
       if (cancelled) return
@@ -153,7 +154,7 @@ export default function InventoryHubRoute() {
       setLoading(true)
       let request = supabase.from('items')
         .select('id,item_number,type,purpose,status,title,notes,created_at,storage_location_id', { count: 'exact' })
-        .eq('workspace_id', workspaceId).is('archived_at', null)
+        .eq('workspace_id', workspaceId).is('archived_at', null).neq('purpose', 'donor')
       if (typeFilter) request = request.eq('type', typeFilter)
       if (purposeFilter) request = request.eq('purpose', purposeFilter)
       if (statusFilter) request = request.eq('status', statusFilter)
