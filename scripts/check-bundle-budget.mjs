@@ -6,8 +6,8 @@ const assetsDir = path.resolve('dist/assets')
 const files = await readdir(assetsDir)
 
 const budgets = [
-  { label: 'Workshop startup JavaScript', pattern: /^WorkshopEntry-.*\.js$/, raw: 400_000, gzip: 100_000 },
-  { label: 'Workshop startup CSS', pattern: /^WorkshopEntry-.*\.css$/, raw: 350_000, gzip: 60_000 },
+  { label: 'Workshop startup JavaScript', pattern: /^WorkshopEntry-.*\.js$/, raw: 100_000, gzip: 25_000 },
+  { label: 'Workshop startup CSS', pattern: /^WorkshopEntry-.*\.css$/, raw: 220_000, gzip: 40_000 },
   { label: 'Customer Pack JavaScript', pattern: /^CustomerPackHost-.*\.js$/, raw: 80_000, gzip: 25_000 },
 ]
 

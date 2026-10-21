@@ -3,17 +3,23 @@ import CreateItemFlow from './CreateItemFlow'
 import WorkbenchRoute from './WorkbenchRoute'
 import CalibreBrandMark from './CalibreBrandMark'
 import { useWorkshopSession } from './WorkshopSessionGate'
-import './brand-mark-test.css'
+import './brand-mark.css'
 
 const IntakeRoute = lazy(() => import('./IntakeRoute'))
 const InventoryHubRoute = lazy(() => import('./InventoryHubRoute'))
 const ItemWorkspaceRoute = lazy(() => import('./ItemWorkspaceRoute'))
 const BusinessRoute = lazy(() => import('./BusinessRoute'))
 const BusinessFinanceRoute = lazy(() => import('./BusinessFinanceRoute'))
-const SettingsRoute = lazy(() => import('./SettingsRoute'))
+const SettingsRoute = lazy(async () => {
+  await import('./settings-route.css')
+  return import('./SettingsRoute')
+})
 const TimegrapherRoute = lazy(() => import('./TimegrapherRoute'))
 const CustomerPublishingRoute = lazy(() => import('./CustomerPublishingRoute'))
-const KnowledgePage = lazy(() => import('./KnowledgePage'))
+const KnowledgePage = lazy(async () => {
+  await import('./library-route.css')
+  return import('./KnowledgePage')
+})
 const GlobalSearch = lazy(() => import('./GlobalSearch'))
 const UniversalNewMenu = lazy(() => import('./UniversalNewMenu'))
 

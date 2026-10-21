@@ -21,8 +21,12 @@ test('every shell navigation destination has a mounted route surface', () => {
   }
 })
 
-test('Library navigation lazy-loads KnowledgePage with the authenticated workspace', () => {
-  assert.match(shell, /const KnowledgePage = lazy\(\(\) => import\(['"]\.\/KnowledgePage['"]\)\)/)
+test('Library navigation lazy-loads KnowledgePage with route styles and the authenticated workspace', () => {
+  assert.match(
+    shell,
+    /const KnowledgePage = lazy\(async \(\) => \{[\s\S]*?import\(['"]\.\/library-route\.css['"]\)[\s\S]*?return import\(['"]\.\/KnowledgePage['"]\)[\s\S]*?\}\)/,
+    'Library must keep KnowledgePage behind React.lazy while loading its route-owned CSS',
+  )
   assert.ok(shell.includes("hash: '#/calibre'"), 'Expected Library navigation to target #/calibre')
   assert.match(
     shell,

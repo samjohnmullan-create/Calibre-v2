@@ -15,6 +15,14 @@ test('Workbench reuses the authenticated workspace and aggregates status counts 
   assert.doesNotMatch(workbench, /countBase\s*=/)
 })
 
+test('Workbench job detail surfaces stay out of the eager Workbench bundle', () => {
+  assert.match(workbench, /const WorkJobCard = lazy\(\(\) => import\(['"]\.\/WorkJobCard['"]\)\)/)
+  assert.match(workbench, /const BenchResearchPanel = lazy\(\(\) => import\(['"]\.\/BenchResearchPanel['"]\)\)/)
+  assert.doesNotMatch(workbench, /import WorkJobCard from ['"]\.\/WorkJobCard['"]/)
+  assert.doesNotMatch(workbench, /import BenchResearchPanel from ['"]\.\/BenchResearchPanel['"]/)
+  assert.match(workbench, /<Suspense fallback=\{<div className="loading-card" role="status">Loading job workspace…<\/div>\}>/)
+})
+
 test('Bench Mode reuses the authenticated session context instead of refetching identity', () => {
   assert.match(benchMode, /const \{ session, workspace \} = useWorkshopSession\(\)/)
   assert.doesNotMatch(benchMode, /auth\.getUser\(/)
