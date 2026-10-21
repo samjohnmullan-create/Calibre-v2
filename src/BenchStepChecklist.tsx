@@ -51,7 +51,7 @@ function statusLabel(check: StepCheck) {
 }
 
 function toolLabel(tool: string) {
-  if (tool === 'timing') return 'Open Timing'
+  if (tool === 'timing') return 'Open Timegrapher'
   if (tool === 'research') return 'Open Research'
   if (tool === 'knowledge') return 'Open Knowledge'
   if (tool === 'parts') return 'Open Parts'
@@ -252,10 +252,13 @@ export default function BenchStepChecklist({
       setMessage(check.tool_key === 'photo' ? 'Use the Photo quick capture below; it will stay linked to this Work and current step.' : 'Use Measure below; the measurement will stay linked to this Work.')
       return
     }
+    if (check.tool_key === 'timing') {
+      window.location.hash = `#/timegrapher/${encodeURIComponent(workId)}`
+      return
+    }
     if (check.tool_key === 'knowledge') onOpenTool('knowledge')
     else if (check.tool_key === 'parts') onOpenTool('parts')
     else if (check.tool_key === 'research') onOpenTool('research')
-    else if (check.tool_key === 'timing') onOpenTool('timing')
     else if (check.tool_key === 'diagnosis') onOpenTool('diagnosis')
   }
 
