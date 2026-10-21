@@ -253,7 +253,8 @@ export default function BenchStepChecklist({
       return
     }
     if (check.tool_key === 'timing') {
-      window.location.hash = `#/timegrapher/${encodeURIComponent(workId)}`
+      const checkpoint = ['pre_service', 'post_reassembly', 'regulation', 'final_qc'].includes(check.knowledge_scope) ? `/${encodeURIComponent(check.knowledge_scope)}` : ''
+      window.location.hash = `#/timegrapher/${encodeURIComponent(workId)}/${encodeURIComponent(check.id)}${checkpoint}`
       return
     }
     if (check.tool_key === 'knowledge') onOpenTool('knowledge')
