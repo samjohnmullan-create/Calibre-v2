@@ -72,8 +72,10 @@ body.item-workspace-v2-active .calibre-legacy-host { display: none !important; }
 }
 
 @media (max-width: 720px) {
-  .item-v2-page { width: 100%; padding: 18px 14px 92px; }
-  .item-v2-title-row, .item-v2-hero-card, .item-v2-callout { align-items: stretch; flex-direction: column; }
+  /* Final phone page sizing lives in mobile-ui-v3.css. Keep only route-specific
+     behaviour here so the correction layer remains the single source of truth. */
+  .item-v2-title-row { flex-direction: column; }
+  .item-v2-hero-card, .item-v2-callout { align-items: stretch; flex-direction: column; }
   .item-v2-actions { width: 100%; }
   .item-v2-actions button { flex: 1 1 auto; }
   .item-v2-summary-grid, .item-v2-detail-grid, .item-v2-metrics, .item-v2-observations { grid-template-columns: 1fr; }
