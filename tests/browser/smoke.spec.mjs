@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 const supabaseOrigin = 'https://zmhbrqkzvgajmvhhorba.supabase.co'
 const mockUserId = '11111111-1111-4111-8111-111111111111'
 const mockWorkspaceId = '22222222-2222-4222-8222-222222222222'
+const mockItemId = '33333333-3333-4333-8333-333333333333'
 
 async function mockPublicData(page) {
   await page.route(`${supabaseOrigin}/rest/v1/**`, async (route) => {
@@ -15,7 +16,7 @@ async function mockPublicData(page) {
   })
 }
 
-async function mockAuthenticatedWorkshop(page) {
+async function mockAuthenticatedWorkshop(page, resolveResponse = () => undefined) {
   await page.addInitScript(({ userId }) => {
     const encode = (value) => btoa(JSON.stringify(value)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
     const now = Math.floor(Date.now() / 1000)
@@ -59,6 +60,19 @@ async function mockAuthenticatedWorkshop(page) {
       })
       return
     }
+
+    const override = resolveResponse(url, route.request())
+    if (override !== undefined) {
+      const body = JSON.stringify(override)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-range': Array.isArray(override) ? `0-${Math.max(0, override.length - 1)}/${override.length}` : '0-0/1' },
+        body,
+      })
+      return
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -66,6 +80,14 @@ async function mockAuthenticatedWorkshop(page) {
       body: '[]',
     })
   })
+}
+
+async function expectNoDocumentOverflow(page) {
+  const width = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }))
+  expect(width.scrollWidth).toBeLessThanOrEqual(width.clientWidth + 1)
 }
 
 test('customer home navigates to an empty catalogue without touching live data', async ({ page }) => {
@@ -102,12 +124,7 @@ test('customer home stays inside a phone viewport', async ({ page }) => {
   await mockPublicData(page)
   await page.goto('/#/home')
   await expect(page.getByRole('heading', { name: 'Vintage watches deserve better records.' })).toBeVisible()
-
-  const width = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }))
-  expect(width.scrollWidth).toBeLessThanOrEqual(width.clientWidth + 1)
+  await expectNoDocumentOverflow(page)
 })
 
 test('authenticated Inventory renders inside a 390 px phone viewport without live writes', async ({ page }) => {
@@ -117,10 +134,71 @@ test('authenticated Inventory renders inside a 390 px phone viewport without liv
 
   await expect(page.getByRole('heading', { name: 'Inventory' })).toBeVisible()
   await expect(page.locator('.inventory-hub-page.inventory-v2-page')).toBeVisible()
+  await expectNoDocumentOverflow(page)
+})
 
-  const width = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }))
-  expect(width.scrollWidth).toBeLessThanOrEqual(width.clientWidth + 1)
+test('authenticated Workbench stays inside a 390 px phone viewport with mocked summaries', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockAuthenticatedWorkshop(page, (url) => {
+    if (url.pathname.endsWith('/rpc/workbench_status_counts')) {
+      return { active: 0, ready: 0, on_bench: 0, waiting: 0, qc: 0, queued: 0, complete: 0 }
+    }
+    if (url.pathname.endsWith('/rpc/workbench_attention_snapshot')) {
+      return { work: [], needs: [], failedQc: [], evidenceCount: 0 }
+    }
+    return undefined
+  })
+  await page.goto('/#/workbench')
+
+  await expect(page.getByRole('heading', { name: 'Workbench' })).toBeVisible()
+  await expect(page.locator('.workbench-v2-page')).toBeVisible()
+  await expect(page.getByRole('searchbox', { name: 'Search workbench' })).toBeVisible()
+  await expectNoDocumentOverflow(page)
+})
+
+test('authenticated Item workspace renders a realistic record inside a 390 px phone viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockAuthenticatedWorkshop(page, (url) => {
+    if (url.pathname.endsWith('/items')) {
+      return {
+        id: mockItemId,
+        item_number: 42,
+        type: 'watch',
+        purpose: 'resale',
+        status: 'preparing',
+        title: 'Omega Seamaster Test Record',
+        notes: 'Mock browser record only.',
+        acquired_at: '2026-10-01',
+        created_at: '2026-10-01T00:00:00Z',
+      }
+    }
+    if (url.pathname.endsWith('/item_identity')) {
+      return {
+        maker: 'Omega',
+        model: 'Seamaster',
+        reference: 'Mock-42',
+        serial: 'TEST00042',
+        era: '1960s',
+        country: 'Switzerland',
+        materials: 'Stainless steel',
+        dimensions_text: '35 mm',
+        dial_markings: 'Omega Seamaster',
+        case_markings: 'Mock case',
+        movement_markings: 'Mock calibre',
+        notes: 'Browser smoke fixture',
+      }
+    }
+    if (url.pathname.endsWith('/workbench_jobs')) return []
+    if (url.pathname.endsWith('/valuations')) {
+      return { low_value: 400, expected_value: 550, high_value: 700, target_value: 600, minimum_value: 450, currency: 'AUD', confidence: 'medium', basis: 'Mock browser fixture' }
+    }
+    if (url.pathname.endsWith('/cost_entries')) return []
+    return undefined
+  })
+  await page.goto(`/#/items/${mockItemId}`)
+
+  await expect(page.getByRole('heading', { name: 'Omega Seamaster Test Record' })).toBeVisible()
+  await expect(page.locator('.item-v2-page')).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Item sections' })).toBeVisible()
+  await expectNoDocumentOverflow(page)
 })
