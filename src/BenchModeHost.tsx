@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
-import BenchModePanel from './BenchModePanel'
 import { useWorkshopSession } from './WorkshopSessionGate'
+
+const BenchModePanel = lazy(() => import('./BenchModePanel'))
 
 type WorkStatus = 'queued' | 'ready' | 'on_bench' | 'waiting' | 'qc' | 'complete' | 'cancelled'
 type ChecklistState = 'none' | 'active' | 'complete'
@@ -212,22 +213,24 @@ export default function BenchModeHost() {
               <div className="bench-mode-host-content">
                 {!activeSession && <button type="button" className="bench-mode-change-work" onClick={() => setSelectedWorkId('')}>← Choose different Work</button>}
                 {lifecycle ? (
-                  <BenchModePanel
-                    workspaceId={workspaceId}
-                    itemId={selectedWork.item_id}
-                    workId={selectedWork.id}
-                    workNumber={selectedWork.work_number}
-                    workTitle={selectedWork.item_title || selectedWork.title}
-                    workStatus={selectedWork.status}
-                    inductionStatus={lifecycle.induction_status}
-                    jobPlanStatus={lifecycle.job_plan_status}
-                    checklistState={checklistState}
-                    checklistTotal={steps.length}
-                    checklistCompleteCount={checklistCompleteCount}
-                    currentStep={currentStep}
-                    nextStep={nextStep}
-                    onWorkChanged={refreshBenchContext}
-                  />
+                  <Suspense fallback={<div className="loading-card" role="status">Loading Bench Mode…</div>}>
+                    <BenchModePanel
+                      workspaceId={workspaceId}
+                      itemId={selectedWork.item_id}
+                      workId={selectedWork.id}
+                      workNumber={selectedWork.work_number}
+                      workTitle={selectedWork.item_title || selectedWork.title}
+                      workStatus={selectedWork.status}
+                      inductionStatus={lifecycle.induction_status}
+                      jobPlanStatus={lifecycle.job_plan_status}
+                      checklistState={checklistState}
+                      checklistTotal={steps.length}
+                      checklistCompleteCount={checklistCompleteCount}
+                      currentStep={currentStep}
+                      nextStep={nextStep}
+                      onWorkChanged={refreshBenchContext}
+                    />
+                  </Suspense>
                 ) : <div className="loading-card">Loading workshop state…</div>}
               </div>
             )}
