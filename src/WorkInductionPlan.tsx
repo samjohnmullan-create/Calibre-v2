@@ -149,9 +149,9 @@ export default function WorkInductionPlan({
   const problemChecks = useMemo(() => checks.filter((check) => check.status === 'problem'), [checks])
   const openFindings = useMemo(() => findings.filter((finding) => finding.status === 'open'), [findings])
 
-  async function changed() {
+  async function changed(notifyParent = true) {
     await load(false)
-    await onChanged?.()
+    if (notifyParent) await onChanged?.()
   }
 
   async function startInduction() {
@@ -184,7 +184,7 @@ export default function WorkInductionPlan({
       setMessage(`Induction check could not be saved: ${error.message}`)
       return
     }
-    await changed()
+    await changed(false)
   }
 
   async function saveCheckNotes(check: InductionCheck) {
@@ -202,7 +202,7 @@ export default function WorkInductionPlan({
       setMessage(`Induction note could not be saved: ${error.message}`)
       return
     }
-    await changed()
+    await changed(false)
   }
 
   async function completeInduction() {
