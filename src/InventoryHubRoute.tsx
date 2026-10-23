@@ -17,10 +17,13 @@ type ItemRow = {
   notes: string
   created_at: string
   storage_location_id: string | null
+  thumbnail_url?: string | null
+  thumbnail_alt?: string
 }
 
 type StorageLocation = { id: string; parent_id: string | null; name: string; code: string | null; sort_order: number }
 type InventoryView = 'items' | 'donors' | 'parts' | 'tools' | 'consumables' | 'storage' | 'trash'
+type ItemThumbnailAsset = { item_id: string; storage_path: string; caption: string; original_filename: string; is_cover: boolean; created_at: string }
 
 const itemTypes = ['watch', 'clock', 'jewellery', 'accessory', 'other']
 const itemPurposes = ['resale', 'collection', 'repair', 'client', 'reference', 'other']
@@ -165,11 +168,47 @@ export default function InventoryHubRoute() {
       const from = page * pageSize
       const result = await request.order('item_number', { ascending: false }).range(from, from + pageSize - 1)
       if (cancelled) return
-      setLoading(false)
-      if (result.error) { setMessage(`Inventory failed to load: ${result.error.message}`); return }
+      if (result.error) { setLoading(false); setMessage(`Inventory failed to load: ${result.error.message}`); return }
       const count = result.count ?? 0
-      if (page > 0 && from >= count) { setPage(Math.max(0, Math.ceil(count / pageSize) - 1)); return }
-      setItems((result.data ?? []) as ItemRow[]); setMatchCount(count)
+      if (page > 0 && from >= count) { setLoading(false); setPage(Math.max(0, Math.ceil(count / pageSize) - 1)); return }
+
+      const rows = (result.data ?? []) as ItemRow[]
+      let rowsWithThumbnails = rows
+      const itemIds = rows.map((item) => item.id)
+
+      if (itemIds.length > 0) {
+        const mediaResult = await supabase
+          .from('media_assets')
+          .select('item_id,storage_path,caption,original_filename,is_cover,created_at')
+          .eq('workspace_id', workspaceId)
+          .in('item_id', itemIds)
+          .like('mime_type', 'image/%')
+          .order('is_cover', { ascending: false })
+          .order('created_at', { ascending: true })
+
+        if (cancelled) return
+        if (!mediaResult.error) {
+          const chosenByItem = new Map<string, ItemThumbnailAsset>()
+          for (const asset of (mediaResult.data ?? []) as ItemThumbnailAsset[]) {
+            if (!chosenByItem.has(asset.item_id)) chosenByItem.set(asset.item_id, asset)
+          }
+
+          const signedThumbnails = await Promise.all(Array.from(chosenByItem.entries()).map(async ([itemId, asset]) => {
+            const { data: signedData } = await supabase.storage.from('calibre-media').createSignedUrl(asset.storage_path, 3600)
+            return [itemId, { url: signedData?.signedUrl ?? null, alt: asset.caption || asset.original_filename }] as const
+          }))
+          if (cancelled) return
+          const thumbnailByItem = new Map(signedThumbnails)
+          rowsWithThumbnails = rows.map((item) => {
+            const thumbnail = thumbnailByItem.get(item.id)
+            return thumbnail ? { ...item, thumbnail_url: thumbnail.url, thumbnail_alt: thumbnail.alt } : item
+          })
+        }
+      }
+
+      if (cancelled) return
+      setLoading(false)
+      setItems(rowsWithThumbnails); setMatchCount(count)
       setMessage((current) => current.startsWith('Choose the Item') ? current : '')
     })()
     return () => { cancelled = true }
@@ -267,7 +306,14 @@ export default function InventoryHubRoute() {
               <div className="inventory-v2-list-heading"><div><p className="eyebrow">{group.type.toUpperCase()}</p><h2>{group.type === 'watch' ? 'Watches' : group.type === 'accessory' ? 'Accessories' : group.type === 'jewellery' ? 'Jewellery' : `${titleCase(group.type)}s`}</h2></div><span>{group.items.length}</span></div>
               {group.items.map((item) => <div key={item.id} className="inventory-row-shell">
                 <button type="button" className="inventory-row inventory-row-open" onClick={() => { window.location.hash = `#/items/${encodeURIComponent(item.id)}` }}>
-                  <span className="inventory-row-number">#{item.item_number}</span>
+                  <span className="inventory-row-number" style={{ display: 'grid', gap: 5, justifyItems: 'start' }}>
+                    <span aria-hidden={!item.thumbnail_url} style={{ width: 'min(58px, 100%)', aspectRatio: '1', overflow: 'hidden', display: 'grid', placeItems: 'center', border: '1px solid var(--calibre-line-strong)', borderRadius: 10, background: 'rgba(20, 28, 34, .72)', color: 'var(--calibre-muted)', fontSize: 9, lineHeight: 1.15, textAlign: 'center' }}>
+                      {item.thumbnail_url
+                        ? <img src={item.thumbnail_url} alt={item.thumbnail_alt || `${item.title} thumbnail`} loading="lazy" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
+                        : <span aria-hidden="true">NO<br />PHOTO</span>}
+                    </span>
+                    <span>#{item.item_number}</span>
+                  </span>
                   <span className="inventory-row-main"><strong>{item.title}</strong><small>{titleCase(item.purpose)} · {item.storage_location_id ? (pathById.get(item.storage_location_id) || 'Unknown location') : 'Needs put-away'}</small></span>
                   <span className={`status-pill status-${item.status}`}>{titleCase(item.status)}</span>
                 </button>
