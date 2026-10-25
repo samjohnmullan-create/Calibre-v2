@@ -1,0 +1,125 @@
+.watch-xray{
+  margin:38px 0 8px;
+  padding:28px 0 0;
+  border-top:1px solid #bdb7aa;
+  color:#25302d;
+}
+.watch-xray-heading{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:18px;
+}
+.watch-xray-heading h2{
+  margin:7px 0 8px;
+  color:#202522;
+  font:600 clamp(31px,4vw,42px)/1 "Cormorant Garamond",Georgia,serif;
+  letter-spacing:-.02em;
+}
+.watch-xray-heading>div:first-child>p:last-child{
+  max-width:590px;
+  margin:0;
+  color:#606966;
+  font-size:13px;
+  line-height:1.65;
+}
+.watch-xray-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.watch-xray-actions button,.watch-xray-layers button{
+  min-height:40px;
+  border:1px solid #b9b5aa;
+  border-radius:8px;
+  background:#ebe8de;
+  color:#3f4a47;
+  font:600 10px/1 "IBM Plex Mono",ui-monospace,monospace;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.watch-xray-actions button{padding:0 12px}
+.watch-xray-actions button:hover,.watch-xray-layers button:hover,.watch-xray-layers button.selected{
+  border-color:#647c7d;
+  background:#dfe5e1;
+  color:#253536;
+}
+.watch-xray-stage{
+  position:relative;
+  overflow:hidden;
+  border:1px solid #c3beb2;
+  border-radius:12px;
+  background:
+    radial-gradient(circle at 50% 48%,rgba(92,116,116,.1),transparent 34%),
+    linear-gradient(180deg,#ece9e0,#e4e1d7);
+}
+.watch-xray-stage svg{display:block;width:100%;height:auto;min-height:260px}
+.watch-xray-axis{stroke:#7b8f8e;stroke-width:1;stroke-dasharray:4 7;opacity:.42}
+.watch-xray-layer{opacity:.57;transition:opacity .2s ease,filter .2s ease}
+.watch-xray-layer.selected{opacity:1;filter:drop-shadow(0 4px 4px rgba(23,37,36,.08))}
+.watch-xray-metal{fill:url(#watchXrayMetal);fill-opacity:.48;stroke:#4f605d;stroke-width:1.6}
+.watch-xray-metal-line{fill:none;stroke:#556663;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.watch-xray-glass{stroke:#526d70;stroke-width:1.4}
+.watch-xray-dial{fill:#f0ede4;fill-opacity:.8;stroke:#596a66;stroke-width:1.5}
+.watch-xray-marker{stroke:#5c6966;stroke-width:2;stroke-linecap:round}
+.watch-xray-hand{stroke:#283b3a;stroke-linecap:round}
+.watch-xray-hand.hour{stroke-width:4}.watch-xray-hand.minute{stroke-width:3}.watch-xray-hand.seconds{stroke-width:1.4}
+.watch-xray-plate{fill:#afb4ac;fill-opacity:.34;stroke:#526360;stroke-width:1.6}
+.watch-xray-plate.faint{fill-opacity:.18;stroke-dasharray:3 3}
+.watch-xray-bridge{fill:#a5aaa2;fill-opacity:.62;stroke:#4e5f5c;stroke-width:1.2}
+.watch-xray-gear{fill:#d4c1a5;fill-opacity:.7;stroke:#665d50;stroke-width:1.2}
+.watch-xray-pivot{fill:#465b58;stroke:#283a38;stroke-width:1}
+.watch-xray-tooth{stroke:#665d50;stroke-width:1.2;stroke-linecap:round}
+.watch-xray-jewel{fill:#8b4f53;fill-opacity:.8;stroke:#6e393d;stroke-width:1}
+.watch-xray-barrel{fill:#c6c0b2;fill-opacity:.66;stroke:#576560;stroke-width:1.5}
+.watch-xray-spring{fill:none;stroke:#465854;stroke-width:2;stroke-linecap:round}
+.watch-xray-balance{fill:none;stroke:#546d6c;stroke-width:4}
+.watch-xray-hairspring{fill:none;stroke:#7a5e4a;stroke-width:1.5;stroke-dasharray:2 2}
+.watch-xray-fork{fill:none;stroke:#6d5142;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.watch-xray-back-inner{fill:#b7b8b0;fill-opacity:.2;stroke:#596662;stroke-width:1.4}
+.watch-xray-back-ring{fill:none;stroke:#687572;stroke-width:1;stroke-dasharray:3 4}
+.watch-xray-back-mark{fill:none;stroke:#737d79;stroke-width:1;opacity:.5}
+.watch-xray-scale{
+  position:absolute;
+  left:14px;
+  right:14px;
+  bottom:10px;
+  display:flex;
+  justify-content:space-between;
+  color:#7b827f;
+  font:500 8px/1 "IBM Plex Mono",ui-monospace,monospace;
+  letter-spacing:.12em;
+}
+.watch-xray-control{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;align-items:center;margin:18px 0 14px}
+.watch-xray-control label{display:flex;justify-content:space-between;gap:10px;color:#58615e;font:500 10px/1 "IBM Plex Mono",ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em}
+.watch-xray-control label strong{color:#283734}
+.watch-xray-control input{width:100%;accent-color:#526f70}
+.watch-xray-layers{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.watch-xray-layers button{min-width:0;padding:9px 7px;white-space:normal;line-height:1.35}
+.watch-xray-detail{display:grid;grid-template-columns:minmax(130px,.32fr) minmax(0,1fr);gap:18px;margin-top:14px;padding:14px 16px;border:1px solid #cbc6ba;background:#ece9df}
+.watch-xray-detail span{color:#68716e;font:500 9px/1.4 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+.watch-xray-detail strong{color:#3b4542;font-size:13px;line-height:1.55;font-weight:600}
+.watch-xray-note{margin:10px 0 0;color:#7b817e;font-size:10px;line-height:1.55}
+
+@media(max-width:720px){
+  .watch-xray-heading{align-items:flex-start;flex-direction:column}
+  .watch-xray-actions{justify-content:flex-start}
+  .watch-xray-stage svg{min-height:220px}
+  .watch-xray-control{grid-template-columns:1fr;gap:10px}
+  .watch-xray-layers{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .watch-xray-layers button:last-child{grid-column:1/-1}
+  .watch-xray-detail{grid-template-columns:1fr;gap:6px}
+}
+
+@media(max-width:430px){
+  .watch-xray{margin-top:30px;padding-top:24px}
+  .watch-xray-stage svg{min-height:190px}
+  .watch-xray-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .watch-xray-actions button{width:100%}
+}
+
+@media(prefers-reduced-motion:reduce){.watch-xray-layer{transition:none}}
+
+@media print{
+  .watch-xray-actions,.watch-xray-control,.watch-xray-layers{display:none}
+  .watch-xray{break-inside:avoid}
+  .watch-xray-stage{background:#f2efe6}
+  .watch-xray-note{font-size:8pt}
+}
