@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import CustomerSite from './CustomerSite'
+import CertificateXrayPortal from './CertificateXrayPortal'
 import './styles.css'
 import './customer-site.css'
 import './customer-enquiry-public.css'
@@ -38,6 +39,7 @@ export default function CustomerEntry() {
 
   return <>
     <CustomerSite />
+    <CertificateXrayPortal />
     {lightbox && <div className="customer-lightbox" role="dialog" aria-modal="true" aria-label="Full-size photograph" onClick={() => setLightbox(null)}>
       <button type="button" className="customer-lightbox-close" onClick={() => setLightbox(null)} aria-label="Close full-size photograph">×</button>
       <img src={lightbox.src} alt={lightbox.alt} onClick={(event) => event.stopPropagation()} />
