@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>Calibre Sensor Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2e;
+      --panel2: #0e1528;
+      --text: #eef2ff;
+      --muted: #9aa5be;
+      --line: #28334f;
+      --accent: #7dd3fc;
+      --good: #86efac;
+      --warn: #fde68a;
+      --bad: #fca5a5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #17213c 0, var(--bg) 35rem);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1050px; margin: 0 auto; padding: 18px 14px 44px; }
+    h1 { margin: 2px 0 4px; font-size: clamp(1.55rem, 5vw, 2.25rem); }
+    h2 { margin: 0 0 12px; font-size: 1.05rem; }
+    p { line-height: 1.45; }
+    .sub { color: var(--muted); margin: 0 0 18px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(12, minmax(0,1fr)); }
+    .card {
+      grid-column: span 12;
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      min-width: 0;
+    }
+    @media (min-width: 760px) {
+      .half { grid-column: span 6; }
+      .third { grid-column: span 4; }
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    label { display: grid; gap: 6px; color: var(--muted); font-size: .88rem; }
+    select, input, button {
+      font: inherit;
+      min-height: 44px;
+      border-radius: 11px;
+      border: 1px solid var(--line);
+    }
+    select, input {
+      width: 100%;
+      padding: 10px 12px;
+      color: var(--text);
+      background: var(--panel2);
+    }
+    button {
+      padding: 10px 14px;
+      color: var(--text);
+      background: #1a2540;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button.primary { background: #0c4a6e; border-color: #17628e; }
+    button.danger { background: #5f1d2a; border-color: #8b3143; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    canvas {
+      width: 100%;
+      height: 180px;
+      display: block;
+      background: #080d18;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+    @media (min-width: 520px) { .stats { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+    .stat { padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); }
+    .stat .k { color: var(--muted); font-size: .77rem; }
+    .stat .v { margin-top: 3px; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+    .meter { height: 13px; background: #070b14; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+    .meter > div { height: 100%; width: 0%; background: linear-gradient(90deg, #38bdf8, #86efac, #fde68a, #fca5a5); transition: width .08s linear; }
+    .pill { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: .78rem; }
+    .pill.good { color: var(--good); }
+    .pill.warn { color: var(--warn); }
+    .pill.bad { color: var(--bad); }
+    .note { border-left: 3px solid var(--accent); padding: 9px 10px; background: #0c1729; color: #dbeafe; border-radius: 8px; }
+    .tiny { color: var(--muted); font-size: .8rem; }
+    .status { min-height: 24px; color: var(--muted); }
+    .recording { color: #fca5a5; font-weight: 800; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Calibre Sensor Lab <span class="pill">v0.1</span></h1>
+  <p class="sub">Raw piezo capture test. No timegrapher filtering, no diagnosis — just the signal.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>1. Connect the pickup</h2>
+      <div class="row">
+        <label style="flex:1 1 320px">Audio input
+          <select id="deviceSelect" disabled><option>Connect once to list inputs</option></select>
+        </label>
+        <button id="connectBtn" class="primary">Connect audio</button>
+      </div>
+      <div id="status" class="status" aria-live="polite">Plug the piezo pickup into the phone/PC, then tap Connect audio.</div>
+      <div id="settingsPills" class="row"></div>
+    </section>
+
+    <section class="card">
+      <div class="note"><strong>TV test:</strong> leave the TV playing. With the watch clamped, we want sharp periodic mechanical impulses to dominate. Later we can compare this against the phone microphone to quantify room-noise rejection.</div>
+    </section>
+
+    <section class="card">
+      <h2>Live waveform</h2>
+      <canvas id="waveCanvas" width="960" height="240"></canvas>
+      <div style="margin-top:10px" class="meter"><div id="levelBar"></div></div>
+      <div class="stats" style="margin-top:10px">
+        <div class="stat"><div class="k">RMS level</div><div id="rmsValue" class="v">—</div></div>
+        <div class="stat"><div class="k">Peak</div><div id="peakValue" class="v">—</div></div>
+        <div class="stat"><div class="k">Noise floor*</div><div id="noiseValue" class="v">—</div></div>
+        <div class="stat"><div class="k">Sample rate</div><div id="sampleRateValue" class="v">—</div></div>
+      </div>
+      <p class="tiny">*Experimental rolling low-percentile RMS, useful only as a relative baseline for now.</p>
+    </section>
+
+    <section class="card half">
+      <h2>Frequency spectrum</h2>
+      <canvas id="freqCanvas" width="960" height="240"></canvas>
+      <p class="tiny">0 Hz on the left, Nyquist frequency on the right.</p>
+    </section>
+
+    <section class="card half">
+      <h2>2. Record a test</h2>
+      <label>Test label
+        <input id="labelInput" value="TV-on_DialUp_FullWind" autocomplete="off" />
+      </label>
+      <div class="row" style="margin-top:10px">
+        <button id="recordBtn" class="primary" disabled>Record 30 sec</button>
+        <button id="stopBtn" class="danger" disabled>Stop</button>
+        <button id="wavBtn" disabled>Save WAV</button>
+      </div>
+      <p id="recordStatus" class="status">No recording yet.</p>
+      <p class="tiny">Tip: after connecting, lightly tap the clamp once. A large spike confirms you are reading the mechanical pickup.</p>
+    </section>
+
+    <section class="card">
+      <h2>What counts as a good first result?</h2>
+      <p class="tiny" style="font-size:.9rem">With the TV playing, the live trace should still show distinct repeating impulses when a running watch is clamped. If you can clearly see the tick pattern but speaking/TV audio barely changes the trace, the pickup is already doing exactly what we want for this first experiment.</p>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const deviceSelect = $('deviceSelect');
+  const connectBtn = $('connectBtn');
+  const recordBtn = $('recordBtn');
+  const stopBtn = $('stopBtn');
+  const wavBtn = $('wavBtn');
+  const labelInput = $('labelInput');
+  const statusEl = $('status');
+  const recordStatus = $('recordStatus');
+  const settingsPills = $('settingsPills');
+  const waveCanvas = $('waveCanvas');
+  const freqCanvas = $('freqCanvas');
+  const waveCtx = waveCanvas.getContext('2d');
+  const freqCtx = freqCanvas.getContext('2d');
+  const levelBar = $('levelBar');
+  const rmsValue = $('rmsValue');
+  const peakValue = $('peakValue');
+  const noiseValue = $('noiseValue');
+  const sampleRateValue = $('sampleRateValue');
+
+  let mediaStream = null;
+  let audioContext = null;
+  let sourceNode = null;
+  let analyser = null;
+  let recorderNode = null;
+  let silentGain = null;
+  let animationId = 0;
+  let recording = false;
+  let pcmChunks = [];
+  let recordingSampleRate = 48000;
+  let startedAt = 0;
+  let stopTimer = 0;
+  let elapsedTimer = 0;
+  const rmsHistory = [];
+
+  function setStatus(message, tone='') {
+    statusEl.textContent = message;
+    statusEl.className = 'status' + (tone ? ' ' + tone : '');
+  }
+
+  function pill(text, state='') {
+    const span = document.createElement('span');
+    span.className = 'pill ' + state;
+    span.textContent = text;
+    return span;
+  }
+
+  async function listInputs() {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+    const current = deviceSelect.value;
+    deviceSelect.innerHTML = '';
+    audioInputs.forEach((d, i) => {
+      const option = document.createElement('option');
+      option.value = d.deviceId;
+      option.textContent = d.label || `Audio input ${i + 1}`;
+      deviceSelect.appendChild(option);
+    });
+    deviceSelect.disabled = audioInputs.length === 0;
+    if ([...deviceSelect.options].some(o => o.value === current)) deviceSelect.value = current;
+  }
+
+  function stopCurrentAudio() {
+    cancelAnimationFrame(animationId);
+    if (stopTimer) clearTimeout(stopTimer);
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    if (audioContext) audioContext.close().catch(() => {});
+    mediaStream = null;
+    audioContext = null;
+    sourceNode = null;
+    analyser = null;
+    recorderNode = null;
+    silentGain = null;
+    recording = false;
+    recordBtn.disabled = true;
+    stopBtn.disabled = true;
+  }
+
+  async function connectAudio() {
+    try {
+      connectBtn.disabled = true;
+      setStatus('Requesting audio input…');
+      stopCurrentAudio();
+
+      const selectedDevice = deviceSelect.disabled ? '' : deviceSelect.value;
+      const audioConstraints = {
+        channelCount: { ideal: 1 },
+        sampleRate: { ideal: 48000 },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      };
+      if (selectedDevice) audioConstraints.deviceId = { exact: selectedDevice };
+
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+      await listInputs();
+
+      const track = mediaStream.getAudioTracks()[0];
+      const settings = track.getSettings ? track.getSettings() : {};
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      await audioContext.resume();
+      recordingSampleRate = audioContext.sampleRate;
+      sampleRateValue.textContent = `${recordingSampleRate.toLocaleString()} Hz`;
+
+      sourceNode = audioContext.createMediaStreamSource(mediaStream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0.15;
+      sourceNode.connect(analyser);
+
+      if (audioContext.audioWorklet) {
+        await audioContext.audioWorklet.addModule('/sensor-lab-worklet.js');
+        recorderNode = new AudioWorkletNode(audioContext, 'sensor-lab-recorder', {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1]
+        });
+        recorderNode.port.onmessage = (event) => {
+          if (event.data?.type === 'pcm' && recording) pcmChunks.push(event.data.samples);
+        };
+        sourceNode.connect(recorderNode);
+        silentGain = audioContext.createGain();
+        silentGain.gain.value = 0;
+        recorderNode.connect(silentGain).connect(audioContext.destination);
+      } else {
+        throw new Error('This browser does not support AudioWorklet. Try current Chrome on Android/desktop.');
+      }
+
+      settingsPills.innerHTML = '';
+      const deviceName = track.label || 'Audio input';
+      settingsPills.appendChild(pill(deviceName, 'good'));
+      settingsPills.appendChild(pill(`Channels ${settings.channelCount ?? '?'}`));
+      settingsPills.appendChild(pill(`Track ${settings.sampleRate ?? recordingSampleRate} Hz`));
+      addSettingPill('Echo cancellation', settings.echoCancellation, caps.echoCancellation);
+      addSettingPill('Noise suppression', settings.noiseSuppression, caps.noiseSuppression);
+      addSettingPill('Auto gain', settings.autoGainControl, caps.autoGainControl);
+
+      setStatus('Connected. Lightly tap the clamp — you should see a strong spike.', 'good');
+      recordBtn.disabled = false;
+      drawLoop();
+    } catch (err) {
+      console.error(err);
+      setStatus(`Could not connect: ${err.message || err}`, 'bad');
+    } finally {
+      connectBtn.disabled = false;
+    }
+  }
+
+  function addSettingPill(name, value, capability) {
+    let state = '';
+    let text;
+    if (value === false) { state = 'good'; text = `${name} OFF`; }
+    else if (value === true) { state = 'warn'; text = `${name} ON`; }
+    else {
+      const supported = capability !== undefined;
+      text = `${name} ${supported ? 'unknown' : 'not reported'}`;
+    }
+    settingsPills.appendChild(pill(text, state));
+  }
+
+  function resizeCanvasForDisplay(canvas) {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(300, Math.round(rect.width * dpr));
+    const h = Math.max(160, Math.round(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+    }
+  }
+
+  function drawLoop() {
+    if (!analyser) return;
+    resizeCanvasForDisplay(waveCanvas);
+    resizeCanvasForDisplay(freqCanvas);
+
+    const timeData = new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(timeData);
+
+    let sum = 0;
+    let peak = 0;
+    for (let i=0; i<timeData.length; i++) {
+      const v = timeData[i];
+      sum += v*v;
+      peak = Math.max(peak, Math.abs(v));
+    }
+    const rms = Math.sqrt(sum / timeData.length);
+    rmsHistory.push(rms);
+    if (rmsHistory.length > 300) rmsHistory.shift();
+    const sorted = [...rmsHistory].sort((a,b)=>a-b);
+    const noise = sorted.length ? sorted[Math.floor(sorted.length * 0.15)] : 0;
+
+    rmsValue.textContent = rms.toFixed(4);
+    peakValue.textContent = peak.toFixed(4);
+    noiseValue.textContent = noise.toFixed(4);
+    const levelPercent = Math.min(100, Math.max(0, 20 * Math.log10(Math.max(rms, 1e-6)) + 80) * 1.25);
+    levelBar.style.width = `${levelPercent}%`;
+
+    drawWaveform(timeData);
+    drawSpectrum();
+    animationId = requestAnimationFrame(drawLoop);
+  }
+
+  function drawWaveform(data) {
+    const w = waveCanvas.width, h = waveCanvas.height;
+    waveCtx.clearRect(0,0,w,h);
+    waveCtx.fillStyle = '#080d18'; waveCtx.fillRect(0,0,w,h);
+    waveCtx.strokeStyle = '#23304b'; waveCtx.lineWidth = 1;
+    waveCtx.beginPath(); waveCtx.moveTo(0,h/2); waveCtx.lineTo(w,h/2); waveCtx.stroke();
+    waveCtx.strokeStyle = '#7dd3fc'; waveCtx.lineWidth = 2;
+    waveCtx.beginPath();
+    const step = w / Math.max(1, data.length-1);
+    for (let i=0; i<data.length; i++) {
+      const x = i * step;
+      const y = h/2 - data[i] * h * 0.44;
+      if (i===0) waveCtx.moveTo(x,y); else waveCtx.lineTo(x,y);
+    }
+    waveCtx.stroke();
+  }
+
+  function drawSpectrum() {
+    if (!analyser) return;
+    const bins = analyser.frequencyBinCount;
+    const data = new Uint8Array(bins);
+    analyser.getByteFrequencyData(data);
+    const w = freqCanvas.width, h = freqCanvas.height;
+    freqCtx.clearRect(0,0,w,h);
+    freqCtx.fillStyle = '#080d18'; freqCtx.fillRect(0,0,w,h);
+    freqCtx.strokeStyle = '#86efac'; freqCtx.lineWidth = 2;
+    freqCtx.beginPath();
+    for (let i=0; i<bins; i++) {
+      const x = (i/(bins-1))*w;
+      const y = h - (data[i]/255)*h;
+      if (i===0) freqCtx.moveTo(x,y); else freqCtx.lineTo(x,y);
+    }
+    freqCtx.stroke();
+  }
+
+  function startRecording() {
+    if (!recorderNode || recording) return;
+    pcmChunks = [];
+    recording = true;
+    startedAt = performance.now();
+    wavBtn.disabled = true;
+    recordBtn.disabled = true;
+    stopBtn.disabled = false;
+    recorderNode.port.postMessage({ type: 'recording', enabled: true });
+    recordStatus.innerHTML = '<span class="recording">● Recording 0.0 / 30.0 s</span>';
+    elapsedTimer = setInterval(() => {
+      const seconds = (performance.now() - startedAt) / 1000;
+      recordStatus.innerHTML = `<span class="recording">● Recording ${seconds.toFixed(1)} / 30.0 s</span>`;
+    }, 100);
+    stopTimer = setTimeout(stopRecording, 30000);
+  }
+
+  function stopRecording() {
+    if (!recording) return;
+    recording = false;
+    if (recorderNode) recorderNode.port.postMessage({ type: 'recording', enabled: false });
+    clearTimeout(stopTimer); clearInterval(elapsedTimer);
+    stopBtn.disabled = true;
+    recordBtn.disabled = false;
+    const totalSamples = pcmChunks.reduce((n,c) => n + c.length, 0);
+    const seconds = totalSamples / recordingSampleRate;
+    recordStatus.textContent = `Captured ${seconds.toFixed(2)} s (${totalSamples.toLocaleString()} samples).`;
+    wavBtn.disabled = totalSamples === 0;
+  }
+
+  function flattenChunks() {
+    const total = pcmChunks.reduce((n,c)=>n+c.length,0);
+    const out = new Float32Array(total);
+    let offset = 0;
+    for (const chunk of pcmChunks) { out.set(chunk, offset); offset += chunk.length; }
+    return out;
+  }
+
+  function createWavBlob(samples, sampleRate) {
+    const bytesPerSample = 2;
+    const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+    const view = new DataView(buffer);
+    const writeString = (offset, str) => { for (let i=0; i<str.length; i++) view.setUint8(offset+i, str.charCodeAt(i)); };
+    writeString(0,'RIFF');
+    view.setUint32(4,36 + samples.length*2,true);
+    writeString(8,'WAVE');
+    writeString(12,'fmt ');
+    view.setUint32(16,16,true);
+    view.setUint16(20,1,true);
+    view.setUint16(22,1,true);
+    view.setUint32(24,sampleRate,true);
+    view.setUint32(28,sampleRate*2,true);
+    view.setUint16(32,2,true);
+    view.setUint16(34,16,true);
+    writeString(36,'data');
+    view.setUint32(40,samples.length*2,true);
+    let offset = 44;
+    for (let i=0; i<samples.length; i++, offset+=2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s*0x8000 : s*0x7fff, true);
+    }
+    return new Blob([buffer], {type:'audio/wav'});
+  }
+
+  function safeName(value) {
+    return (value || 'sensor-test').trim().replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'sensor-test';
+  }
+
+  function saveWav() {
+    const samples = flattenChunks();
+    if (!samples.length) return;
+    const blob = createWavBlob(samples, recordingSampleRate);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName(labelInput.value)}_${recordingSampleRate}Hz.wav`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+
+  connectBtn.addEventListener('click', connectAudio);
+  deviceSelect.addEventListener('change', () => {
+    if (mediaStream) connectAudio();
+  });
+  recordBtn.addEventListener('click', startRecording);
+  stopBtn.addEventListener('click', stopRecording);
+  wavBtn.addEventListener('click', saveWav);
+  window.addEventListener('beforeunload', stopCurrentAudio);
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('This browser does not support microphone/audio input capture. Use current Chrome or Edge over HTTPS.', 'bad');
+    connectBtn.disabled = true;
+  }
+})();
+</script>
+</body>
+</html>
