@@ -2,22 +2,39 @@ class SensorLabRecorderProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.recording = false;
+    this.chunkSize = 2048;
+    this.buffer = new Float32Array(this.chunkSize);
+    this.offset = 0;
+
     this.port.onmessage = (event) => {
       if (event.data?.type === 'recording') {
-        this.recording = Boolean(event.data.enabled);
+        const enabled = Boolean(event.data.enabled);
+        if (!enabled && this.offset > 0) this.flush();
+        this.recording = enabled;
       }
     };
   }
 
+  flush() {
+    if (!this.offset) return;
+    const chunk = this.buffer.slice(0, this.offset);
+    this.port.postMessage({ type: 'pcm', samples: chunk }, [chunk.buffer]);
+    this.offset = 0;
+  }
+
   process(inputs) {
     const input = inputs[0];
-    if (!input || !input[0]) return true;
+    if (!input || !input[0] || !this.recording) return true;
 
-    if (this.recording) {
-      const channel = input[0];
-      const copy = new Float32Array(channel.length);
-      copy.set(channel);
-      this.port.postMessage({ type: 'pcm', samples: copy }, [copy.buffer]);
+    const channel = input[0];
+    let sourceOffset = 0;
+    while (sourceOffset < channel.length) {
+      const room = this.chunkSize - this.offset;
+      const take = Math.min(room, channel.length - sourceOffset);
+      this.buffer.set(channel.subarray(sourceOffset, sourceOffset + take), this.offset);
+      this.offset += take;
+      sourceOffset += take;
+      if (this.offset === this.chunkSize) this.flush();
     }
 
     return true;
