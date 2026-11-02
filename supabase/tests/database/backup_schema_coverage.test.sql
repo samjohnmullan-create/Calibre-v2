@@ -17,13 +17,13 @@ select ok(
 
 select is(
   cardinality(public.workspace_backup_schema_tables()),
-  64,
-  'the current schema contains exactly the 64 reviewed workspace-scoped base tables'
+  65,
+  'the current schema contains exactly the 65 reviewed workspace-scoped base tables'
 );
 
 select ok(
-  public.workspace_backup_schema_tables() @> array['customer_notification_settings','marketplace_listings']::text[],
-  'recent customer notification and marketplace tables are included in schema coverage discovery'
+  public.workspace_backup_schema_tables() @> array['customer_notification_settings','marketplace_listings','backup_export_events']::text[],
+  'recent backup-sensitive tables are included in schema coverage discovery'
 );
 
 select * from finish();
