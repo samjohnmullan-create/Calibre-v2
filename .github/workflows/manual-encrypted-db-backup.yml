@@ -1,0 +1,141 @@
+name: Manual encrypted Calibre DB backup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-calibre-db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout verified backup tooling
+        uses: actions/checkout@v7
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+
+      - name: Create and encrypt recovery dump
+        id: backup
+        shell: bash
+        env:
+          CALIBRE_BACKUP_DB_URL: ${{ secrets.CALIBRE_BACKUP_DB_URL }}
+          CALIBRE_BACKUP_PASSPHRASE: ${{ secrets.CALIBRE_BACKUP_PASSPHRASE }}
+          CALIBRE_PROJECT_REF: zmhbrqkzvgajmvhhorba
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "${CALIBRE_BACKUP_DB_URL:-}" ]]; then
+            echo "CALIBRE_BACKUP_DB_URL is not configured. Refusing to create an unverified backup." >&2
+            exit 1
+          fi
+          if (( ${#CALIBRE_BACKUP_PASSPHRASE} < 24 )); then
+            echo "CALIBRE_BACKUP_PASSPHRASE must be at least 24 characters." >&2
+            exit 1
+          fi
+
+          work="$(mktemp -d)"
+          archive="$RUNNER_TEMP/calibre-db-backup-plain.tar.gz"
+          cleanup() {
+            rm -rf "$work" "$archive"
+          }
+          trap cleanup EXIT
+
+          echo "Creating Supabase-supported recovery dump set…"
+          supabase db dump --db-url "$CALIBRE_BACKUP_DB_URL" -f "$work/roles.sql" --role-only
+          supabase db dump --db-url "$CALIBRE_BACKUP_DB_URL" -f "$work/schema.sql"
+          supabase db dump --db-url "$CALIBRE_BACKUP_DB_URL" -f "$work/data.sql" --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          supabase db dump --db-url "$CALIBRE_BACKUP_DB_URL" -f "$work/history_schema.sql" --schema supabase_migrations
+          supabase db dump --db-url "$CALIBRE_BACKUP_DB_URL" -f "$work/history_data.sql" --use-copy --data-only --schema supabase_migrations
+
+          for required in roles.sql schema.sql data.sql history_schema.sql history_data.sql; do
+            if [[ ! -s "$work/$required" ]]; then
+              echo "Required dump component is empty: $required" >&2
+              exit 1
+            fi
+          done
+
+          (
+            cd "$work"
+            sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql > plaintext-checksums.sha256
+          )
+
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          cat > "$work/recovery-manifest.json" <<EOF
+          {
+            "calibre_database_backup_version": "1.0",
+            "generated_at": "$generated_at",
+            "project_ref": "$CALIBRE_PROJECT_REF",
+            "source_commit": "$GITHUB_SHA",
+            "dump_components": [
+              "roles.sql",
+              "schema.sql",
+              "data.sql",
+              "history_schema.sql",
+              "history_data.sql"
+            ],
+            "plaintext_checksums": "plaintext-checksums.sha256",
+            "storage_binaries_included": false,
+            "note": "Database recovery set only. Calibre Storage binaries require the separate Storage archive."
+          }
+          EOF
+
+          tar -C "$work" -czf "$archive" \
+            roles.sql schema.sql data.sql history_schema.sql history_data.sql \
+            plaintext-checksums.sha256 recovery-manifest.json
+
+          stamp="$(date -u +'%Y%m%dT%H%M%SZ')"
+          encrypted="$RUNNER_TEMP/calibre-db-backup-$stamp.calibrebackup"
+          metadata="$RUNNER_TEMP/calibre-db-backup-$stamp.metadata.json"
+          node scripts/calibre-db-backup-crypto.mjs encrypt "$archive" "$encrypted"
+
+          encrypted_sha="$(sha256sum "$encrypted" | awk '{print $1}')"
+          encrypted_bytes="$(stat -c '%s' "$encrypted")"
+          cat > "$metadata" <<EOF
+          {
+            "calibre_encrypted_backup_version": "CALDB001",
+            "generated_at": "$generated_at",
+            "project_ref": "$CALIBRE_PROJECT_REF",
+            "source_commit": "$GITHUB_SHA",
+            "encryption": "AES-256-GCM with scrypt-derived key",
+            "encrypted_sha256": "$encrypted_sha",
+            "encrypted_bytes": $encrypted_bytes,
+            "contains_storage_binaries": false
+          }
+          EOF
+
+          echo "encrypted_path=$encrypted" >> "$GITHUB_OUTPUT"
+          echo "metadata_path=$metadata" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=calibre-db-backup-$stamp" >> "$GITHUB_OUTPUT"
+          echo "Encrypted database recovery set created; plaintext working files will now be destroyed."
+
+      - name: Upload encrypted off-site artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.backup.outputs.artifact_name }}
+          path: |
+            ${{ steps.backup.outputs.encrypted_path }}
+            ${{ steps.backup.outputs.metadata_path }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Record operator guidance
+        shell: bash
+        run: |
+          {
+            echo "## Calibre encrypted database backup"
+            echo ""
+            echo "The workflow uploaded only the encrypted .calibrebackup file and non-sensitive metadata."
+            echo "Download the artifact and perform a test decrypt before this backup is accepted as recovery evidence."
+            echo "Storage binaries are not included and remain a separate recovery layer."
+          } >> "$GITHUB_STEP_SUMMARY"
