@@ -35,6 +35,8 @@ export const workspaceBackupTables: ExportTable[] = [
   { name: 'sales', label: 'Sales', order: ['id'] },
   { name: 'business_ledger_entries', label: 'Business ledger', order: ['id'] },
   { name: 'customer_publications', label: 'Customer publications', order: ['id'] },
+  { name: 'customer_notification_settings', label: 'Customer notification settings', order: ['workspace_id'] },
+  { name: 'marketplace_listings', label: 'Marketplace listings', order: ['id'] },
   { name: 'work_records', label: 'Work records', order: ['id'] },
   { name: 'work_events', label: 'Work events', order: ['id'] },
   { name: 'work_sessions', label: 'Bench sessions', order: ['started_at', 'id'] },

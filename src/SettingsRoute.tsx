@@ -4,7 +4,7 @@ import AuditHistoryPanel from './AuditHistoryPanel'
 import SystemHealthPanel from './SystemHealthPanel'
 import { exportWorkspaceStorageArchive } from './storageArchive'
 import { useWorkshopSession } from './WorkshopSessionGate'
-import { workspaceBackupTables, type ExportTable } from './workspaceBackupTables'
+import { workspaceBackupTableNames, workspaceBackupTables, type ExportTable } from './workspaceBackupTables'
 
 const exportBatchSize = 500
 const structuredBackupVersion = '2.0'
@@ -21,6 +21,30 @@ async function sha256(text: string) {
   const bytes = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function verifyBackupCoverage() {
+  const result = await supabase.rpc('workspace_backup_schema_tables')
+  if (result.error) throw new Error(`Backup coverage check failed: ${result.error.message}`)
+
+  const liveTables = Array.isArray(result.data)
+    ? result.data.map((name) => String(name)).sort()
+    : []
+  if (!liveTables.length) throw new Error('Backup coverage check returned no workspace tables.')
+
+  const manifestTables = [...workspaceBackupTableNames].sort()
+  const manifestSet = new Set(manifestTables)
+  const liveSet = new Set(liveTables)
+  const missingFromBackup = liveTables.filter((name) => !manifestSet.has(name))
+  const staleManifestEntries = manifestTables.filter((name) => !liveSet.has(name))
+
+  if (missingFromBackup.length || staleManifestEntries.length) {
+    const details = [
+      missingFromBackup.length ? `missing from backup: ${missingFromBackup.join(', ')}` : '',
+      staleManifestEntries.length ? `not present in live schema: ${staleManifestEntries.join(', ')}` : '',
+    ].filter(Boolean).join(' · ')
+    throw new Error(`Backup coverage drift detected — ${details}. Export stopped so Calibre cannot create an incomplete backup.`)
+  }
 }
 
 export default function SettingsRoute() {
@@ -74,6 +98,9 @@ export default function SettingsRoute() {
     setMessage('')
 
     try {
+      setProgress('Verifying backup coverage against the live schema…')
+      await verifyBackupCoverage()
+
       const tables: Record<string, unknown[]> = {}
       const counts: Record<string, number> = {}
 
@@ -203,11 +230,12 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">WHAT THIS BACKS UP</p>
           <h2>Records plus the real files</h2>
-          <p className="muted">The JSON now covers every current workspace-scoped base table, including workshop sessions, induction, diagnosis, job-plan history, component state, Library evidence, customer publications and acquisition-cost lineage. The separate TAR archive preserves referenced Storage files with SHA-256 checksums.</p>
-          <div className="settings-v2-status good"><strong>All workspace-scoped structured tables</strong><span>{workspaceBackupTables.length} included</span></div>
+          <p className="muted">The JSON covers every current workspace-scoped base table and verifies that coverage against the live schema before export. It includes workshop sessions, induction, diagnosis, job-plan history, component state, Library evidence, customer publications, notification settings, marketplace listings and acquisition-cost lineage. The separate TAR archive preserves referenced Storage files with SHA-256 checksums.</p>
+          <div className="settings-v2-status good"><strong>All workspace-scoped structured tables</strong><span>{workspaceBackupTables.length} included · live-schema checked</span></div>
           <div className="settings-v2-status good"><strong>Workshop sessions & diagnostic history</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Library documents & page evidence</strong><span>Included</span></div>
-          <div className="settings-v2-status good"><strong>Customer publication records</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Customer publication & notification records</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Marketplace listing records</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Acquisition & receiving lineage</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Physical-storage move history</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Structured integrity checksum</strong><span>Included</span></div>
