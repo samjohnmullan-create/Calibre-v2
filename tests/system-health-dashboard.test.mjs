@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 
 const settings = await readFile(new URL('../src/SettingsRoute.tsx', import.meta.url), 'utf8')
 const health = await readFile(new URL('../src/SystemHealthPanel.tsx', import.meta.url), 'utf8')
+const backupEvidence = await readFile(new URL('../src/backupEvidence.ts', import.meta.url), 'utf8')
 const pages = await readFile(new URL('../.github/workflows/deploy-pages.yml', import.meta.url), 'utf8')
 
 test('Settings mounts the System Health control panel', () => {
@@ -24,6 +25,15 @@ test('System Health checks the signed-in Supabase session, database and media st
   assert.match(health, /from\(['"]workspaces['"]\)/)
   assert.match(health, /storage\.from\(['"]calibre-media['"]\)/)
   assert.match(health, /Core system failure detected/)
+})
+
+test('backup freshness is read from durable workspace evidence rather than browser localStorage', () => {
+  assert.match(backupEvidence, /from\(['"]backup_export_events['"]\)/)
+  assert.match(health, /loadLatestBackupExportEvidence/)
+  assert.match(health, /Structured export generated/)
+  assert.match(health, /Storage archive generated/)
+  assert.match(health, /Generation evidence only; off-site retention and restore are separate checks/)
+  assert.doesNotMatch(health, /localStorage/)
 })
 
 test('workshop production builds embed their exact deployment SHA', () => {
