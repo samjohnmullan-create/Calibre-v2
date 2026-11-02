@@ -3,6 +3,7 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../src/workspaceBackupTables.ts', import.meta.url), 'utf8')
+const settings = await readFile(new URL('../src/SettingsRoute.tsx', import.meta.url), 'utf8')
 const names = [...source.matchAll(/name:\s*'([^']+)'/g)].map((match) => match[1])
 const uniqueNames = new Set(names)
 
@@ -15,6 +16,8 @@ const requiredOperationalTables = [
   'knowledge_document_links',
   'knowledge_document_findings',
   'customer_publications',
+  'customer_notification_settings',
+  'marketplace_listings',
   'purchases',
   'purchase_item_cost_links',
   'business_ledger_entries',
@@ -50,11 +53,19 @@ test('workspace backup manifest has no duplicate tables', () => {
 })
 
 test('workspace backup v2 retains the complete current table count', () => {
-  assert.equal(names.length, 62, 'Adding/removing a workspace table requires an explicit backup coverage review')
+  assert.equal(names.length, 64, 'Adding/removing a workspace table requires an explicit backup coverage review')
 })
 
-test('business-critical workshop, Library and recovery tables remain in the backup', () => {
+test('business-critical workshop, Library, marketplace and recovery tables remain in the backup', () => {
   for (const table of requiredOperationalTables) {
     assert.ok(uniqueNames.has(table), `Structured backup is missing ${table}`)
   }
+})
+
+test('structured export verifies its manifest against the live workspace schema before reading rows', () => {
+  assert.match(settings, /rpc\(['"]workspace_backup_schema_tables['"]\)/)
+  assert.match(settings, /Backup coverage drift detected/)
+  const coverageCheck = settings.indexOf('await verifyBackupCoverage()')
+  const firstTableRead = settings.indexOf('await readWholeTable(definition)')
+  assert.ok(coverageCheck >= 0 && firstTableRead >= 0 && coverageCheck < firstTableRead, 'coverage must be verified before table export begins')
 })
