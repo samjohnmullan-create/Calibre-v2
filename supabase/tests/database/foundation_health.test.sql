@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(5);
+select plan(6);
 
 select is(
   (
@@ -30,10 +30,25 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public'
       and grantee in ('anon', 'authenticated')
-      and privilege_type in ('TRUNCATE', 'TRIGGER', 'REFERENCES')
+      and privilege_type in ('TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN')
   ),
   0::bigint,
-  'client roles do not hold destructive or schema-level table privileges'
+  'client roles do not hold destructive or maintenance table privileges'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from pg_default_acl d
+    cross join lateral aclexplode(d.defaclacl) a
+    where d.defaclrole = 'postgres'::regrole
+      and d.defaclnamespace = 'public'::regnamespace
+      and d.defaclobjtype = 'r'
+      and a.grantee in ('anon'::regrole, 'authenticated'::regrole)
+      and a.privilege_type in ('TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN')
+  ),
+  0::bigint,
+  'postgres public-table defaults cannot reintroduce broad client privileges'
 );
 
 select is(
