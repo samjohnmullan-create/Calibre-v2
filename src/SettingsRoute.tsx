@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuditHistoryPanel from './AuditHistoryPanel'
 import SystemHealthPanel from './SystemHealthPanel'
+import { loadLatestBackupExportEvidence, recordBackupExportEvidence } from './backupEvidence'
 import { exportWorkspaceStorageArchive } from './storageArchive'
 import { useWorkshopSession } from './WorkshopSessionGate'
 import { workspaceBackupTableNames, workspaceBackupTables, type ExportTable } from './workspaceBackupTables'
 
 const exportBatchSize = 500
 const structuredBackupVersion = '2.0'
+const storageArchiveVersion = '2.0'
 
 function isSettings() {
   return window.location.hash.replace(/\/$/, '') === '#/settings'
@@ -57,8 +59,8 @@ export default function SettingsRoute() {
   const [progress, setProgress] = useState('')
   const [storageProgress, setStorageProgress] = useState('')
   const [message, setMessage] = useState('')
-  const [lastExport, setLastExport] = useState(() => localStorage.getItem('calibre:last-structured-export') ?? '')
-  const [lastStorageExport, setLastStorageExport] = useState(() => localStorage.getItem('calibre:last-storage-export') ?? '')
+  const [lastExport, setLastExport] = useState('')
+  const [lastStorageExport, setLastStorageExport] = useState('')
 
   const exportScopeLabel = useMemo(() => `${workspaceBackupTables.length} workspace tables`, [])
 
@@ -68,6 +70,21 @@ export default function SettingsRoute() {
     sync()
     return () => window.removeEventListener('hashchange', sync)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!workspaceId) return
+    void loadLatestBackupExportEvidence(workspaceId)
+      .then((latest) => {
+        if (cancelled) return
+        setLastExport(latest.structured?.generated_at ?? '')
+        setLastStorageExport(latest.storage?.generated_at ?? '')
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setMessage(`Could not read backup export history: ${error instanceof Error ? error.message : 'Unknown error.'}`)
+      })
+    return () => { cancelled = true }
+  }, [workspaceId])
 
   async function readWholeTable(definition: ExportTable) {
     const rows: unknown[] = []
@@ -116,6 +133,7 @@ export default function SettingsRoute() {
       const tableJson = JSON.stringify(tables)
       const checksum = await sha256(tableJson)
       const exportedAt = new Date().toISOString()
+      const totalRows = Object.values(counts).reduce((sum, count) => sum + count, 0)
       const payload = {
         calibre_export_version: structuredBackupVersion,
         export_kind: 'workspace_structured_backup',
@@ -153,10 +171,25 @@ export default function SettingsRoute() {
       anchor.remove()
       URL.revokeObjectURL(url)
 
-      localStorage.setItem('calibre:last-structured-export', exportedAt)
-      setLastExport(exportedAt)
+      let evidenceWarning = ''
+      try {
+        const recordedAt = await recordBackupExportEvidence({
+          workspaceId,
+          exportKind: 'structured',
+          exportVersion: structuredBackupVersion,
+          structuredTableCount: workspaceBackupTables.length,
+          rowCount: totalRows,
+          artifactBytes: blob.size,
+          contentChecksum: checksum,
+          details: { evidence_scope: 'generation_only', coverage_model: 'live-schema-checked' },
+        })
+        setLastExport(recordedAt)
+      } catch (error) {
+        evidenceWarning = ` Export generated, but its durable evidence record failed: ${error instanceof Error ? error.message : 'Unknown error.'}`
+      }
+
       setProgress('')
-      setMessage(`Structured backup v${structuredBackupVersion} created successfully. ${workspaceBackupTables.length} tables and ${Object.values(counts).reduce((sum, count) => sum + count, 0).toLocaleString()} rows exported.`)
+      setMessage(`Structured export v${structuredBackupVersion} generated successfully. ${workspaceBackupTables.length} tables and ${totalRows.toLocaleString()} rows exported.${evidenceWarning}`)
     } catch (error) {
       setProgress('')
       setMessage(`Backup export failed: ${error instanceof Error ? error.message : 'Unknown error.'}`)
@@ -176,10 +209,25 @@ export default function SettingsRoute() {
         workspaceName,
         onProgress: setStorageProgress,
       })
-      localStorage.setItem('calibre:last-storage-export', result.exportedAt)
-      setLastStorageExport(result.exportedAt)
+
+      let evidenceWarning = ''
+      try {
+        const recordedAt = await recordBackupExportEvidence({
+          workspaceId,
+          exportKind: 'storage',
+          exportVersion: storageArchiveVersion,
+          fileCount: result.fileCount,
+          sourceBytes: result.totalBytes,
+          artifactBytes: result.archiveBytes,
+          details: { evidence_scope: 'generation_only', buckets: result.buckets },
+        })
+        setLastStorageExport(recordedAt)
+      } catch (error) {
+        evidenceWarning = ` Archive generated, but its durable evidence record failed: ${error instanceof Error ? error.message : 'Unknown error.'}`
+      }
+
       setStorageProgress('')
-      setMessage(`Storage archive created successfully. ${result.fileCount.toLocaleString()} files and ${(result.totalBytes / 1024 / 1024).toFixed(1)} MB of source data were archived with per-file SHA-256 checksums.`)
+      setMessage(`Storage archive generated successfully. ${result.fileCount.toLocaleString()} files and ${(result.totalBytes / 1024 / 1024).toFixed(1)} MB of source data were archived with per-file SHA-256 checksums.${evidenceWarning}`)
     } catch (error) {
       setStorageProgress('')
       setMessage(`Storage archive failed: ${error instanceof Error ? error.message : 'Unknown error.'}`)
@@ -214,8 +262,8 @@ export default function SettingsRoute() {
             <div><span>Workspace</span><strong>{workspaceName}</strong></div>
             <div><span>Structured scope</span><strong>{exportScopeLabel}</strong></div>
             <div><span>Backup format</span><strong>v{structuredBackupVersion}</strong></div>
-            <div><span>Last structured export</span><strong>{lastExport ? new Date(lastExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
-            <div><span>Last Storage export</span><strong>{lastStorageExport ? new Date(lastStorageExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
+            <div><span>Last structured export generated</span><strong>{lastExport ? new Date(lastExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
+            <div><span>Last Storage archive generated</span><strong>{lastStorageExport ? new Date(lastStorageExport).toLocaleString('en-AU') : 'Not recorded'}</strong></div>
           </div>
 
           <div className="settings-v2-actions">
@@ -225,17 +273,19 @@ export default function SettingsRoute() {
             {storageProgress && <span>{storageProgress}</span>}
           </div>
           {message && <p className="settings-v2-message">{message}</p>}
+          <p className="muted">Calibre records successful export generation in the workspace so this history follows you across devices. That record does not prove the downloaded file was retained off-site or successfully restored.</p>
         </article>
 
         <article className="settings-v2-card">
           <p className="eyebrow">WHAT THIS BACKS UP</p>
           <h2>Records plus the real files</h2>
-          <p className="muted">The JSON covers every current workspace-scoped base table and verifies that coverage against the live schema before export. It includes workshop sessions, induction, diagnosis, job-plan history, component state, Library evidence, customer publications, notification settings, marketplace listings and acquisition-cost lineage. The separate TAR archive preserves referenced Storage files with SHA-256 checksums.</p>
+          <p className="muted">The JSON covers every current workspace-scoped base table and verifies that coverage against the live schema before export. It includes workshop sessions, induction, diagnosis, job-plan history, component state, Library evidence, customer publications, notification settings, marketplace listings, backup export evidence and acquisition-cost lineage. The separate TAR archive preserves referenced Storage files with SHA-256 checksums.</p>
           <div className="settings-v2-status good"><strong>All workspace-scoped structured tables</strong><span>{workspaceBackupTables.length} included · live-schema checked</span></div>
           <div className="settings-v2-status good"><strong>Workshop sessions & diagnostic history</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Library documents & page evidence</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Customer publication & notification records</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Marketplace listing records</strong><span>Included</span></div>
+          <div className="settings-v2-status good"><strong>Backup generation evidence</strong><span>Included · append-only to the client</span></div>
           <div className="settings-v2-status good"><strong>Acquisition & receiving lineage</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Physical-storage move history</strong><span>Included</span></div>
           <div className="settings-v2-status good"><strong>Structured integrity checksum</strong><span>Included</span></div>
@@ -255,7 +305,7 @@ export default function SettingsRoute() {
         <article className="settings-v2-card">
           <p className="eyebrow">RECOVERY MODEL</p>
           <h2>One backup is not enough.</h2>
-          <p className="muted">The release target is layered recovery: versioned database migrations, managed database backups where available, Calibre portable exports, and an owner-controlled archive of Storage files. The restore drill is still the test that decides whether recovery is actually proven.</p>
+          <p className="muted">The release target is layered recovery: versioned database migrations, off-site database dumps for the current Free-plan project, Calibre portable exports, and an owner-controlled archive of Storage files. Export-generation evidence is useful operational history, but the restore drill is still the test that decides whether recovery is actually proven.</p>
         </article>
 
         {workspaceId && <AuditHistoryPanel workspaceId={workspaceId} />}
