@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { loadLatestBackupExportEvidence } from './backupEvidence'
 import { supabase } from './lib/supabase'
 
 type HealthLevel = 'good' | 'attention' | 'critical' | 'unknown'
@@ -14,14 +15,14 @@ function shortSha(value: string) {
   return value ? value.slice(0, 8) : 'Unknown'
 }
 
-function backupAgeLabel(value: string) {
-  if (!value) return { value: 'Not recorded', level: 'attention' as const, detail: 'Create an owner-controlled backup.' }
+function exportAgeLabel(value: string) {
+  if (!value) return { value: 'Not recorded', level: 'attention' as const, detail: 'No durable export-generation event is recorded for this workspace.' }
   const ageMs = Date.now() - new Date(value).getTime()
   const days = Math.max(0, Math.floor(ageMs / 86_400_000))
   return {
     value: days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} ago`,
     level: days <= 30 ? 'good' as const : 'attention' as const,
-    detail: new Date(value).toLocaleString('en-AU'),
+    detail: `${new Date(value).toLocaleString('en-AU')}. Generation evidence only; off-site retention and restore are separate checks.`,
   }
 }
 
@@ -67,12 +68,13 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
     setDatabaseOk(null)
     setAuthOk(null)
     setStorageOk(null)
-    setLastStructuredExport(localStorage.getItem('calibre:last-structured-export') ?? '')
-    setLastStorageExport(localStorage.getItem('calibre:last-storage-export') ?? '')
 
     const releasePromise = isProductionHost
       ? readLiveRelease().then((metadata) => ({ metadata, error: '' })).catch((error: unknown) => ({ metadata: null, error: error instanceof Error ? error.message : 'release fingerprint failed' }))
       : Promise.resolve({ metadata: null, error: '' })
+    const backupEvidencePromise = loadLatestBackupExportEvidence(workspaceId)
+      .then((data) => ({ data, error: '' }))
+      .catch((error: unknown) => ({ data: null, error: error instanceof Error ? error.message : 'backup export evidence failed' }))
 
     const [
       releaseResult,
@@ -87,6 +89,7 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
       partsResult,
       toolsResult,
       consumablesResult,
+      backupEvidenceResult,
     ] = await Promise.all([
       releasePromise,
       supabase.from('workspaces').select('id').eq('id', workspaceId).maybeSingle(),
@@ -100,6 +103,7 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
       supabase.from('parts').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('archived_at', null).is('storage_location_id', null),
       supabase.from('tools').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('archived_at', null).is('storage_location_id', null),
       supabase.from('consumables').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).is('archived_at', null).is('storage_location_id', null),
+      backupEvidencePromise,
     ])
 
     setLiveRelease(releaseResult.metadata)
@@ -112,6 +116,10 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
     if (!sessionResult.error) setActiveSessions(sessionResult.count ?? 0)
     if (!exceptionResult.error) setOpenReceivingExceptions(exceptionResult.count ?? 0)
     if (!waitingResult.error) setWaitingWork(waitingResult.count ?? 0)
+    if (!backupEvidenceResult.error && backupEvidenceResult.data) {
+      setLastStructuredExport(backupEvidenceResult.data.structured?.generated_at ?? '')
+      setLastStorageExport(backupEvidenceResult.data.storage?.generated_at ?? '')
+    }
     setUnassigned({
       items: itemsResult.error ? 0 : itemsResult.count ?? 0,
       parts: partsResult.error ? 0 : partsResult.count ?? 0,
@@ -132,6 +140,7 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
       partsResult.error?.message,
       toolsResult.error?.message,
       consumablesResult.error?.message,
+      backupEvidenceResult.error,
     ].filter(Boolean)
 
     setMessage(errors.length ? `Some checks could not be completed: ${errors.join(' · ')}` : '')
@@ -141,8 +150,8 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
 
   useEffect(() => { void load() }, [workspaceId])
 
-  const structuredBackup = useMemo(() => backupAgeLabel(lastStructuredExport), [lastStructuredExport])
-  const storageBackup = useMemo(() => backupAgeLabel(lastStorageExport), [lastStorageExport])
+  const structuredBackup = useMemo(() => exportAgeLabel(lastStructuredExport), [lastStructuredExport])
+  const storageBackup = useMemo(() => exportAgeLabel(lastStorageExport), [lastStorageExport])
   const totalUnassigned = unassigned.items + unassigned.parts + unassigned.tools + unassigned.consumables
   const versionMatches = browserBuildSha && liveRelease?.commit ? browserBuildSha === liveRelease.commit : null
 
@@ -209,8 +218,8 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
     { label: 'Receiving exceptions', value: String(openReceivingExceptions), detail: openReceivingExceptions ? 'Open Purchase receiving exceptions need a decision.' : 'No open receiving exceptions.', level: openReceivingExceptions ? 'attention' : 'good' },
     { label: 'Waiting Work', value: String(waitingWork), detail: waitingWork ? 'Work is intentionally blocked or waiting for something.' : 'No Work records are waiting.', level: waitingWork ? 'attention' : 'good' },
     { label: 'Needs put-away', value: String(totalUnassigned), detail: `${unassigned.items} Items · ${unassigned.parts} Parts · ${unassigned.tools} Tools · ${unassigned.consumables} Consumables`, level: totalUnassigned ? 'attention' : 'good' },
-    { label: 'Structured backup', value: structuredBackup.value, detail: structuredBackup.detail, level: structuredBackup.level },
-    { label: 'Storage archive', value: storageBackup.value, detail: storageBackup.detail, level: storageBackup.level },
+    { label: 'Structured export generated', value: structuredBackup.value, detail: structuredBackup.detail, level: structuredBackup.level },
+    { label: 'Storage archive generated', value: storageBackup.value, detail: storageBackup.detail, level: storageBackup.level },
   ]
 
   return (
@@ -246,7 +255,7 @@ export default function SystemHealthPanel({ workspaceId }: { workspaceId: string
         </div>
       </section>
 
-      <p className="system-health-note">Security lint, migration-history acceptance and provider-level uptime remain deployment/admin checks because the browser cannot honestly verify them.</p>
+      <p className="system-health-note">Security lint, migration-history acceptance, off-site backup retention and provider-level uptime remain deployment/admin checks because the browser cannot honestly verify them.</p>
     </article>
   )
 }

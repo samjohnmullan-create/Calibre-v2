@@ -46,6 +46,7 @@ const requiredOperationalTables = [
   'storage_locations',
   'storage_location_events',
   'audit_events',
+  'backup_export_events',
 ]
 
 test('workspace backup manifest has no duplicate tables', () => {
@@ -53,7 +54,7 @@ test('workspace backup manifest has no duplicate tables', () => {
 })
 
 test('workspace backup v2 retains the complete current table count', () => {
-  assert.equal(names.length, 64, 'Adding/removing a workspace table requires an explicit backup coverage review')
+  assert.equal(names.length, 65, 'Adding/removing a workspace table requires an explicit backup coverage review')
 })
 
 test('business-critical workshop, Library, marketplace and recovery tables remain in the backup', () => {
@@ -68,4 +69,11 @@ test('structured export verifies its manifest against the live workspace schema 
   const coverageCheck = settings.indexOf('await verifyBackupCoverage()')
   const firstTableRead = settings.indexOf('await readWholeTable(definition)')
   assert.ok(coverageCheck >= 0 && firstTableRead >= 0 && coverageCheck < firstTableRead, 'coverage must be verified before table export begins')
+})
+
+test('Settings records export generation without claiming off-site retention', () => {
+  assert.match(settings, /recordBackupExportEvidence/)
+  assert.match(settings, /evidence_scope:\s*['"]generation_only['"]/)
+  assert.match(settings, /does not prove the downloaded file was retained off-site or successfully restored/)
+  assert.doesNotMatch(settings, /calibre:last-structured-export|calibre:last-storage-export/)
 })

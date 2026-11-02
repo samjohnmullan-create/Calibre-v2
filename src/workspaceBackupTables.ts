@@ -69,6 +69,7 @@ export const workspaceBackupTables: ExportTable[] = [
   { name: 'storage_locations', label: 'Storage locations', order: ['id'] },
   { name: 'storage_location_events', label: 'Storage movement history', order: ['moved_at', 'id'] },
   { name: 'audit_events', label: 'Audit events', order: ['id'] },
+  { name: 'backup_export_events', label: 'Backup export evidence', order: ['generated_at', 'id'] },
 ]
 
 export const workspaceBackupTableNames = workspaceBackupTables.map((entry) => entry.name)
